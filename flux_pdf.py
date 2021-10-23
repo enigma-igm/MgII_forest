@@ -41,6 +41,7 @@ plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, l
 #plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='y', alpha=1.0, lw=2, label='noise')
 #plt.plot(flux_bins, flux_pdf_gnoise, drawstyle='steps-mid', color='y', alpha=1.0, lw=2, label='gaussian noise')
 plt.axvline(one_minF_thresh, color='k', ls='--', lw=2)
+plt.axvspan(one_minF_thresh, oneminf_max, facecolor = 'k', alpha = 0.2, label='masked')
 
 plt.legend()
 plt.xscale('log')

@@ -79,6 +79,7 @@ _, sig_pdf_noise = utils.pdf_calc(all_std, sig_min, sig_max, nbins)
 plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='all spectra')
 #plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='y', alpha=1.0, lw=2, label='noise')
 plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
+plt.axvspan(signif_mask_nsigma, sig_max, facecolor = 'k', alpha = 0.2, label='masked')
 
 plt.legend()
 plt.xscale('log')
