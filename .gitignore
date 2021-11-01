@@ -1,2 +1,4 @@
 *.png
 plots/
+__pycache__
+*.pyc

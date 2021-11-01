@@ -7,7 +7,7 @@ from astropy.io import fits
 import sys
 sys.path.append('/Users/suksientie/Research/data_redux')
 from scripts import rdx_utils
-
+import mutils
 
 ### Figure settings
 font = {'family' : 'serif', 'weight' : 'normal'}#, 'size': 11}
@@ -48,7 +48,11 @@ all_mask = []
 all_xmask = []
 
 for i, fitsfile in enumerate(fitsfile_list):
-    wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_zlist[i])
+    #wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_zlist[i])
+    wave, flux, ivar, mask, std = mutils.extract_data(fitsfile)
+    cont_flux = flux
+    norm_std = std
+
     x_mask = wave[mask] <= (2800 * (1 + qso_zlist[i])) # redshift cutoff
 
     if i == 0: plot_ax = ax1
@@ -66,9 +70,10 @@ for i, fitsfile in enumerate(fitsfile_list):
     plot_ax.yaxis.set_minor_locator(AutoMinorLocator())
     plot_ax.tick_params(top=True, which='both', labelsize=xytick_size)
     plot_ax.set_xlim([wave_min, wave_max])
-    plot_ax.set_ylim([ymin, ymax])
+    #plot_ax.set_ylim([ymin, ymax])
 
-    plot_ax.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
+    #plot_ax.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
+    plot_ax.set_ylabel('Un-normalized flux', fontsize=xylabel_fontsize-5)
     plot_ax.legend(loc=1, fontsize=legend_fontsize)
     if i == 3:
         plot_ax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize)
@@ -79,5 +84,5 @@ atwin.axis([zmin, zmax, ymin, ymax])
 atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
 atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
-plt.savefig(savefig)
+#plt.savefig(savefig)
 plt.show()
