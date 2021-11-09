@@ -25,9 +25,9 @@ qso_zlist = [7.6, 7.54, 7.0, 7.0]
 """
 
 fitsfile = '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits'
-qso_z = 7.
+qso_z = 7.0
 wave_zeropoint_value = (1 + 6) * 2800
-vel_zeropoint = True
+vel_zeropoint = False # if False, not using wave_zeropoint_value above
 everyn_break = 20
 
 signif_thresh = 4.0
@@ -38,33 +38,9 @@ nbins = 81
 sig_min = 1e-2
 sig_max = 100.0
 
-def mask_cgm_old():
-    #wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_z)
-    wave, flux, ivar, mask, std = mutils.extract_data(fitsfile)
-    cont_flux = flux
-    norm_std = std
-
-    vel = mutils.obswave_to_vel(wave[mask], vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
-    x_mask = wave[mask] <= (2800 * (1 + qso_z))
-
-    # masking bad pixels
-    vel = vel[x_mask]
-    cont_flux = cont_flux[mask][x_mask]
-    ivar = ivar[mask][x_mask]
-    norm_std = norm_std[mask][x_mask]
-
-    # reshaping to be compatible with MgiiFinder
-    cont_flux = cont_flux.reshape((1, len(cont_flux)))
-    ivar = ivar.reshape((1, len(ivar)))
-    norm_std = norm_std.reshape((1, len(norm_std)))
-
-    mgii_tot = MgiiFinder(vel, cont_flux, ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma, signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
-
-    return mgii_tot, vel, cont_flux
-
 def mask_cgm():
 
-    wave, flux, ivar, mask, std, fluxfit, outmask = mutils.extract_and_norm(fitsfile, everyn_break)
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break)
     good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
     good_ivar = ivar[outmask]
     norm_good_flux = good_flux / fluxfit
@@ -79,7 +55,8 @@ def mask_cgm():
     mgii_tot = MgiiFinder(vel, norm_good_flux, good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
                           signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
 
-    return mgii_tot, vel, norm_good_flux
+    #return mgii_tot, vel, norm_good_flux
+    return mgii_tot, good_wave, norm_good_flux
 
 def plot_chi(mgii_tot, vel, cont_flux):
 
@@ -115,6 +92,7 @@ def plot_chi(mgii_tot, vel, cont_flux):
 
 def plot_both(mgii_tot, vel, cont_flux):
 
+    # "vel" variable in practicel can also be wavelength
     f_mask = np.invert(mgii_tot.flux_gpm[0])
     s_mask = np.invert(mgii_tot.signif_gpm[0])
 
@@ -141,10 +119,37 @@ def plot_both(mgii_tot, vel, cont_flux):
     ax2.plot(vel, mgii_tot.signif[0], drawstyle='steps-mid', color='k')
     ax2.axhline(y=signif_mask_nsigma, color='magenta', linestyle='dashed', linewidth=1.5)
     ax2.fill_between(vel, neg, mgii_tot.signif[0], where=s_mask, step = 'mid', facecolor = 'magenta', alpha = 0.5)
-    ax2.set_xlabel('v (km/s)', fontsize=18)
+    #ax2.set_xlabel('v (km/s)', fontsize=18)
+    ax2.set_xlabel('obs wavelength (A)', fontsize=18)
     ax2.set_ylabel(r'$\chi$', fontsize=18)
     ax2.set_ylim([chi_min, chi_max])
     ax2.xaxis.set_minor_locator(AutoMinorLocator())
     ax2.yaxis.set_minor_locator(AutoMinorLocator())
 
+    plt.tight_layout()
     plt.show()
+
+####################### old scripts
+def mask_cgm_old():
+    #wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_z)
+    wave, flux, ivar, mask, std = mutils.extract_data(fitsfile)
+    cont_flux = flux
+    norm_std = std
+
+    vel = mutils.obswave_to_vel(wave[mask], vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
+    x_mask = wave[mask] <= (2800 * (1 + qso_z))
+
+    # masking bad pixels
+    vel = vel[x_mask]
+    cont_flux = cont_flux[mask][x_mask]
+    ivar = ivar[mask][x_mask]
+    norm_std = norm_std[mask][x_mask]
+
+    # reshaping to be compatible with MgiiFinder
+    cont_flux = cont_flux.reshape((1, len(cont_flux)))
+    ivar = ivar.reshape((1, len(ivar)))
+    norm_std = norm_std.reshape((1, len(norm_std)))
+
+    mgii_tot = MgiiFinder(vel, cont_flux, ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma, signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+
+    return mgii_tot, vel, cont_flux

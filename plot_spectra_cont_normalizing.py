@@ -26,6 +26,12 @@ xytick_size = 16
 xylabel_fontsize = 20
 legend_fontsize = 14
 
+### Some controls
+plot_normalized = True
+vel_unit = False
+savefig = 'plots/continnum_fit_norm.png'
+
+### Start plotting
 fitsfile_list = ['/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0252-0503_stacked_coadd_tellcorr.fits', \
@@ -35,9 +41,8 @@ qso_zlist = [7.6, 7.54, 7.0, 7.0]
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(len(fitsfile_list), figsize=(16, 10), sharex=True)
 fig.subplots_adjust(left=0.1, bottom=0.07, right=0.98, top=0.93, wspace=0, hspace=0.)
 color_ls = ['r', 'g', 'b', 'orange']
-savefig = 'all_bspline_fit.png'
 
-plot_normalized = False
+
 if plot_normalized:
     ymin, ymax = -0.05, 1.9
 else:
@@ -69,12 +74,22 @@ for i, fitsfile in enumerate(fitsfile_list):
     elif qso_name == 'J0038-1527':
         wave, flux, ivar, mask, std, out_gpm = mutils.custom_mask_J0038()
 
-    fluxfit, outmask = mutils.continuum_normalize(wave, flux, ivar, mask, std, everyn_break_list[i])
+    fluxfit, outmask, sset = mutils.continuum_normalize(wave, flux, ivar, mask, std, everyn_break_list[i])
     print(len(fluxfit), np.sum(outmask))
 
     good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
     norm_good_flux = good_flux/fluxfit
     norm_good_std = good_std/fluxfit
+
+    if vel_unit:
+        print("using velocity unit in plot")
+        good_vel = mutils.obswave_to_vel(good_wave, vel_zeropoint=False, wave_zeropoint_value=None) # good wave
+        vel = mutils.obswave_to_vel(wave, vel_zeropoint=False, wave_zeropoint_value=None) # raw wave
+        breakpoints = mutils.obswave_to_vel(sset.breakpoints, vel_zeropoint=False, wave_zeropoint_value=None)
+        good_wave, wave, breakpoints = good_vel/1e6, vel/1e6, breakpoints/1e6
+
+    else:
+        breakpoints = sset.breakpoints
 
     if i == 0: plot_ax = ax1
     elif i == 1: plot_ax = ax2
@@ -85,34 +100,37 @@ for i, fitsfile in enumerate(fitsfile_list):
         plot_ax.plot(good_wave, norm_good_flux, c=color_ls[i], drawstyle='steps-mid', label=qso_name + ' (z=%0.2f)' % qso_zlist[i])
         plot_ax.plot(good_wave, norm_good_std, c='k', alpha=0.7, drawstyle='steps-mid')
         plot_ax.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
-        #if i == 0:
-        #    plot_ax.set_ylim([0, 2.0])
+        plot_ax.vlines(breakpoints, ymin=ymin, ymax=ymax, alpha=0.3)
+
     else:
         plot_ax.plot(wave, flux, c=color_ls[i], alpha=0.3, drawstyle='steps-mid')
         plot_ax.plot(good_wave, good_flux, c=color_ls[i], drawstyle='steps-mid', label=qso_name + ' (z=%0.2f)' % qso_zlist[i])
-        plot_ax.plot(good_wave, fluxfit, c='k', lw=2.5, drawstyle='steps-mid', label='bspline with everyn=%d' % everyn_break_list[i])
+        plot_ax.plot(good_wave, fluxfit, c='k', lw=2.5, drawstyle='steps-mid') #, label='bspline with everyn=%d' % everyn_break_list[i])
         plot_ax.plot(good_wave, good_std, c='k', alpha=0.7, drawstyle='steps-mid')
+        plot_ax.vlines(breakpoints, ymin=ymin, ymax=ymax, alpha=0.3)
         plot_ax.set_ylabel('Flux', fontsize=xylabel_fontsize)
-        #if i == 0:
-        #    plot_ax.set_ylim([-0.1, 0.55])
 
     plot_ax.axvline((qso_zlist[i] + 1) * 2800, ls='--', lw=2)
     plot_ax.xaxis.set_minor_locator(AutoMinorLocator())
     plot_ax.yaxis.set_minor_locator(AutoMinorLocator())
     plot_ax.tick_params(top=True, which='both', labelsize=xytick_size)
-    plot_ax.set_xlim([wave_min, wave_max])
+    if not vel_unit:
+        plot_ax.set_xlim([wave_min, wave_max])
     plot_ax.set_ylim([ymin, ymax])
-    #plot_ax.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
     plot_ax.legend(fontsize=legend_fontsize)
     if i == 3:
-        plot_ax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize)
+        if vel_unit:
+            plot_ax.set_xlabel('vel (1e6 km/s)', fontsize=xylabel_fontsize)
+        else:
+            plot_ax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize)
 
-atwin = ax1.twiny()
-atwin.set_xlabel('absorber redshift', fontsize=xylabel_fontsize)
-atwin.axis([zmin, zmax, ymin, ymax])
-atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
-atwin.xaxis.set_minor_locator(AutoMinorLocator())
+if not vel_unit:
+    atwin = ax1.twiny()
+    atwin.set_xlabel('absorber redshift', fontsize=xylabel_fontsize)
+    atwin.axis([zmin, zmax, ymin, ymax])
+    atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
+    atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
 plt.tight_layout()
-plt.savefig(savefig)
-#plt.show()
+#plt.savefig(savefig)
+plt.show()

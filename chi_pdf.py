@@ -13,8 +13,13 @@ from scripts import rdx_utils
 import mutils
 
 mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
-fwhm = misc.convert_resolution(mosfire_res).value
-rand = np.random.RandomState(4101877)
+fwhm = round(misc.convert_resolution(mosfire_res).value) # equals 83 km/s
+
+seed = 4101877
+if seed != None:
+    rand = np.random.RandomState(seed)
+else:
+    rand = np.random.RandomState()
 
 fitsfile_list = ['/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits', \
@@ -61,7 +66,7 @@ for i, fitsfile in enumerate(fitsfile_list):
     norm_std = norm_std.reshape((1, len(norm_std)))
     """
 
-    wave, flux, ivar, mask, std, fluxfit, outmask = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
     good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
     good_ivar = ivar[outmask]
     norm_good_flux = good_flux / fluxfit
@@ -78,12 +83,17 @@ for i, fitsfile in enumerate(fitsfile_list):
     sig_bins, sig_pdf_tot = utils.pdf_calc(mgii_tot.signif, sig_min, sig_max, nbins)
     plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, label=fitsfile.split('/')[-1].split('_')[0])
 
+    """
     temp_std = []
     for elem in norm_good_std:
         sign = 1 if rand.random() < 0.5 else -1
         temp_std.append(elem * sign)
     temp_std = np.array(temp_std)
-    mgii_noise = MgiiFinder(vel, 1.0 + temp_std, good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
+    """
+    noise = []
+    for i_std in norm_good_std:
+        noise.append(rand.normal(0, i_std))
+    mgii_noise = MgiiFinder(vel, 1.0 + np.array(noise), good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
                             signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
 
     all_signif.extend(mgii_tot.signif[0])
@@ -96,7 +106,7 @@ sig_bins, sig_pdf_tot = utils.pdf_calc(all_signif, sig_min, sig_max, nbins)
 _, sig_pdf_noise = utils.pdf_calc(all_std, sig_min, sig_max, nbins)
 
 plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='all spectra')
-#plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='orange', alpha=1.0, lw=2, label='noise')
+plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='orange', alpha=1.0, lw=2, label='all noise')
 plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
 plt.axvspan(signif_mask_nsigma, sig_max, facecolor = 'k', alpha = 0.2, label='masked')
 

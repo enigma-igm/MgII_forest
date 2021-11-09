@@ -2,3 +2,4 @@
 plots/
 __pycache__
 *.pyc
+*.fits

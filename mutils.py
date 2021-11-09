@@ -1,3 +1,16 @@
+'''
+Functions here:
+    - plot_allspec
+    - obswave_to_vel
+    - extract_data
+    - continuum_normalize
+    - scipy_spline
+    - custom_mask_J0313
+    - custom_mask_J1342
+    - custom_mask_J0038
+    - extract_and_norm
+'''
+
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from matplotlib import pyplot as plt
@@ -5,6 +18,8 @@ from matplotlib.ticker import AutoMinorLocator
 from astropy.io import fits
 from pypeit.core.fitting import iterfit, robust_fit
 from pypeit import utils as putils
+import scipy.interpolate as interpolate
+from astropy import constants as const
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
 sys.path.append('/Users/suksientie/Research/data_redux')
@@ -51,7 +66,7 @@ def plot_allspec(wave_arr, flux_arr, qso_namelist, qso_zlist, vel_unit=False, ve
     plt.tight_layout()
     plt.show()
 
-def obswave_to_vel(wave_arr, vel_zeropoint=True, wave_zeropoint_value=None):
+def obswave_to_vel(wave_arr, vel_zeropoint=False, wave_zeropoint_value=None):
     # wave in Angstrom
     zabs_mean = wave_arr/2800 - 1 # between the two doublet
 
@@ -105,9 +120,8 @@ def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, 
         plt.ylim([0, 0.50])
         plt.show()
 
-    return flux_fit, outmask
+    return flux_fit, outmask, sset
 
-import scipy.interpolate as interpolate
 def scipy_spline(fitsfile):
     data = fits.open(fitsfile)[1].data
     wave_arr = data['wave']
@@ -125,6 +139,31 @@ def scipy_spline(fitsfile):
     plt.plot(wave_arr, flux_spline, 'r')
     plt.show()
 
+def save_data_sigma(fitsfile_list, everyn_breakpoint, savefits):
+
+    hdulist = fits.HDUList()
+    all_norm_std_flat = []
+    for i, fitsfile in enumerate(fitsfile_list):
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset = extract_and_norm(fitsfile, everyn_breakpoint)
+        good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
+        norm_good_std = good_std / fluxfit
+        name = fitsfile.split('/')[-1].split('_')[0]
+        hdulist.append(fits.ImageHDU(data=norm_good_std, name=name))
+        all_norm_std_flat.extend(norm_good_std)
+
+    hdulist.append(fits.ImageHDU(data=all_norm_std_flat, name='flattened'))
+    hdulist.writeto(savefits, overwrite=True)
+
+def temp(z, delta_z):
+    vside_lores = 6577.75
+    c_light = (const.c.to('km/s')).value
+    z_min = z - delta_z
+    z_eff = (z + z_min) / 2.0
+    dv_path = (z - z_min) / (1.0 + z_eff) * c_light
+    nqsos = 1
+    npath_float = nqsos * dv_path / vside_lores
+    npath = int(np.round(npath_float))
+    print(npath)
 
 ###### by-eye strong absorbers masks ######
 def custom_mask_J0313(plot=False):
@@ -225,9 +264,9 @@ def extract_and_norm(fitsfile, everyn_bkpt):
     elif qso_name == 'J0038-1527':
         wave, flux, ivar, mask, std, out_gpm = custom_mask_J0038()
 
-    fluxfit, outmask = continuum_normalize(wave, flux, ivar, mask, std, everyn_bkpt)
+    fluxfit, outmask, sset = continuum_normalize(wave, flux, ivar, mask, std, everyn_bkpt)
 
-    return wave, flux, ivar, mask, std, fluxfit, outmask
+    return wave, flux, ivar, mask, std, fluxfit, outmask, sset
 
 ###### old scripts ######
 def plot_allspec_old(wave_arr, flux_arr):
