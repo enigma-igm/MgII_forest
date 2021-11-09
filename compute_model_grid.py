@@ -171,6 +171,7 @@ def main():
     # Read grid of neutral fractions from the 21cm fast xHI fields
     xhi_val, xhi_boxes = utils.read_xhi_boxes()
     nhi = xhi_val.shape[0]
+    xhi_val = xhi_val[0:3] # testing for production run
 
     #nhi = 19
     #xhi_val = 0.05 + np.arange(nhi) * 0.05
