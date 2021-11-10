@@ -92,7 +92,7 @@ def parser():
 
     parser = argparse.ArgumentParser(description='Create random skewers for MgII forest',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('nproc', type=int, help="Number of processors to run on")
+    parser.add_argument('--nproc', type=int, help="Number of processors to run on")
     parser.add_argument('--fwhm', type=float, default=100.0, help="spectral resolution in km/s")
     parser.add_argument('--samp', type=float, default=3.0, help="Spectral sampling: pixels per fwhm resolution element")
     parser.add_argument('--SNR', type=float, default=100.0, help="signal-to-noise ratio")
@@ -115,7 +115,7 @@ def parser():
 def compute_model(args):
 
     #ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, SNR, vmin_corr, vmax_corr, dv_corr, npath, ncovar, nmock = args
-    ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, SNR, vmin_corr, vmax_corr, dv_corr, npath, ncovar, nmock, data_sigma_fitsfile = args
+    ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, SNR, vmin_corr, vmax_corr, dv_corr, npath, ncovar, nmock = args
     rantaufile = os.path.join(xhi_path, 'ran_skewers_' + zstr + '_OVT_' + 'xHI_{:4.2f}'.format(xHI) + '_tau.fits')
     rand = np.random.RandomState(seed)
     params = Table.read(rantaufile, hdu=1)
@@ -124,6 +124,7 @@ def compute_model(args):
     vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
     # Add noise
+    data_sigma_fitsfile = '/home/sstie/MgII_forest/all_norm_sigma.fits'
     sigma_arr = fits.open(data_sigma_fitsfile)[4].data # last array is the flattened array from all QSO
     noise = resample_data_noise(sigma_arr, flux_lores.shape, rand=rand)
     #noise = rand.normal(0.0, 1.0 / SNR, flux_lores.shape) # TODO: noise might have to be an input argument, e.g. fitsfile
