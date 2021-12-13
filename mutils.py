@@ -20,10 +20,38 @@ from pypeit.core.fitting import iterfit, robust_fit
 from pypeit import utils as putils
 import scipy.interpolate as interpolate
 from astropy import constants as const
+from astropy.table import Table
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
 sys.path.append('/Users/suksientie/Research/data_redux')
 sys.path.append('/Users/suksientie/Research/CIV_forest')
+from enigma.reion_forest import utils
+
+def load_alldata(wave_method):
+    if wave_method == 'velocity':
+        fitsname_J0313 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201023_done/J0313-1806_coadd_vel.fits',
+                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201024_done/J0313-1806_coadd_vel.fits',
+                          '/Users/suksientie/Research/data_redux/2012_done/Redux/J0313-1806_201209_done/J0313-1806_coadd_vel.fits']
+        fitsname_J1342 = ['/Users/suksientie/Research/data_redux/2005_done/Redux/J1342+0928_200529/J1342_coadd_vel.fits',
+                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210404_done/J1342_coadd_vel.fits',
+                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210418_done/J1342_coadd_vel.fits']
+        fitsname_J0252 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_a_done/J0252-0503_coadd_vel.fits',
+                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_b_done/J0252-0503_coadd_vel.fits']
+        fitsname_J0038_1527 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_vel.fits']
+
+    elif wave_method == 'linear':
+        fitsname_J0313 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201023_done/J0313-1806_coadd.fits',
+                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201024_done/J0313-1806_coadd.fits',
+                          '/Users/suksientie/Research/data_redux/2012_done/Redux/J0313-1806_201209_done/J0313-1806_coadd.fits']
+        fitsname_J1342 = ['/Users/suksientie/Research/data_redux/2005_done/Redux/J1342+0928_200529/J1342_coadd.fits',
+                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210404_done/J1342_coadd.fits',
+                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210418_done/J1342_coadd.fits']
+        fitsname_J0252 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_a_done/J0252-0503_coadd.fits',
+                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_b_done/J0252-0503_coadd.fits']
+        fitsname_J0038_1527 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd.fits']
+
+    return fitsname_J0313, fitsname_J1342, fitsname_J0252, fitsname_J0038_1527
+
 
 def plot_allspec(wave_arr, flux_arr, qso_namelist, qso_zlist, vel_unit=False, vel_zeropoint=True, wave_zeropoint_value=None):
 
@@ -88,9 +116,24 @@ def obswave_to_vel(wave_arr, vel_zeropoint=False, wave_zeropoint_value=None):
 
     return vel.value
 
+def obswave_to_vel_2(wave_arr):
+
+    # dv =  c * d(log_lambda), where log is natural log
+    c_kms = const.c.to('km/s').value
+    log10_wave = np.log10(wave_arr)
+    diff_log10_wave = np.diff(log10_wave) # d(log10_lambda)
+    diff_log10_wave = np.append(diff_log10_wave, diff_log10_wave[-1]) # appending the last value twice to make array same size as wave_arr
+    dv = c_kms * np.log(10) * diff_log10_wave
+    #vel = np.zeros(len(wave_arr))
+    #vel[1:] = np.cumsum(dv)
+    vel = np.cumsum(dv)
+
+    return vel
+
 def extract_data(fitsfile):
     data = fits.open(fitsfile)[1].data
-    wave_arr = data['wave'].astype('float64')
+    #wave_arr = data['wave'].astype('float64')
+    wave_arr = data['wave_grid_mid'].astype('float64')
     flux_arr = data['flux'].astype('float64')
     ivar_arr = data['ivar'].astype('float64')
     mask_arr = data['mask'].astype('bool')
@@ -140,6 +183,7 @@ def scipy_spline(fitsfile):
     plt.show()
 
 def save_data_sigma(fitsfile_list, everyn_breakpoint, savefits):
+    # 11/22/2021: maybe obsolete
 
     hdulist = fits.HDUList()
     all_norm_std_flat = []
@@ -267,6 +311,16 @@ def extract_and_norm(fitsfile, everyn_bkpt):
     fluxfit, outmask, sset = continuum_normalize(wave, flux, ivar, mask, std, everyn_bkpt)
 
     return wave, flux, ivar, mask, std, fluxfit, outmask, sset
+
+def init_skewers_compute_model_grid():
+    file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
+    params = Table.read(file, hdu=1)
+    skewers = Table.read(file, hdu=2)
+    vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), vel_hires, (
+    flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
+    (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, -3.50, 83, sampling=3)
+
+    return vel_lores, flux_lores
 
 ###### old scripts ######
 def plot_allspec_old(wave_arr, flux_arr):
