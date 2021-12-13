@@ -211,7 +211,8 @@ def temp(z, delta_z):
 
 ###### by-eye strong absorbers masks ######
 def custom_mask_J0313(plot=False):
-    fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits'
+    #fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits'
+    fitsfile =  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits'
     wave, flux, ivar, mask, std = extract_data(fitsfile)
 
     mask_wave1 = [19815, 19825]
@@ -238,7 +239,8 @@ def custom_mask_J0313(plot=False):
     return wave, flux, ivar, mask, std, out_gpm
 
 def custom_mask_J1342(plot=False):
-    fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits'
+    #fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits'
+    fitsfile = '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits'
     wave, flux, ivar, mask, std = extract_data(fitsfile)
 
     # visually-identified strong absorbers
@@ -266,7 +268,8 @@ def custom_mask_J1342(plot=False):
     return wave, flux, ivar, mask, std, out_gpm
 
 def custom_mask_J0038(plot=False):
-    fitsfile = '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits'
+    #fitsfile = '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits'
+    fitsfile = '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr.fits'
     wave, flux, ivar, mask, std = extract_data(fitsfile)
 
     # visually-identified strong absorbers
