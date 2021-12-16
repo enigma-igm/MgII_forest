@@ -25,7 +25,16 @@ fitsfile_list = ['/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-18
                  '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0252-0503_stacked_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits']
+
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+
+qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
+
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
+
 everyn_break_list = [20, 20, 20, 20]
 
 vel_zeropoint = False # True
@@ -40,7 +49,7 @@ nbins = 81
 sig_min = 1e-2
 sig_max = 100.0
 dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins))
-print(dsig_bin)
+#print(dsig_bin)
 
 all_signif = []
 all_std = []
@@ -71,7 +80,8 @@ for i, fitsfile in enumerate(fitsfile_list):
     good_ivar = ivar[outmask]
     norm_good_flux = good_flux / fluxfit
     norm_good_std = good_std / fluxfit
-    vel = mutils.obswave_to_vel(good_wave, vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
+    #vel = mutils.obswave_to_vel(good_wave, vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
+    vel = mutils.obswave_to_vel_2(good_wave)
 
     # reshaping to be compatible with MgiiFinder
     norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
@@ -81,15 +91,8 @@ for i, fitsfile in enumerate(fitsfile_list):
     mgii_tot = MgiiFinder(vel, norm_good_flux, good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
                                 signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
     sig_bins, sig_pdf_tot = utils.pdf_calc(mgii_tot.signif, sig_min, sig_max, nbins)
-    plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, label=fitsfile.split('/')[-1].split('_')[0])
+    plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, label=qso_namelist[i])
 
-    """
-    temp_std = []
-    for elem in norm_good_std:
-        sign = 1 if rand.random() < 0.5 else -1
-        temp_std.append(elem * sign)
-    temp_std = np.array(temp_std)
-    """
     noise = []
     for i_std in norm_good_std:
         noise.append(rand.normal(0, i_std))

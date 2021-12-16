@@ -27,31 +27,6 @@ sys.path.append('/Users/suksientie/Research/data_redux')
 sys.path.append('/Users/suksientie/Research/CIV_forest')
 from enigma.reion_forest import utils
 
-def load_alldata(wave_method):
-    if wave_method == 'velocity':
-        fitsname_J0313 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201023_done/J0313-1806_coadd_vel.fits',
-                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201024_done/J0313-1806_coadd_vel.fits',
-                          '/Users/suksientie/Research/data_redux/2012_done/Redux/J0313-1806_201209_done/J0313-1806_coadd_vel.fits']
-        fitsname_J1342 = ['/Users/suksientie/Research/data_redux/2005_done/Redux/J1342+0928_200529/J1342_coadd_vel.fits',
-                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210404_done/J1342_coadd_vel.fits',
-                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210418_done/J1342_coadd_vel.fits']
-        fitsname_J0252 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_a_done/J0252-0503_coadd_vel.fits',
-                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_b_done/J0252-0503_coadd_vel.fits']
-        fitsname_J0038_1527 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_vel.fits']
-
-    elif wave_method == 'linear':
-        fitsname_J0313 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201023_done/J0313-1806_coadd.fits',
-                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0313_201024_done/J0313-1806_coadd.fits',
-                          '/Users/suksientie/Research/data_redux/2012_done/Redux/J0313-1806_201209_done/J0313-1806_coadd.fits']
-        fitsname_J1342 = ['/Users/suksientie/Research/data_redux/2005_done/Redux/J1342+0928_200529/J1342_coadd.fits',
-                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210404_done/J1342_coadd.fits',
-                          '/Users/suksientie/Research/data_redux/2104_done/Redux/J1342+0928_210418_done/J1342_coadd.fits']
-        fitsname_J0252 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_a_done/J0252-0503_coadd.fits',
-                          '/Users/suksientie/Research/data_redux/2010_done/Redux/J0252-0503_201025_b_done/J0252-0503_coadd.fits']
-        fitsname_J0038_1527 = ['/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd.fits']
-
-    return fitsname_J0313, fitsname_J1342, fitsname_J0252, fitsname_J0038_1527
-
 
 def plot_allspec(wave_arr, flux_arr, qso_namelist, qso_zlist, vel_unit=False, vel_zeropoint=True, wave_zeropoint_value=None):
 
@@ -319,11 +294,19 @@ def init_skewers_compute_model_grid():
     file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
     params = Table.read(file, hdu=1)
     skewers = Table.read(file, hdu=2)
+    fwhm = 90 # 83
     vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), vel_hires, (
     flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
-    (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, -3.50, 83, sampling=3)
+    (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, -3.50, fwhm, sampling=3)
 
-    return vel_lores, flux_lores
+    vmin_corr, vmax_corr, dv_corr = 10, 2000, 60
+
+    mean_flux_nless = np.mean(flux_lores)
+    delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
+    (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr)
+    xi_mean = np.mean(xi_nless, axis=0)
+
+    return vel_lores, flux_lores, vel_mid, xi_mean
 
 ###### old scripts ######
 def plot_allspec_old(wave_arr, flux_arr):

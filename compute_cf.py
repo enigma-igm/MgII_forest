@@ -41,6 +41,7 @@ sig_max = 100.0
 vmin_corr = 10
 vmax_corr = 2000
 dv_corr = 100  # slightly larger than fwhm
+dv_corr = 60
 mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
 fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
 
@@ -48,7 +49,8 @@ def onespec(fitsfile, qso_z=None, plot=False, shuffle=False):
     wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break)
     good_wave, good_flux, good_std, good_ivar = wave[outmask], flux[outmask], std[outmask], ivar[outmask]
     norm_good_flux = good_flux / fluxfit
-    vel = mutils.obswave_to_vel(good_wave, vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
+    #vel = mutils.obswave_to_vel(good_wave, vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
+    vel = mutils.obswave_to_vel_2(good_wave)
 
     if shuffle:
         np.random.shuffle(norm_good_flux)
@@ -148,6 +150,7 @@ def allspec_shuffle(fitsfile_list, qso_zlist, nshuffle, seed):
     return vel_mid, xi_mean_unmask_all, xi_mean_mask_all
 
 def onespec_wave(fitsfile, qso_z=None, plot=False):
+    # compute CF in wavelength unit
     wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break)
     good_wave, good_flux, good_std, good_ivar = wave[outmask], flux[outmask], std[outmask], ivar[outmask]
     norm_good_flux = good_flux / fluxfit
