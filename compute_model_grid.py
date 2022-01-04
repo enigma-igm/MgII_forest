@@ -110,7 +110,6 @@ def forward_model_onespec(vel_data, norm_good_std, master_mask_data, vel_lores, 
         temp = []
         for i, f in enumerate(flux_lores_long_masked):
             temp.append(rand.normal(f, norm_good_std[i]))
-
         flux_lores_long_masked_noise[icopy] = np.array(temp)
 
     return flux_lores_long, flux_lores_long_masked, flux_lores_long_masked_noise
@@ -158,6 +157,14 @@ def forward_model_allspec(vel_lores, flux_lores, ncopy, seed_list=[None, None, N
             plt.xlabel('vel (km/s)', fontsize=15)
             plt.legend(fontsize=15)
             plt.tight_layout()
+
+            plt.figure(figsize=(10, 8))
+            plt.title(qso_namelist[iqso], fontsize=18)
+            plt.hist(norm_good_flux, bins=np.arange(0, 3, 0.02), histtype='step', label = 'data', density = True)
+            plt.hist(flores_long_masked_noise.flatten(), bins = np.arange(0, 3, 0.02), histtype = 'step', label = 'sim (ncopy)', density = True)
+            plt.xlabel('normalized flux', fontsize=15)
+            plt.ylabel('PDF', fontsize=15)
+            plt.legend(fontsize=15)
 
     # can now apply cgm masking onto these outputs
     return flores_long_allspec, flores_long_masked_allspec, flores_long_masked_noise_allspec, master_mask_allspec, good_vel_data_allspec
@@ -322,7 +329,7 @@ def parser():
     parser.add_argument('--nlogZ', type=int, default=201, help="number of bins for logZ models")
     parser.add_argument('--logZmin', type=float, default=-6.0, help="minimum logZ value")
     parser.add_argument('--logZmax', type=float, default=-2.0, help="maximum logZ value")
-    parser.add_argument('--cgm_masking', dest='whether to mask cgm or not', action='store_true')
+    parser.add_argument('--cgm_masking', action='store_true', help='whether to mask cgm or not')
     return parser.parse_args()
 
 def main():
