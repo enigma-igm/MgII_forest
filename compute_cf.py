@@ -12,10 +12,11 @@ from scripts import rdx_utils
 import mutils
 
 """
-fitsfile_list = ['/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0252-0503_stacked_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits']
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+                     '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
+                     '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                     '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
 """
 
@@ -31,19 +32,18 @@ everyn_break = 20
 ########## masks settings ##########
 signif_thresh = 4.0
 signif_mask_dv = 300.0
-signif_mask_nsigma = 7 #8 # masking
-one_minF_thresh = 0.2 #0.3 #0.2 # masking
+signif_mask_nsigma = 8 # 8 (used in chi_pdf.py)
+one_minF_thresh = 0.3 # 0.3 (used in flux.py)
 nbins = 81
 sig_min = 1e-2
 sig_max = 100.0
 
 ########## 2PCF settings ##########
+mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
+fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
 vmin_corr = 10
 vmax_corr = 2000
 dv_corr = 100  # slightly larger than fwhm
-dv_corr = 60
-mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
-fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
 
 def onespec(fitsfile, qso_z=None, plot=False, shuffle=False):
     wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break)
@@ -57,12 +57,12 @@ def onespec(fitsfile, qso_z=None, plot=False, shuffle=False):
         np.random.shuffle(good_ivar)
 
     if qso_z != None:
-        x_mask = good_wave <= (2800 * (1 + qso_z))
-        vel = vel[x_mask]
-        good_wave = good_wave[x_mask]
-        norm_good_flux = norm_good_flux[x_mask]
-        good_std = good_std[x_mask]
-        good_ivar = good_ivar[x_mask]
+        redshift_mask = good_wave <= (2800 * (1 + qso_z))
+        vel = vel[redshift_mask]
+        good_wave = good_wave[redshift_mask]
+        norm_good_flux = norm_good_flux[redshift_mask]
+        good_std = good_std[redshift_mask]
+        good_ivar = good_ivar[redshift_mask]
 
     # reshaping to be compatible with MgiiFinder
     norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
@@ -122,7 +122,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False):
         for xi in xi_mask_all:
             plt.plot(vel_mid, xi, linewidth=0.7, c='tab:orange', alpha=0.7)
 
-        plt.errorbar(vel_mid, xi_mean_mask, yerr=xi_std_mask/np.sqrt(4-1), marker='o', c='tab:orange', ecolor='tab:orange', capthick=1.5, capsize=2, \
+        plt.errorbar(vel_mid, xi_mean_mask, yerr=xi_std_mask/np.sqrt(4.), marker='o', c='tab:orange', ecolor='tab:orange', capthick=1.5, capsize=2, \
                      mec='none', label='masked', zorder=20)
         plt.plot(vel_mid, xi_mean_unmask, linewidth=1.5, c='tab:gray', label='unmasked')
 
@@ -132,7 +132,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False):
         vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
         print("vel doublet at", vel_doublet.value)
         plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
-
+        plt.title('vmin_corr = %0.1f, vmax_corr = %0.1f, dv_corr = %0.1f' % (vmin_corr, vmax_corr, dv_corr), fontsize=15)
         plt.show()
 
     return vel_mid, xi_mean_unmask, xi_mean_mask
@@ -157,12 +157,12 @@ def onespec_wave(fitsfile, qso_z=None, plot=False):
     vel = mutils.obswave_to_vel(good_wave, vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
 
     if qso_z != None:
-        x_mask = good_wave <= (2800 * (1 + qso_z))
-        vel = vel[x_mask]
-        good_wave = good_wave[x_mask]
-        norm_good_flux = norm_good_flux[x_mask]
-        good_std = good_std[x_mask]
-        good_ivar = good_ivar[x_mask]
+        redshift_mask = good_wave <= (2800 * (1 + qso_z))
+        vel = vel[redshift_mask]
+        good_wave = good_wave[redshift_mask]
+        norm_good_flux = norm_good_flux[redshift_mask]
+        good_std = good_std[redshift_mask]
+        good_ivar = good_ivar[redshift_mask]
 
     # reshaping to be compatible with MgiiFinder
     norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))

@@ -294,10 +294,13 @@ def init_skewers_compute_model_grid():
     file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
     params = Table.read(file, hdu=1)
     skewers = Table.read(file, hdu=2)
+
     fwhm = 90 # 83
+    sampling = 3
+    logZ = -3.50
     vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), vel_hires, (
     flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
-    (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, -3.50, fwhm, sampling=3)
+    (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
     vmin_corr, vmax_corr, dv_corr = 10, 2000, 60
 

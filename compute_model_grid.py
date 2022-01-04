@@ -1,3 +1,19 @@
+"""
+Functions here:
+    - imap_unordered_bar
+    - read_model_grid
+    - forward_model_onespec
+    - forward_model_allspec
+    - init_cgm_masking
+    - compute_cf_onespec
+    - compute_cf_allspec
+    - mock_mean_covar
+    - compute_model
+    - test_compute_model
+    - parser
+    - main
+"""
+
 # Use single cores (forcing it for numpy operations)
 import os
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -10,24 +26,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import glob
-from matplotlib import rcParams
-import time
 import sys
-import matplotlib.cm as cm
-from tqdm.auto import tqdm
-
-from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
-from astropy import constants as const
-import scipy.ndimage
 from astropy.table import Table, hstack, vstack
 from IPython import embed
 sys.path.append('/Users/suksientie/codes/enigma')
 from enigma.reion_forest import utils
-#import tqdm
-#import enigma.reion_forest.istarmap  # import to apply patch
+from enigma.reion_forest.mgii_find import MgiiFinder
 from multiprocessing import Pool
 from tqdm import tqdm
 import mutils
+
+###################### global variables ######################
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
+qso_zlist = [7.6, 7.54, 7.0, 7.0]
+everyn_break_list = [20, 20, 20, 20]
 
 ###################### helper functions ######################
 def imap_unordered_bar(func, args, nproc):
@@ -58,16 +74,17 @@ def read_model_grid(modelfile):
     return param, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array
 
 #### functions for forward modelling ####
-def forward_model_onespec(vel_data, norm_good_std, vel_lores, flux_lores, ncopy, seed=None):
-    # vel_lores.shape = 239
-    # flux_lores.shape = (10000, 239)
+def forward_model_onespec(vel_data, norm_good_std, master_mask_data, vel_lores, flux_lores, ncopy, seed=None):
+    # vel_data is the raw vel_data, unmasked
+    # master_mask_data = redshift_mask * outmask
+    # norm_good_std = std[redshift_mask][outmask] / fluxfit[redshift_mask]
+    # seed is used to randomly sample noise from data for ncopy
 
     tot_vel_data = vel_data.max() - vel_data.min()
     tot_vel_sim = vel_lores.max() - vel_lores.min()
-    nskew_to_match_data = int(np.ceil(tot_vel_data/tot_vel_sim)) # assuming tot_vel_data > tot_vel_sim (true here)
-    npix_sim = len(flux_lores)
-    #print("nskew to match data", nskew_to_match_data, tot_vel_data/tot_vel_sim)
-    flux_lores_noise = np.ones((nskew_to_match_data, npix_sim))
+    nskew_to_match_data = int(np.ceil(tot_vel_data / tot_vel_sim))  # assuming tot_vel_data > tot_vel_sim (true here)
+    nskew_to_match_data2 = int(np.ceil(len(vel_data) / len(vel_lores)))
+    #print("nskew to match data", nskew_to_match_data, nskew_to_match_data2)
 
     if seed != None:
         rand = np.random.RandomState(seed)
@@ -75,93 +92,105 @@ def forward_model_onespec(vel_data, norm_good_std, vel_lores, flux_lores, ncopy,
         rand = np.random.RandomState()
 
     indx_flux_lores = np.arange(flux_lores.shape[0])
-    ranindx = rand.choice(indx_flux_lores, replace=False, size=nskew_to_match_data)
+    ranindx = rand.choice(indx_flux_lores, replace=False, size=nskew_to_match_data) # grab a set of random skewers
 
-    # stitching simulated spectrum to match length of data
+    # appending pixel by pixel until simulated skewer equals length of data spectrum
+    # this works because dv_data = dv_sim AND dv_data is now uniform
     flux_lores_long = []
-    vel_lores_long = []
     for i in ranindx:
-        flux_lores_long.extend(flux_lores[i])
-        if len(vel_lores_long) == 0:
-            vel_lores_long.extend(vel_lores)
-        else:
-            vel_lores_long.extend(vel_lores_long[-1] + np.arange(1, len(vel_lores) + 1) * np.diff(vel_lores)[0])
-    vel_lores_long = np.array(vel_lores_long)
+        for j in flux_lores[i]:
+            if len(flux_lores_long) < len(vel_data):
+                flux_lores_long.append(j)
+
     flux_lores_long = np.array(flux_lores_long)
+    flux_lores_long_masked = flux_lores_long[master_mask_data]
+    flux_lores_long_masked_noise = np.zeros((ncopy, len(flux_lores_long_masked)))
 
-    # adding noise
-    all_flong_noise = np.zeros((ncopy, len(flux_lores_long)))
     for icopy in range(ncopy):
-        flux_lores_long_noise = []
-        for i, f in enumerate(flux_lores_long):
-            if vel_lores_long[i] < vel_data[-1]: # if vpix of simulated spectrum is less than vpix of data
-                dist = np.abs(vel_lores_long[i] - vel_data)
-                iwant = np.argmin(dist) # assign noise of the nearest neighboring data pixel
-                flux_lores_long_noise.append(rand.normal(f, norm_good_std[iwant]))
-            else:
-                flux_lores_long_noise.append(np.nan) # assign nan if sim skewer is beyond the data
-                flux_lores_long[i] = np.nan #...? need this line?
+        temp = []
+        for i, f in enumerate(flux_lores_long_masked):
+            temp.append(rand.normal(f, norm_good_std[i]))
 
-        all_flong_noise[icopy] = flux_lores_long_noise
+        flux_lores_long_masked_noise[icopy] = np.array(temp)
 
-    # dealing with large masked regions
-    ind_large_dv = np.where(np.diff(vel_data) > 100)[0]
-    for ind in ind_large_dv:
-        assert (vel_data[ind+1] - vel_data[ind]) > 100
-        i = np.where(np.logical_and(vel_lores_long >= vel_data[ind], vel_lores_long <= vel_data[ind+1]))[0]
-        for icopy in range(ncopy):
-            all_flong_noise[icopy][i] = np.ones(len(i))*np.nan
+    return flux_lores_long, flux_lores_long_masked, flux_lores_long_masked_noise
 
-    all_gpm = np.zeros((ncopy, len(flux_lores_long))).astype(bool)
-    for icopy in range(ncopy):
-        bpm = np.ma.masked_invalid(all_flong_noise[icopy]).mask # bad pixel mask
-        all_gpm[icopy] = np.invert(bpm)
+def forward_model_allspec(vel_lores, flux_lores, ncopy, seed_list=[None, None, None, None], cgm_masking=False, fwhm=None, plot=False):
 
-    return vel_lores_long, flux_lores_long, all_flong_noise, all_gpm
+    flores_long_allspec = []
+    flores_long_masked_allspec = []
+    flores_long_masked_noise_allspec = []
+    master_mask_allspec = []
+    good_vel_data_allspec = []
 
-def forward_model_allspec(vel_lores, flux_lores, ncopy, seed_list=[None, None, None, None], plot=False):
-
-    fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
-                     '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
-                     '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                     '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
-    qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-    qso_zlist = [7.6, 7.54, 7.0, 7.0]
-    everyn_break_list = [20, 20, 20, 20]
-
-    out_all = []
     for iqso, fitsfile in enumerate(fitsfile_list):
         wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
+        vel_data = mutils.obswave_to_vel_2(wave)
 
-        x_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso])) # removing spectral region beyond qso redshift
+        redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
+        master_mask = redshift_mask * outmask
 
-        good_wave = wave[outmask][x_mask]
-        good_flux = flux[outmask][x_mask]
-        good_std = std[outmask][x_mask]
-        norm_good_flux = good_flux / fluxfit[x_mask]
-        norm_good_std = good_std / fluxfit[x_mask]
-        vel_data = mutils.obswave_to_vel_2(good_wave)
+        # masked arrays
+        good_wave = wave[master_mask]
+        good_flux = flux[master_mask]
+        good_ivar = ivar[master_mask]
+        good_std = std[master_mask]
+        fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+        norm_good_flux = good_flux / fluxfit_redshift
+        norm_good_std = good_std / fluxfit_redshift
+        good_vel_data = mutils.obswave_to_vel_2(good_wave)
 
-        vlores_long, flores_long, flores_long_noise, gpm = forward_model_onespec(vel_data, norm_good_std, vel_lores, flux_lores, ncopy, seed=seed_list[iqso])
-        out_all.append([vlores_long, flores_long, flores_long_noise, gpm])
+        flores_long, flores_long_masked, flores_long_masked_noise = forward_model_onespec(vel_data, norm_good_std, master_mask, vel_lores, flux_lores, ncopy, seed=seed_list[iqso])
+        flores_long_allspec.append(flores_long)
+        flores_long_masked_allspec.append(flores_long_masked)
+        flores_long_masked_noise_allspec.append(flores_long_masked_noise)
+        master_mask_allspec.append(master_mask)
+        good_vel_data_allspec.append(good_vel_data)
 
         if plot:
             plt.figure(figsize=(12,8))
             plt.title(qso_namelist[iqso], fontsize=18)
             for i in range(10): # plot every 10-th spectrum
-                plt.plot(vlores_long, flores_long_noise[i+10]+i, alpha=0.5)
+                plt.plot(good_vel_data, flores_long_masked_noise[i+10]+i, alpha=0.5, drawstyle='steps-mid')
                 if i == 0:
-                    plt.plot(vlores_long, flores_long+i, c='k', alpha=0.8, label='sim spectrum without noise')
-            plt.plot(vel_data, np.array(norm_good_flux) - 1, c='r', label='data spectrum')
+                    plt.plot(good_vel_data, flores_long_masked + i, c='k', alpha=0.8, drawstyle='steps-mid', label='sim spectrum without noise')
+            plt.plot(good_vel_data, np.array(norm_good_flux) - 1, c='r', drawstyle='steps-mid', label='data spectrum')
             plt.xlabel('vel (km/s)', fontsize=15)
             plt.legend(fontsize=15)
             plt.tight_layout()
 
-    # out_all = vlores_long, flores_long, flores_long_noise, gpm
-    return out_all
+    # can now apply cgm masking onto these outputs
+    return flores_long_allspec, flores_long_masked_allspec, flores_long_masked_noise_allspec, master_mask_allspec, good_vel_data_allspec
 
-def compute_cf_onespec(vel_lores_long, flong_noise, gpm, vmin_corr=10, vmax_corr=2000, dv_corr=60):
+def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_nsigma=8, one_minF_thresh = 0.3):
 
+    gpm_allspec = []
+    for iqso, fitsfile in enumerate(fitsfile_list):
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
+
+        redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso])) # removing spectral region beyond qso redshift
+
+        good_wave = wave[outmask][redshift_mask]
+        good_flux = flux[outmask][redshift_mask]
+        good_ivar = ivar[outmask][redshift_mask]
+        norm_good_flux = good_flux / fluxfit[redshift_mask]
+
+        vel_data = mutils.obswave_to_vel_2(good_wave)
+
+        # reshaping to be compatible with MgiiFinder
+        norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
+        good_ivar = good_ivar.reshape((1, len(good_ivar)))
+
+        mgii_tot = MgiiFinder(vel_data, norm_good_flux, good_ivar, fwhm, signif_thresh,
+                              signif_mask_nsigma=signif_mask_nsigma,
+                              signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+        gpm_allspec.append(mgii_tot.fit_gpm)
+
+    return gpm_allspec
+
+def compute_cf_onespec(vel_lores_long, flong_noise, vmin_corr, vmax_corr, dv_corr, gpm=None):
+    # vel_lores_long = good_vel_data
+    # see compute_cf_allspec for usage
     mean_flux = np.nanmean(flong_noise)
     delta_f = (flong_noise - mean_flux) / mean_flux
 
@@ -170,14 +199,22 @@ def compute_cf_onespec(vel_lores_long, flong_noise, gpm, vmin_corr=10, vmax_corr
 
     return vel_mid, xi_mock
 
-def compute_cf_allspec(forward_model_out, vmin_corr=10, vmax_corr=2000, dv_corr=60):
+def compute_cf_allspec(forward_model_out, vmin_corr, vmax_corr, dv_corr, cgm_masking=False, fwhm=None):
     # "forward_model_out" being the output of forward_model_allspec()
 
-    xi_mock_all = []
+    flores_long_allspec, flores_long_masked_allspec, flores_long_masked_noise_allspec, master_mask_allspec, good_vel_data_allspec = forward_model_out
 
-    for iqso, output in enumerate(forward_model_out):
-        vlores_long, flores_long, flores_long_noise, gpm = output # unpacking
-        vel_mid, xi_mock = compute_cf_onespec(vlores_long, flores_long_noise, gpm, vmin_corr, vmax_corr, dv_corr)
+    if cgm_masking:
+        gpm_cgm_allspec = init_cgm_masking(fwhm)
+
+    xi_mock_all = []
+    for iqso in range(len(flores_long_allspec)):
+        if cgm_masking:
+            gpm = gpm_cgm_allspec[iqso]
+        else:
+            gpm = None
+
+        vel_mid, xi_mock = compute_cf_onespec(good_vel_data_allspec[iqso], flores_long_masked_noise_allspec[iqso], vmin_corr, vmax_corr, dv_corr, gpm)
         xi_mock_all.append(xi_mock)
 
     vel_mid = np.array(vel_mid)
@@ -185,19 +222,20 @@ def compute_cf_allspec(forward_model_out, vmin_corr=10, vmax_corr=2000, dv_corr=
 
     return vel_mid, xi_mock_all
 
-# loop mock_mean_covar for each qso?
-def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=None):
+def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=None, cgm_masking=False, fwhm=None):
 
-    rand = np.random.RandomState(seed) if seed is None else seed
-    seed_list = rand.randint(0, 999999999, 4) # 4 for 4 qsos
+    # calls forward_model_allspec and compute_cf_allspec
+    rand = np.random.RandomState() if seed is None else np.random.RandomState(seed)
 
     ncorr = xi_mean.shape[0]
     xi_mock_keep = np.zeros((nmock, ncorr)) # add extra dim?
     covar = np.zeros((ncorr, ncorr)) # add extra dim?
 
     for imock in range(ncovar):
+        seed_list = rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
+        #print("seed list", seed_list)
         fm_out = forward_model_allspec(vel_lores, flux_lores, ncopy, seed_list=seed_list)
-        vel_mid, xi_mock = compute_cf_allspec(fm_out, vmin_corr, vmax_corr, dv_corr)
+        vel_mid, xi_mock = compute_cf_allspec(fm_out, vmin_corr, vmax_corr, dv_corr, cgm_masking=cgm_masking, fwhm=fwhm)
         xi_mock_mean = np.mean(np.mean(xi_mock, axis=1), axis=0) # averaging over ncopy and then over nqso
         delta_xi = xi_mock_mean - xi_mean
 
@@ -209,14 +247,13 @@ def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_c
 
     return xi_mock_keep, covar
 
-import pdb
 def compute_model(args):
     # compute CF and covariance of mock dataset at each point of model grid
     # args: tuple of arguments from parser
 
-    ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock = args
+    ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking = args
     rantaufile = os.path.join(xhi_path, 'ran_skewers_' + zstr + '_OVT_' + 'xHI_{:4.2f}'.format(xHI) + '_tau.fits')
-    rand = np.random.RandomState(seed)
+    #rand = np.random.RandomState(seed)
     params = Table.read(rantaufile, hdu=1)
     skewers = Table.read(rantaufile, hdu=2)
 
@@ -231,10 +268,11 @@ def compute_model(args):
                                                                     dv_corr)
     xi_mean = np.mean(xi_nless, axis=0)
 
-    # forward modeled dataset, currently hardwired to take in the 4 QSOs in our current dataset (in progress)
+    # forward modeled dataset, currently hardwired to take in the 4 QSOs in our current dataset
     #fm_out = forward_model_allspec(vel_lores, flux_lores, ncopy)
     #vel_mid, xi_mock = compute_cf_allspec(fm_out)
-    xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=None)
+    xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, \
+                                          seed=seed, cgm_masking=cgm_masking, fwhm=fwhm)
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
 
@@ -252,11 +290,12 @@ def test_compute_model():
     vmax_corr = 2000
     dv_corr = fwhm
     ncopy = 5
-    ncovar = 100
+    ncovar = 10
     nmock = 10
-    seed = 9999
+    seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
     logZ = -3.5
-    args = ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock
+    cgm_masking = False
+    args = ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking
 
     out = compute_model(args)
     return out
@@ -283,7 +322,7 @@ def parser():
     parser.add_argument('--nlogZ', type=int, default=201, help="number of bins for logZ models")
     parser.add_argument('--logZmin', type=float, default=-6.0, help="minimum logZ value")
     parser.add_argument('--logZmax', type=float, default=-2.0, help="maximum logZ value")
-
+    parser.add_argument('--cgm_masking', dest='whether to mask cgm or not', action='store_true')
     return parser.parse_args()
 
 def main():
@@ -302,6 +341,7 @@ def main():
     vmin_corr = args.vmin
     vmax_corr = args.vmax
     dv_corr = args.dv if args.dv is not None else fwhm
+    cgm_masking = args.cgm_masking
 
     #rand = np.random.RandomState(seed)
     # Grid of metallicities
@@ -325,7 +365,7 @@ def main():
     files = glob.glob(os.path.join(xhi_path, '*_tau.fits'))
     params = Table.read(files[0], hdu=1)
 
-    args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock
+    args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking
     all_args = []
     seed_vec = np.full(nhi*nlogZ, seed) # same seed for each process
 
