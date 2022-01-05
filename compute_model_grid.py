@@ -29,7 +29,7 @@ import glob
 import sys
 from astropy.table import Table, hstack, vstack
 from IPython import embed
-sys.path.append('/Users/suksientie/codes/enigma')
+sys.path.append('/Users/suksientie/codes/enigma') # comment out this line if running on IGM cluster
 from enigma.reion_forest import utils
 from enigma.reion_forest.mgii_find import MgiiFinder
 from multiprocessing import Pool
@@ -170,7 +170,7 @@ def forward_model_allspec(vel_lores, flux_lores, ncopy, seed_list=[None, None, N
     return flores_long_allspec, flores_long_masked_allspec, flores_long_masked_noise_allspec, master_mask_allspec, good_vel_data_allspec
 
 def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_nsigma=8, one_minF_thresh = 0.3):
-
+    # returns good pixel mask from cgm masking for all 4 qsos
     gpm_allspec = []
     for iqso, fitsfile in enumerate(fitsfile_list):
         wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
@@ -192,21 +192,21 @@ def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
         gpm_allspec.append(mgii_tot.fit_gpm)
-
+    # gpm for each spec has different length, so cannot be recast into np.ndarray, using list for now
     return gpm_allspec
 
-def compute_cf_onespec(vel_lores_long, flong_noise, vmin_corr, vmax_corr, dv_corr, gpm=None):
+def compute_cf_onespec(vel_lores_long, flong_noise, vmin_corr, vmax_corr, dv_corr, cgm_masking_gpm=None):
     # vel_lores_long = good_vel_data
-    # see compute_cf_allspec for usage
+    # cgm_masking_gpm = gpm from cgm masking
     mean_flux = np.nanmean(flong_noise)
     delta_f = (flong_noise - mean_flux) / mean_flux
 
     # using np.nansum in utils.xi_sum
-    (vel_mid, xi_mock, npix, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores_long, vmin_corr, vmax_corr, dv_corr, gpm=gpm)
+    (vel_mid, xi_mock, npix, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores_long, vmin_corr, vmax_corr, dv_corr, gpm=cgm_masking_gpm)
 
     return vel_mid, xi_mock
 
-def compute_cf_allspec(forward_model_out, vmin_corr, vmax_corr, dv_corr, cgm_masking=False, fwhm=None):
+def compute_cf_allspec_old(forward_model_out, vmin_corr, vmax_corr, dv_corr, cgm_masking=False, fwhm=None):
     # "forward_model_out" being the output of forward_model_allspec()
 
     flores_long_allspec, flores_long_masked_allspec, flores_long_masked_noise_allspec, master_mask_allspec, good_vel_data_allspec = forward_model_out
@@ -229,6 +229,26 @@ def compute_cf_allspec(forward_model_out, vmin_corr, vmax_corr, dv_corr, cgm_mas
 
     return vel_mid, xi_mock_all
 
+def compute_cf_allspec(forward_model_out, vmin_corr, vmax_corr, dv_corr, cgm_masking_gpm=None):
+    # "forward_model_out" being the output of forward_model_allspec()
+    # cgm_masking_gpm = gpm from cgm masking for all qsos; basically output of init_cgm_masking()
+    flores_long_allspec, flores_long_masked_allspec, flores_long_masked_noise_allspec, master_mask_allspec, good_vel_data_allspec = forward_model_out
+
+    xi_mock_all = []
+    for iqso in range(len(flores_long_allspec)):
+        if type(cgm_masking_gpm) == type(None):
+            gpm = None
+        else:
+            gpm = cgm_masking_gpm[iqso]
+
+        vel_mid, xi_mock = compute_cf_onespec(good_vel_data_allspec[iqso], flores_long_masked_noise_allspec[iqso], vmin_corr, vmax_corr, dv_corr, cgm_masking_gpm=gpm)
+        xi_mock_all.append(xi_mock)
+
+    vel_mid = np.array(vel_mid)
+    xi_mock_all = np.array(xi_mock_all)
+
+    return vel_mid, xi_mock_all
+
 def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=None, cgm_masking=False, fwhm=None):
 
     # calls forward_model_allspec and compute_cf_allspec
@@ -238,11 +258,15 @@ def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_c
     xi_mock_keep = np.zeros((nmock, ncorr)) # add extra dim?
     covar = np.zeros((ncorr, ncorr)) # add extra dim?
 
+    if cgm_masking:
+        cgm_masking_gpm = init_cgm_masking(fwhm)
+    else:
+        cgm_masking_gpm = None
+
     for imock in range(ncovar):
         seed_list = rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
-        #print("seed list", seed_list)
         fm_out = forward_model_allspec(vel_lores, flux_lores, ncopy, seed_list=seed_list)
-        vel_mid, xi_mock = compute_cf_allspec(fm_out, vmin_corr, vmax_corr, dv_corr, cgm_masking=cgm_masking, fwhm=fwhm)
+        vel_mid, xi_mock = compute_cf_allspec(fm_out, vmin_corr, vmax_corr, dv_corr, cgm_masking_gpm=cgm_masking_gpm)
         xi_mock_mean = np.mean(np.mean(xi_mock, axis=1), axis=0) # averaging over ncopy and then over nqso
         delta_xi = xi_mock_mean - xi_mean
 

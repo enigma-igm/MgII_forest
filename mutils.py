@@ -11,6 +11,11 @@ Functions here:
     - extract_and_norm
 '''
 
+import sys
+sys.path.append('/Users/suksientie/codes/enigma')
+sys.path.append('/Users/suksientie/Research/data_redux')
+sys.path.append('/Users/suksientie/Research/CIV_forest')
+sys.path.append('/home/sstie/codes/PypeIt') # for running on IGM cluster
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from matplotlib import pyplot as plt
@@ -21,12 +26,7 @@ from pypeit import utils as putils
 import scipy.interpolate as interpolate
 from astropy import constants as const
 from astropy.table import Table
-import sys
-sys.path.append('/Users/suksientie/codes/enigma')
-sys.path.append('/Users/suksientie/Research/data_redux')
-sys.path.append('/Users/suksientie/Research/CIV_forest')
 from enigma.reion_forest import utils
-
 
 def plot_allspec(wave_arr, flux_arr, qso_namelist, qso_zlist, vel_unit=False, vel_zeropoint=True, wave_zeropoint_value=None):
 
