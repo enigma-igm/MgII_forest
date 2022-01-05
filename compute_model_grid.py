@@ -286,7 +286,7 @@ def compute_model(args):
     # compute CF and covariance of mock dataset at each point of model grid
     # args: tuple of arguments from parser
 
-    ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking = args
+    ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking_gpm = args
     rantaufile = os.path.join(xhi_path, 'ran_skewers_' + zstr + '_OVT_' + 'xHI_{:4.2f}'.format(xHI) + '_tau.fits')
     #rand = np.random.RandomState(seed)
     params = Table.read(rantaufile, hdu=1)
@@ -306,10 +306,10 @@ def compute_model(args):
     # forward modeled dataset, currently hardwired to take in the 4 QSOs in our current dataset
     #fm_out = forward_model_allspec(vel_lores, flux_lores, ncopy)
     #vel_mid, xi_mock = compute_cf_allspec(fm_out)
-    if cgm_masking:
-        cgm_masking_gpm = init_cgm_masking(fwhm)
-    else:
-        cgm_masking_gpm = None
+    #if cgm_masking:
+    #    cgm_masking_gpm = init_cgm_masking(fwhm)
+    #else:
+    #    cgm_masking_gpm = None
 
     xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=seed, cgm_masking_gpm=cgm_masking_gpm)
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
@@ -333,8 +333,13 @@ def test_compute_model():
     nmock = 10
     seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
     logZ = -3.5
-    cgm_masking = False
-    args = ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking
+    cgm_masking = True
+    if cgm_masking:
+        cgm_masking_gpm = init_cgm_masking(fwhm)
+    else:
+        cgm_masking_gpm = None
+
+    args = ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking_gpm
 
     out = compute_model(args)
     return out
@@ -381,6 +386,10 @@ def main():
     vmax_corr = args.vmax
     dv_corr = args.dv if args.dv is not None else fwhm
     cgm_masking = args.cgm_masking
+    if cgm_masking:
+        cgm_masking_gpm = init_cgm_masking(fwhm)
+    else:
+        cgm_masking_gpm = None
 
     #rand = np.random.RandomState(seed)
     # Grid of metallicities
@@ -404,7 +413,7 @@ def main():
     files = glob.glob(os.path.join(xhi_path, '*_tau.fits'))
     params = Table.read(files[0], hdu=1)
 
-    args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking
+    args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, ncovar, nmock, cgm_masking_gpm
     all_args = []
     seed_vec = np.full(nhi*nlogZ, seed) # same seed for each process
 
