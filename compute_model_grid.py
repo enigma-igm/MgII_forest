@@ -253,7 +253,7 @@ def compute_cf_allspec(forward_model_out, vmin_corr, vmax_corr, dv_corr, cgm_mas
 
     return vel_mid, xi_mock_all
 
-def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=None, cgm_masking=False, fwhm=None):
+def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=None, cgm_masking_gpm=None):
 
     # calls forward_model_allspec and compute_cf_allspec
     rand = np.random.RandomState() if seed is None else np.random.RandomState(seed)
@@ -262,10 +262,10 @@ def mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_c
     xi_mock_keep = np.zeros((nmock, ncorr)) # add extra dim?
     covar = np.zeros((ncorr, ncorr)) # add extra dim?
 
-    if cgm_masking:
-        cgm_masking_gpm = init_cgm_masking(fwhm)
-    else:
-        cgm_masking_gpm = None
+    #if cgm_masking:
+    #    cgm_masking_gpm = init_cgm_masking(fwhm)
+    #else:
+    #    cgm_masking_gpm = None
 
     for imock in range(ncovar):
         seed_list = rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
@@ -306,8 +306,12 @@ def compute_model(args):
     # forward modeled dataset, currently hardwired to take in the 4 QSOs in our current dataset
     #fm_out = forward_model_allspec(vel_lores, flux_lores, ncopy)
     #vel_mid, xi_mock = compute_cf_allspec(fm_out)
-    xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, \
-                                          seed=seed, cgm_masking=cgm_masking, fwhm=fwhm)
+    if cgm_masking:
+        cgm_masking_gpm = init_cgm_masking(fwhm)
+    else:
+        cgm_masking_gpm = None
+
+    xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, ncovar, nmock, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, seed=seed, cgm_masking_gpm=cgm_masking_gpm)
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
 
