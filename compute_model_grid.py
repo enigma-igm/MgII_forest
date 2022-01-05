@@ -37,10 +37,14 @@ from tqdm import tqdm
 import mutils
 
 ###################### global variables ######################
-fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+datapath = '/Users/suksientie/Research/data_redux/'
+#datapath = '/mnt/quasar/sstie/MgII_forest/z75/'
+
+fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+                 datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
+                 datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
 everyn_break_list = [20, 20, 20, 20]
