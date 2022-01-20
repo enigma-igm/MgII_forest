@@ -1,14 +1,15 @@
 '''
-Functions here:
-    - plot_allspec
-    - obswave_to_vel
+Functions here are:
+    - obswave_to_vel_2
     - extract_data
     - continuum_normalize
-    - scipy_spline
     - custom_mask_J0313
     - custom_mask_J1342
     - custom_mask_J0038
-    - extract_and_norm
+    - extxract_and_norm
+    - init_skewers_compute_model_grid
+    - init_onespec
+    - pad_fluxfit
 '''
 
 import sys
@@ -28,72 +29,12 @@ from astropy import constants as const
 from astropy.table import Table
 from enigma.reion_forest import utils
 
-def plot_allspec(wave_arr, flux_arr, qso_namelist, qso_zlist, vel_unit=False, vel_zeropoint=True, wave_zeropoint_value=None):
-
-    wave_min, wave_max = 19500, 24000
-
-    fig = plt.figure(figsize=(12,6))
-    ax1 = fig.add_subplot(111)
-    zmin = wave_min / 2800 - 1
-    zmax = wave_max / 2800 - 1
-    ymin = 0.5
-    ymax = 3.5
-
-    for i in range(len(wave_arr)):
-        if vel_unit:
-            x_arr = obswave_to_vel(wave_arr[i], vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
-            xmin, xmax = np.min(x_arr.value), np.max(x_arr.value)
-            xlabel = 'v - v_zeropoint (km/s)'
-        else:
-            x_arr = wave_arr[i]
-            xmin, xmax = wave_min, wave_max
-            xlabel = 'obs wavelength (A)'
-
-        x_mask = wave_arr[i] <= (2800 * (1 + qso_zlist[i]))
-        yoffset = i * 0.5
-        ax1.plot(x_arr[x_mask], flux_arr[i][x_mask] + yoffset, label=qso_namelist[i], drawstyle='steps-mid')
-
-    ax1.set_xlim([xmin, xmax])
-    ax1.set_ylim([ymin, ymax])
-    ax1.set_xlabel(xlabel)
-    ax1.set_ylabel('normalized flux')
-    ax1.legend()
-
-    if not vel_unit:
-        atwin = ax1.twiny()
-        atwin.set_xlabel('absorber redshift')
-        atwin.axis([zmin, zmax, ymin, ymax])
-        atwin.tick_params(top=True, axis="x")
-        atwin.xaxis.set_minor_locator(AutoMinorLocator())
-
-    plt.tight_layout()
-    plt.show()
-
-def obswave_to_vel(wave_arr, vel_zeropoint=False, wave_zeropoint_value=None):
-    # wave in Angstrom
-    zabs_mean = wave_arr/2800 - 1 # between the two doublet
-
-    cosmo = FlatLambdaCDM(H0=100.0 * 0.67, Om0=0.3192, Ob0=0.04964) # Nyx cosmology
-    comov_dist = cosmo.comoving_distance(zabs_mean)
-    Hz = cosmo.H(zabs_mean)
-    a = 1 / (1 + zabs_mean)
-    vel = comov_dist * a * Hz
-
-    if vel_zeropoint:
-        if wave_zeropoint_value != None:
-            min_wave = wave_zeropoint_value
-        else:
-            min_wave = np.min(wave_arr)
-
-        min_zabs = min_wave / 2800 - 1
-        min_vel = cosmo.comoving_distance(min_zabs) * (1 / (1 + min_zabs)) * cosmo.H(min_zabs)
-        vel = vel - min_vel
-
-    return vel.value
-
 def obswave_to_vel_2(wave_arr):
+    # converts Angstrom to velocity unit:
+    #       using dv =  c * d(log_lambda), where log is natural log
 
-    # dv =  c * d(log_lambda), where log is natural log
+    # 2022 Jan 20: this is what you want to use, not obswave_to_vel()
+
     c_kms = const.c.to('km/s').value
     log10_wave = np.log10(wave_arr)
     diff_log10_wave = np.diff(log10_wave) # d(log10_lambda)
@@ -101,13 +42,12 @@ def obswave_to_vel_2(wave_arr):
     dv = c_kms * np.log(10) * diff_log10_wave
     #vel = np.zeros(len(wave_arr))
     #vel[1:] = np.cumsum(dv)
-    vel = np.cumsum(dv)
+    vel = np.cumsum(dv) # the first pixel is dv
 
     return vel
 
 def extract_data(fitsfile):
     data = fits.open(fitsfile)[1].data
-    #wave_arr = data['wave'].astype('float64')
     wave_arr = data['wave_grid_mid'].astype('float64')
     flux_arr = data['flux'].astype('float64')
     ivar_arr = data['ivar'].astype('float64')
@@ -116,18 +56,13 @@ def extract_data(fitsfile):
 
     return wave_arr, flux_arr, ivar_arr, mask_arr, std_arr
 
-def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, bkpt=None, plot=False):
+def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, plot=False):
 
-    #if bkpt == None:
-    #    bkpt = wave_arr[::nbkpt]
-    #   bkpt = bkpt.astype('float64')
-
-    #(sset, outmask) = iterfit(wave_arr, flux_arr, invvar=ivar_arr, inmask=mask_arr, upper=3, lower=3, x2=None,
-    #            maxiter=10, nord=4, bkpt=bkpt, fullbkpt=None)
-
+    # continuum normalize using breakpoint spline method in Pypeit
     (sset, outmask) = iterfit(wave_arr, flux_arr, invvar=ivar_arr, inmask=mask_arr, upper=3, lower=3, x2=None,
                               maxiter=10, nord=4, bkpt=None, fullbkpt=None, kwargs_bspline = {'everyn': nbkpt})
 
+    # flux fit is the continuum
     _, flux_fit = sset.fit(wave_arr[outmask], flux_arr[outmask], ivar_arr[outmask])
 
     if plot:
@@ -140,51 +75,7 @@ def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, 
 
     return flux_fit, outmask, sset
 
-def scipy_spline(fitsfile):
-    data = fits.open(fitsfile)[1].data
-    wave_arr = data['wave']
-    flux_arr = data['flux']
-
-    nknots = 6
-    quartile_loc = np.linspace(0, 1, nknots + 2)[1:-1]
-    knots_wave = np.quantile(wave_arr, quartile_loc)
-    knots, coeff, k = interpolate.splrep(wave_arr, flux_arr, t=knots_wave, k=4)
-
-    spline = interpolate.BSpline(knots, coeff, k, extrapolate=False)
-    flux_spline = spline(wave_arr)
-
-    plt.plot(wave_arr, flux_arr, 'k')
-    plt.plot(wave_arr, flux_spline, 'r')
-    plt.show()
-
-def save_data_sigma(fitsfile_list, everyn_breakpoint, savefits):
-    # 11/22/2021: maybe obsolete
-
-    hdulist = fits.HDUList()
-    all_norm_std_flat = []
-    for i, fitsfile in enumerate(fitsfile_list):
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset = extract_and_norm(fitsfile, everyn_breakpoint)
-        good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
-        norm_good_std = good_std / fluxfit
-        name = fitsfile.split('/')[-1].split('_')[0]
-        hdulist.append(fits.ImageHDU(data=norm_good_std, name=name))
-        all_norm_std_flat.extend(norm_good_std)
-
-    hdulist.append(fits.ImageHDU(data=all_norm_std_flat, name='flattened'))
-    hdulist.writeto(savefits, overwrite=True)
-
-def temp(z, delta_z):
-    vside_lores = 6577.75
-    c_light = (const.c.to('km/s')).value
-    z_min = z - delta_z
-    z_eff = (z + z_min) / 2.0
-    dv_path = (z - z_min) / (1.0 + z_eff) * c_light
-    nqsos = 1
-    npath_float = nqsos * dv_path / vside_lores
-    npath = int(np.round(npath_float))
-    print(npath)
-
-###### by-eye strong absorbers masks ######
+###### by-eye strong absorbers masks for each QSO, before continuum-normalizing ######
 def custom_mask_J0313(plot=False):
     #fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits'
     fitsfile =  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits'
@@ -291,6 +182,7 @@ def extract_and_norm(fitsfile, everyn_bkpt):
     return wave, flux, ivar, mask, std, fluxfit, outmask, sset
 
 def init_skewers_compute_model_grid():
+    # initialize Nyx skewers for testing purposes
     file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
     params = Table.read(file, hdu=1)
     skewers = Table.read(file, hdu=2)
@@ -302,7 +194,7 @@ def init_skewers_compute_model_grid():
     flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
-    vmin_corr, vmax_corr, dv_corr = 10, 2000, 60
+    vmin_corr, vmax_corr, dv_corr = 10, 2000, 100
 
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
@@ -311,7 +203,160 @@ def init_skewers_compute_model_grid():
 
     return vel_lores, flux_lores, vel_mid, xi_mean
 
-###### old scripts ######
+def init_onespec(iqso):
+    # initialize data from one qso
+    datapath = '/Users/suksientie/Research/data_redux/'
+    # datapath = '/mnt/quasar/sstie/MgII_forest/z75/'
+
+    fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+                     datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
+                     datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                     datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+
+    qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
+    qso_zlist = [7.6, 7.54, 7.0, 7.0]
+    everyn_break_list = [20, 20, 20, 20]
+
+    fitsfile = fitsfile_list[iqso]
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset = extract_and_norm(fitsfile, everyn_break_list[iqso])
+    vel_data = obswave_to_vel_2(wave)
+
+    redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
+    master_mask = redshift_mask * outmask
+
+    # masked arrays
+    good_wave = wave[master_mask]
+    good_flux = flux[master_mask]
+    good_ivar = ivar[master_mask]
+    good_std = std[master_mask]
+    fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+    norm_good_flux = good_flux / fluxfit_redshift
+    norm_good_std = good_std / fluxfit_redshift
+    good_vel_data = obswave_to_vel_2(good_wave)
+
+    fluxfit_new = pad_fluxfit(outmask, fluxfit)
+    norm_std = std / fluxfit_new
+
+    return vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux
+
+def pad_fluxfit(outmask, fluxfit):
+    # pad the fitted-continuum output from continuum_normalize() so that the array size equals the size of the data
+    # (this is because the continuum output from Pypeit's iterfit returns the masked continuum)
+
+    # the inputs are really outputs from contiuum_normalize() routine
+
+    outmask_true = np.argwhere(outmask == True).squeeze()
+    outmask_false = np.argwhere(outmask == False).squeeze()
+    fluxfit_new = np.zeros(outmask.shape) # length of fluxfit_new equals length of raw data
+
+    for i in range(len(outmask)):
+        if i in outmask_false:
+            fluxfit_new[i] = np.nan # fill the masked pixels with NaNs
+
+    iall_notnan = np.argwhere(np.invert(np.isnan(fluxfit_new))).squeeze()
+
+    for i in range(len(iall_notnan)):
+        fluxfit_new[iall_notnan[i]] = fluxfit[i]
+
+    return fluxfit_new
+
+######################## old/unused/misc scripts ########################
+def obswave_to_vel(wave_arr, vel_zeropoint=False, wave_zeropoint_value=None):
+    # wave in Angstrom
+    zabs_mean = wave_arr/2800 - 1 # between the two doublet
+
+    cosmo = FlatLambdaCDM(H0=100.0 * 0.67, Om0=0.3192, Ob0=0.04964) # Nyx cosmology
+    comov_dist = cosmo.comoving_distance(zabs_mean)
+    Hz = cosmo.H(zabs_mean)
+    a = 1 / (1 + zabs_mean)
+    vel = comov_dist * a * Hz
+
+    if vel_zeropoint:
+        if wave_zeropoint_value != None:
+            min_wave = wave_zeropoint_value
+        else:
+            min_wave = np.min(wave_arr)
+
+        min_zabs = min_wave / 2800 - 1
+        min_vel = cosmo.comoving_distance(min_zabs) * (1 / (1 + min_zabs)) * cosmo.H(min_zabs)
+        vel = vel - min_vel
+
+    return vel.value
+
+def plot_allspec(wave_arr, flux_arr, qso_namelist, qso_zlist, vel_unit=False, vel_zeropoint=True, wave_zeropoint_value=None):
+
+    wave_min, wave_max = 19500, 24000
+
+    fig = plt.figure(figsize=(12,6))
+    ax1 = fig.add_subplot(111)
+    zmin = wave_min / 2800 - 1
+    zmax = wave_max / 2800 - 1
+    ymin = 0.5
+    ymax = 3.5
+
+    for i in range(len(wave_arr)):
+        if vel_unit:
+            x_arr = obswave_to_vel(wave_arr[i], vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
+            xmin, xmax = np.min(x_arr.value), np.max(x_arr.value)
+            xlabel = 'v - v_zeropoint (km/s)'
+        else:
+            x_arr = wave_arr[i]
+            xmin, xmax = wave_min, wave_max
+            xlabel = 'obs wavelength (A)'
+
+        x_mask = wave_arr[i] <= (2800 * (1 + qso_zlist[i]))
+        yoffset = i * 0.5
+        ax1.plot(x_arr[x_mask], flux_arr[i][x_mask] + yoffset, label=qso_namelist[i], drawstyle='steps-mid')
+
+    ax1.set_xlim([xmin, xmax])
+    ax1.set_ylim([ymin, ymax])
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel('normalized flux')
+    ax1.legend()
+
+    if not vel_unit:
+        atwin = ax1.twiny()
+        atwin.set_xlabel('absorber redshift')
+        atwin.axis([zmin, zmax, ymin, ymax])
+        atwin.tick_params(top=True, axis="x")
+        atwin.xaxis.set_minor_locator(AutoMinorLocator())
+
+    plt.tight_layout()
+    plt.show()
+
+def scipy_spline(fitsfile):
+    data = fits.open(fitsfile)[1].data
+    wave_arr = data['wave']
+    flux_arr = data['flux']
+
+    nknots = 6
+    quartile_loc = np.linspace(0, 1, nknots + 2)[1:-1]
+    knots_wave = np.quantile(wave_arr, quartile_loc)
+    knots, coeff, k = interpolate.splrep(wave_arr, flux_arr, t=knots_wave, k=4)
+
+    spline = interpolate.BSpline(knots, coeff, k, extrapolate=False)
+    flux_spline = spline(wave_arr)
+
+    plt.plot(wave_arr, flux_arr, 'k')
+    plt.plot(wave_arr, flux_spline, 'r')
+    plt.show()
+
+def save_data_sigma(fitsfile_list, everyn_breakpoint, savefits):
+    # 11/22/2021: maybe obsolete
+
+    hdulist = fits.HDUList()
+    all_norm_std_flat = []
+    for i, fitsfile in enumerate(fitsfile_list):
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset = extract_and_norm(fitsfile, everyn_breakpoint)
+        good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
+        norm_good_std = good_std / fluxfit
+        name = fitsfile.split('/')[-1].split('_')[0]
+        hdulist.append(fits.ImageHDU(data=norm_good_std, name=name))
+        all_norm_std_flat.extend(norm_good_std)
+
+    hdulist.append(fits.ImageHDU(data=all_norm_std_flat, name='flattened'))
+    hdulist.writeto(savefits, overwrite=True)
+
 def plot_allspec_old(wave_arr, flux_arr):
 
     fig, ax1 = plt.subplots()
