@@ -39,16 +39,20 @@ sig_max = 100.0
 ########## 2PCF settings ##########
 mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
 fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
+fwhm = 90 # what is used in compute_model_grid.py
+
 vmin_corr = 10
 vmax_corr = 2000
 dv_corr = 100  # slightly larger than fwhm
 
-def onespec(fitsfile, qso_z=None, plot=False, shuffle=False, seed=None):
+def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False):
     # compute the CF for one QSO spectrum
 
     # extract and continuum normalize
     # converting Angstrom to km/s
     wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break)
+
+    # the "norm" and "good" arrays are what MgiiFinder and CF will operate on
     good_wave, good_flux, good_std, good_ivar = wave[outmask], flux[outmask], std[outmask], ivar[outmask]
     norm_good_flux = good_flux / fluxfit
     norm_good_std = good_std / fluxfit
@@ -70,6 +74,7 @@ def onespec(fitsfile, qso_z=None, plot=False, shuffle=False, seed=None):
         good_ivar = good_ivar[redshift_mask]
 
     # reshaping arrays to be compatible with MgiiFinder
+    # applied on the "good" arrays, i.e. quantities that have been masked
     norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
     good_ivar = good_ivar.reshape((1, len(good_ivar)))
     norm_good_std = norm_good_std.reshape((1, len(norm_good_std)))
@@ -77,7 +82,7 @@ def onespec(fitsfile, qso_z=None, plot=False, shuffle=False, seed=None):
     mgii_tot = MgiiFinder(vel, norm_good_flux, good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
                           signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
 
-    ### CF from not masking
+    ### CF from not masking (computed from "good" masked arrays)
     meanflux_tot = np.mean(norm_good_flux)
     deltaf_tot = (norm_good_flux - meanflux_tot) / meanflux_tot
     vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr)
@@ -145,7 +150,105 @@ def onespec(fitsfile, qso_z=None, plot=False, shuffle=False, seed=None):
 
         plt.show()
 
-    return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked
+    return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
+
+def onespec2(iqso, seed=None, plot=False):
+
+    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+
+    vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, norm_flux, ivar = mutils.init_onespec(iqso)
+
+    norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
+    good_ivar = good_ivar.reshape((1, len(good_ivar)))
+    norm_good_std = norm_good_std.reshape((1, len(norm_good_std)))
+
+    mgii_tot = MgiiFinder(good_vel_data, norm_good_flux, good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
+                          signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+
+    """
+    norm_flux = norm_flux.reshape((1, len(norm_flux)))
+    ivar = ivar.reshape((1, len(ivar)))
+    norm_std = norm_std.reshape((1, len(norm_std)))
+
+    mgii_tot = MgiiFinder(vel_data, norm_flux, ivar, fwhm, signif_thresh,
+                          signif_mask_nsigma=signif_mask_nsigma,
+                          signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+    """
+    ### CF from not masking
+    meanflux_tot = np.mean(norm_good_flux) # computed from "good" masked arrays
+    #deltaf_tot = (norm_good_flux - meanflux_tot) / meanflux_tot
+    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, good_vel_data, vmin_corr, vmax_corr, dv_corr, gpm=master_mask)
+    xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
+
+    ### CF from masking
+    meanflux_tot_mask = np.mean(norm_good_flux[mgii_tot.fit_gpm])
+    #deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
+    deltaf_tot_mask = (norm_flux - meanflux_tot_mask) / meanflux_tot_mask
+    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, good_vel_data, vmin_corr, vmax_corr,
+                                                                       dv_corr, gpm=mgii_tot.fit_gpm)
+    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0)  # again not really averaging here since we only have 1 spectrum
+
+    print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
+
+    # fractional path used
+    fraction_used = np.sum(mgii_tot.fit_gpm) / mgii_tot.fit_gpm.size
+    print("::::: fraction pixels used :::::", fraction_used)
+
+    ### now dealing with CF from pure noise alone (not masking)
+    # fnoise = rand.normal(0, norm_good_std)
+    fnoise = []
+    n_real = 500
+    for i in range(n_real):  # generate n_real of the noise vector
+        fnoise.append(
+            rand.normal(0, norm_good_std[0]))  # taking the 0-th index because norm_good_std has been reshaped above
+    fnoise = np.array(fnoise)
+
+    # meanflux_tot = np.mean(fnoise)
+    # deltaf_tot = (fnoise - meanflux_tot) / meanflux_tot
+    deltaf_tot = fnoise / meanflux_tot
+    vel_mid, xi_noise, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, good_vel_data, vmin_corr, vmax_corr, dv_corr)
+
+    ### noise CF with masking
+    # meanflux_tot_mask = np.mean(fnoise[mgii_tot.fit_gpm])
+    # deltaf_tot_mask = (fnoise - meanflux_tot_mask) / meanflux_tot_mask
+    deltaf_tot_mask = fnoise / meanflux_tot_mask
+    vel_mid, xi_noise_masked, npix_tot, _ = reion_utils.compute_xi(deltaf_tot_mask, good_vel_data, vmin_corr, vmax_corr, dv_corr,
+                                                                   gpm=mgii_tot.fit_gpm)
+
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
+
+    if plot:
+        # plot with no masking
+        plt.figure()
+        for i in range(n_real):
+            plt.plot(vel_mid, xi_noise[i], linewidth=1., c='tab:gray', ls='--', alpha=0.1)
+
+        plt.plot(vel_mid, xi_mean_tot, linewidth=1.5, label='data unmasked')
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5,
+                    label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        # plot with masking
+        plt.figure()
+        for i in range(n_real):
+            plt.plot(vel_mid, xi_noise_masked[i], linewidth=1., c='tab:gray', ls='--', alpha=0.1)
+        plt.plot(vel_mid, xi_mean_tot_mask, linewidth=1.5, label='data masked')
+
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5,
+                    label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        plt.show()
+
+    return good_vel_data, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
 
 def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None, None, None, None]):
     # running onespec() for all the 4 QSOs
@@ -156,7 +259,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     xi_noise_mask_all = []
 
     for ifile, fitsfile in enumerate(fitsfile_list):
-        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked = onespec(fitsfile, qso_z=qso_zlist[ifile], shuffle=shuffle, seed=seed_list[ifile])
+        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, _ = onespec(fitsfile, qso_z=qso_zlist[ifile], shuffle=shuffle, seed=seed_list[ifile])
         xi_unmask_all.append(xi_unmask[0])
         xi_mask_all.append(xi_mask[0])
         #xi_noise_unmask_all.append(xi_noise[0])

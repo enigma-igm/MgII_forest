@@ -28,6 +28,7 @@ import scipy.interpolate as interpolate
 from astropy import constants as const
 from astropy.table import Table
 from enigma.reion_forest import utils
+import compute_cf_data as ccf
 
 def obswave_to_vel_2(wave_arr):
     # converts Angstrom to velocity unit:
@@ -235,9 +236,10 @@ def init_onespec(iqso):
     good_vel_data = obswave_to_vel_2(good_wave)
 
     fluxfit_new = pad_fluxfit(outmask, fluxfit)
+    norm_flux = flux / fluxfit_new
     norm_std = std / fluxfit_new
 
-    return vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux
+    return vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, norm_flux, ivar
 
 def pad_fluxfit(outmask, fluxfit):
     # pad the fitted-continuum output from continuum_normalize() so that the array size equals the size of the data
@@ -259,6 +261,53 @@ def pad_fluxfit(outmask, fluxfit):
         fluxfit_new[iall_notnan[i]] = fluxfit[i]
 
     return fluxfit_new
+
+import compute_model_grid as cmg
+# START HERE: generate cf_corr for each QSO
+def compare_cf_data_fm(qso_fitsfile, qso_z, iqso, std_corr, vel_lores, flux_lores, ncopy, seed=None, plot=False):
+
+    _, _, _, vel_mid, xi_data, xi_data_cgm_mask, _, _, cgm_masking_gpm = ccf.onespec(qso_fitsfile, qso_z=qso_z)
+
+    vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, _, _ = init_onespec(iqso)
+
+    # mock data
+    flux_lores_rand, master_mask_chunk, norm_std_chunk, flux_lores_rand_noise = \
+        cmg.forward_model_onespec_chunk(vel_data, master_mask, norm_std, vel_lores, flux_lores, ncopy, std_corr=std_corr, seed=seed)
+
+    vm, xi_mock, _ = cmg.compute_cf_onespec_chunk(vel_lores, flux_lores_rand_noise, 10, 2000, 100, mask=master_mask_chunk)
+
+    ncopy, nskew, npix = np.shape(flux_lores_rand_noise)
+    cgm_gpm = cmg.chunk_gpm_onespec(cgm_masking_gpm, nskew, npix)
+    _, xi_mock_cgm_mask, _ = cmg.compute_cf_onespec_chunk(vel_lores, flux_lores_rand_noise, 10, 2000, 100, mask=master_mask_chunk*cgm_gpm)
+
+    if plot:
+        plt.figure(figsize=(12, 5.5))
+        for i in range(50):
+            # note: plotting the median here, since the mean will be skewed by the last skewer with most pixels being nan
+            plt.plot(vel_mid, np.median(xi_mock[i+2], axis=0), lw=0.5, alpha=0.3) # plotting each ncopy (averaged over nskew)
+        plt.plot(vel_mid, xi_data[0], label='data, unmasked')
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = 768.469
+        plt.axvline(vel_doublet, color='red', linestyle=':', linewidth=1.5)
+        plt.legend()
+        plt.tight_layout()
+
+        plt.figure(figsize=(12, 5.5))
+        for i in range(50):
+            plt.plot(vel_mid, np.median(xi_mock_cgm_mask[i + 2], axis=0), lw=0.5, alpha=0.3)
+        plt.plot(vel_mid, xi_data_cgm_mask[0], label='data, CGM masked')
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = 768.469
+        plt.axvline(vel_doublet, color='red', linestyle=':', linewidth=1.5)
+        plt.legend()
+        plt.tight_layout()
+
+        plt.show()
+
+    return vel_mid, xi_data, xi_data_cgm_mask, vm, xi_mock, xi_mock_cgm_mask
+
 
 ######################## old/unused/misc scripts ########################
 def obswave_to_vel(wave_arr, vel_zeropoint=False, wave_zeropoint_value=None):
