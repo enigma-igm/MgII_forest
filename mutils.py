@@ -253,8 +253,8 @@ def init_onespec(iqso):
     return vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, norm_flux, ivar
 
 def pad_fluxfit(outmask, fluxfit):
-    # pad the fitted-continuum output from continuum_normalize() so that the array size equals the size of the data
-    # (this is because the continuum output from Pypeit's iterfit returns the masked continuum)
+    # pad the fitted-continuum output from continuum_normalize() so that the array size equals the size of the input data
+    # this is because the continuum output from Pypeit's iterfit returns the masked continuum
 
     # the inputs are really outputs from contiuum_normalize() routine
 
@@ -269,7 +269,7 @@ def pad_fluxfit(outmask, fluxfit):
     iall_notnan = np.argwhere(np.invert(np.isnan(fluxfit_new))).squeeze()
 
     for i in range(len(iall_notnan)):
-        fluxfit_new[iall_notnan[i]] = fluxfit[i]
+        fluxfit_new[iall_notnan[i]] = fluxfit[i] # fill the non-masked pixels with values
 
     return fluxfit_new
 
