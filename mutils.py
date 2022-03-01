@@ -192,6 +192,7 @@ def extract_and_norm(fitsfile, everyn_bkpt):
 
     return wave, flux, ivar, mask, std, fluxfit, outmask, sset
 
+###### compute_model_grid.py testing ######
 def init_skewers_compute_model_grid():
     # initialize Nyx skewers for testing purposes in compute_model_grid.py
     file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'

@@ -1,7 +1,9 @@
 .DS_Store
 *.png
 plots/
+old/
 __pycache__
 *.pyc
 *.fits
 *draft*
+*old*

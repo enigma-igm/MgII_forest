@@ -27,7 +27,7 @@ xylabel_fontsize = 20
 legend_fontsize = 14
 
 ### Some controls
-plot_normalized = True
+plot_normalized = False
 vel_unit = False
 
 ### Start plotting

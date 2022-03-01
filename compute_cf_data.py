@@ -153,7 +153,7 @@ def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False):
     return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
 
 def onespec2(iqso, seed=None, plot=False):
-
+    # 1/25/2022: in progress
     rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
 
     vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, norm_flux, ivar = mutils.init_onespec(iqso)
@@ -250,6 +250,7 @@ def onespec2(iqso, seed=None, plot=False):
 
     return good_vel_data, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
 
+from IPython import embed
 def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None, None, None, None]):
     # running onespec() for all the 4 QSOs
 
@@ -274,7 +275,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     xi_std_unmask = np.std(xi_unmask_all, axis=0)
 
     # noise
-    xi_noise_unmask_all = np.array(xi_noise_unmask_all)
+    xi_noise_unmask_all = np.array(xi_noise_unmask_all) # = (nqso, n_real, n_velmid)
     #xi_mean_noise_unmask = np.mean(xi_noise_unmask_all, axis=0)
 
     ### masked quantities
@@ -287,11 +288,11 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     xi_noise_mask_all = np.array(xi_noise_mask_all)
     #xi_mean_noise_mask = np.mean(xi_noise_mask_all, axis=0)
 
+    embed()
     if plot:
         plt.figure()
         for i in range(4):
-            for xi in xi_noise_unmask_all[i]:
-                #plt.plot(vel_mid, xi, linewidth=0.5, c='tab:gray', alpha=0.1)
+            for xi in xi_noise_unmask_all[i]: # plotting all 500 realizations of the noise 2PCF (not masked)
                 plt.plot(vel_mid, xi, linewidth=0.5, alpha=0.1)
 
         for xi in xi_unmask_all:
@@ -311,7 +312,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
 
         plt.figure()
         for i in range(4):
-            for xi in xi_noise_mask_all[i]:
+            for xi in xi_noise_mask_all[i]: # plotting all 500 realizations of the noise 2PCF (masked)
                 plt.plot(vel_mid, xi, linewidth=0.5, alpha=0.1)
 
         for xi in xi_mask_all:
@@ -332,7 +333,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
 
         plt.show()
 
-    return vel_mid, xi_mean_unmask, xi_mean_mask
+    return vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask_all, xi_noise_mask_all
 
 ######################## old/unused/misc scripts ########################
 def onespec_old(fitsfile, qso_z):

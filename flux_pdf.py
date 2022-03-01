@@ -24,9 +24,6 @@ qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
 everyn_break_list = [20, 20, 20, 20] # b-spline fitting
 
-#fitsfile_list = [fitsfile_list[3]]
-#everyn_break_list = [20] # b-spline fitting
-
 ###### mask and PDF settings ######
 nbins, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 one_minF_thresh = 0.3
@@ -40,24 +37,6 @@ all_transmission = []
 all_std = []
 all_std_cent = []
 noise = []
-"""
-for i, fitsfile in enumerate(fitsfile_list):
-    wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_zlist[i])
-    wave, flux, ivar, mask, std = mutils.extract_data(fitsfile)
-    
-    x_mask = wave[mask] <= (2800 * (1 + qso_zlist[i]))
-    all_transmission.extend(cont_flux[mask][x_mask])
-    all_std.extend(norm_std[mask][x_mask])
-
-    flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - cont_flux[mask][x_mask], oneminf_min, oneminf_max, nbins)
-    plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=0.5, label=fitsfile.split('/')[-1].split('_')[0])
-
-    temp_std = []
-    for elem in norm_std[mask][x_mask]:
-        sign = 1 if rand.random() < 0.5 else -1
-        temp_std.append(elem * sign)
-    all_std_cent.extend(temp_std)
-"""
 
 for i, fitsfile in enumerate(fitsfile_list):
     wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
