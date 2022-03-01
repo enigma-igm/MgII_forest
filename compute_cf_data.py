@@ -13,8 +13,8 @@ sys.path.append('/Users/suksientie/Research/data_redux')
 sys.path.append('/Users/suksientie/Research/CIV_forest')
 from enigma.reion_forest.mgii_find import MgiiFinder
 from enigma.reion_forest import utils as reion_utils
-import misc # from CIV_forest
-from scripts import rdx_utils
+#import misc # from CIV_forest
+#from scripts import rdx_utils
 import mutils
 
 """
@@ -336,6 +336,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     return vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask_all, xi_noise_mask_all
 
 ######################## old/unused/misc scripts ########################
+"""
 def onespec_old(fitsfile, qso_z):
     wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_z)
     vel = mutils.obswave_to_vel(wave[mask], vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
@@ -485,17 +486,4 @@ def allspec_noise(fitsfile_list, qso_zlist, everyn_break_list):
         xi_allspec.append(xi_tot[0])
 
     return vel_mid, xi_allspec
-
-"""
-datapath = '/Users/suksientie/Research/data_redux/'
-#datapath = '/mnt/quasar/sstie/MgII_forest/z75/'
-
-#fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits'
-#qso_z = 7.6
-
-#vel_zeropoint = True
-#wave_zeropoint_value = (1 + 6) * 2800 # setting v=0 km/s at z=6 if vel_zeropoint=True
-vel_zeropoint = False
-wave_zeropoint_value = None
-everyn_break = 20
 """
