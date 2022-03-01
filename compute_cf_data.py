@@ -13,7 +13,7 @@ sys.path.append('/Users/suksientie/Research/data_redux')
 sys.path.append('/Users/suksientie/Research/CIV_forest')
 from enigma.reion_forest.mgii_find import MgiiFinder
 from enigma.reion_forest import utils as reion_utils
-#import misc # from CIV_forest
+import misc # from CIV_forest
 from scripts import rdx_utils
 import mutils
 
@@ -38,7 +38,7 @@ sig_max = 100.0
 
 ########## 2PCF settings ##########
 mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
-#fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
+fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
 fwhm = 90 # what is used in compute_model_grid.py
 
 vmin_corr = 10
