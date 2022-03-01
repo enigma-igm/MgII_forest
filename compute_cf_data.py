@@ -38,7 +38,7 @@ sig_max = 100.0
 
 ########## 2PCF settings ##########
 mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
-fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
+#fwhm = round(misc.convert_resolution(mosfire_res).value) # 83 km/s
 fwhm = 90 # what is used in compute_model_grid.py
 
 vmin_corr = 10
