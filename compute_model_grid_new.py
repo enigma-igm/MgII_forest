@@ -330,7 +330,7 @@ def compute_model(args):
 def test_compute_model():
 
     ihi, iZ = 0, 0 # dummy variables since they are simply returned
-    xhi_path = '/Users/suksientie/Research/MgII_forest'
+    xhi_path = '/Users/suksientie/Research/MgII_forest' # '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'
     zstr = 'z75'
     xHI = 0.50
     fwhm = 90
