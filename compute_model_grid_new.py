@@ -50,6 +50,18 @@ def imap_unordered_bar(func, args, nproc):
     p.join()
     return res_list
 
+def read_model_grid(modelfile):
+
+    hdu = fits.open(modelfile)
+    param = Table(hdu[1].data)
+    xi_mock_array = hdu[2].data
+    xi_model_array = hdu[3].data
+    covar_array = hdu[4].data
+    icovar_array = hdu[5].data
+    lndet_array = hdu[6].data
+
+    return param, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array
+
 def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
     # vel_lores = Nyx velocity grid (numpy array)
     # vel_data = data velocity grid (numpy array)
@@ -356,7 +368,7 @@ def test_compute_model():
     ncopy = 5
     #ncovar = 10
     #nmock = 10
-    seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
+    master_seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
     logZ = -3.5
     cgm_masking = True
     if cgm_masking:
@@ -364,10 +376,57 @@ def test_compute_model():
     else:
         cgm_masking_gpm = None
 
-    args = ihi, iZ, xHI, logZ, seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, cgm_masking_gpm
+    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, cgm_masking_gpm
 
-    out = compute_model(args)
-    return out
+    output = compute_model(args)
+    ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = output
+
+    """
+    nhi, nlogZ = 5, 5 # dummy values
+    xhi_val = xHI
+    ncorr = vel_mid.shape[0]
+    xi_mock_array = np.zeros((nhi, nlogZ,) + xi_mock.shape)
+    xi_mean_array = np.zeros((nhi, nlogZ,) + xi_mean.shape)
+    covar_array = np.zeros((nhi, nlogZ,) + covar.shape)
+    icovar_array = np.zeros((nhi, nlogZ,) + icovar.shape)
+    lndet_array = np.zeros((nhi, nlogZ))
+
+    # Unpack the output
+    for out in output:
+        ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = out
+        # Right out a random subset of these so that we don't use so much disk.
+        xi_mock_array[ihi, iZ, :, :] = xi_mock
+        xi_mean_array[ihi, iZ, :] = xi_mean
+        covar_array[ihi, iZ, :, :] = covar
+        icovar_array[ihi, iZ, :, :] = icovar
+        lndet_array[ihi, iZ] = logdet
+
+    ncovar = 0  # hardwired
+    nmock = ncopy  # hardwired
+    
+    param_model = Table(
+        [[ncopy], [ncovar], [nmock], [fwhm], [sampling], [master_seed], [nhi], [xhi_val], [nlogZ], [logZ_vec], [ncorr],
+         [vmin_corr], [vmax_corr], [vel_mid]],
+        names=(
+        'ncopy', 'ncovar', 'nmock', 'fwhm', 'sampling', 'seed', 'nhi', 'xhi', 'nlogZ', 'logZ', 'ncorr', 'vmin_corr',
+        'vmax_corr', 'vel_mid'))
+    param_out = hstack((params, param_model))
+
+    # Write out to multi-extension fits
+    print('Writing out to disk')
+    # Write to outfile
+    hdu_param = fits.table_to_hdu(param_out)
+    hdu_param.name = 'METADATA'
+    hdulist = fits.HDUList()
+    hdulist.append(hdu_param)
+    hdulist.append(fits.ImageHDU(data=xi_mock_array, name='XI_MOCK'))
+    hdulist.append(fits.ImageHDU(data=xi_mean_array, name='XI_MEAN'))
+    hdulist.append(fits.ImageHDU(data=covar_array, name='COVAR'))
+    hdulist.append(fits.ImageHDU(data=icovar_array, name='ICOVAR'))
+    hdulist.append(fits.ImageHDU(data=lndet_array, name='LNDET'))
+    hdulist.writeto(outfile, overwrite=True)
+    """
+    return output
 
 ###################### main() ######################
 def parser():
@@ -414,8 +473,8 @@ def main():
 
     # Read grid of neutral fractions from the 21cm fast xHI fields
     xhi_val, xhi_boxes = utils.read_xhi_boxes()
-    nhi = xhi_val.shape[0]
     xhi_val = xhi_val[0:3] # testing for production run
+    nhi = xhi_val.shape[0]
 
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
