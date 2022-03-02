@@ -68,9 +68,10 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
     else:
         padded_data_arr = np.pad(data_arr, (0, pad_width), mode='constant', constant_values=np.nan)
         # either of this has to be True, where 2nd condition is to deal with Nan elements
-        #print(np.nansum(padded_data_arr)-np.nansum(data_arr))
+
         #assert np.array_equal(data_arr, padded_data_arr[0:len(data_arr)]) or np.nansum(padded_data_arr) == np.nansum(data_arr)
-        assert np.array_equal(data_arr, padded_data_arr[0:len(data_arr)], equal_nan=True)
+        #assert np.array_equal(data_arr, padded_data_arr[0:len(data_arr)], equal_nan=True) # equal_nan only in Numpy version >=1.19.0
+        assert np.array_equal(data_arr, padded_data_arr[0:len(data_arr)]) or np.isclose(np.nansum(padded_data_arr),np.nansum(data_arr))
 
     new_data_arr = padded_data_arr.reshape(nskew_to_match_data, npix_sim_skew)
     return new_data_arr
