@@ -35,6 +35,21 @@ qso_zlist = [7.6, 7.54, 7.0, 7.0]
 everyn_break_list = [20, 20, 20, 20]
 
 ########################## helper functions #############################
+def imap_unordered_bar(func, args, nproc):
+    """
+    Display progress bar.
+    """
+    p = Pool(processes=nproc)
+    res_list = []
+    with tqdm(total = len(args)) as pbar:
+        for i, res in tqdm(enumerate(p.imap_unordered(func, args))):
+            pbar.update()
+            res_list.append(res)
+    pbar.close()
+    p.close()
+    p.join()
+    return res_list
+
 def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
     # vel_lores = Nyx velocity grid (numpy array)
     # vel_data = data velocity grid (numpy array)
@@ -424,9 +439,9 @@ def main():
 
     print('Computing nmodel={:d} models on nproc={:d} processors'.format(nhi*nlogZ,nproc))
 
-    #output = imap_unordered_bar(compute_model, all_args, nproc)
-    pool = Pool(processes=nproc)
-    output = pool.starmap(compute_model, all_args)
+    output = imap_unordered_bar(compute_model, all_args, nproc)
+    #pool = Pool(processes=nproc)
+    #output = pool.starmap(compute_model, all_args)
 
     # Allocate the arrays to hold everything
     ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = output[0] # ihi and iZ not actually used and simply returned as outputs
