@@ -357,7 +357,8 @@ def compute_model(args):
 def test_compute_model():
 
     ihi, iZ = 0, 0 # dummy variables since they are simply returned
-    xhi_path = '/Users/suksientie/Research/MgII_forest' # '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'
+    xhi_path = '/Users/suksientie/Research/MgII_forest'
+    #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
     fwhm = 90
@@ -472,8 +473,8 @@ def main():
     logZ_vec = np.linspace(logZ_min, logZ_max, nlogZ)
 
     # Read grid of neutral fractions from the 21cm fast xHI fields
-    xhi_val, xhi_boxes = utils.read_xhi_boxes()
-    xhi_val = xhi_val[0:3] # testing for production run
+    xhi_val, xhi_boxes = utils.read_xhi_boxes() # len(xhi_val) = 51, with d_xhi = 0.02
+    #xhi_val = xhi_val[0:3] # testing for production run
     nhi = xhi_val.shape[0]
 
     # Some file paths and then read in the params table to get the redshift
