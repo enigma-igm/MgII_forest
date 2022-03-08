@@ -26,7 +26,7 @@ fitsfile_list = ['/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-18
                  '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0252-0503_stacked_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits']
 
-fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
@@ -56,26 +56,8 @@ all_std = []
 all_high_signif_mask = []
 
 for i, fitsfile in enumerate(fitsfile_list):
-    """
-    #wave, flux, ivar, std, mask, cont_flux, norm_std = rdx_utils.continuum_normalize(fitsfile, qso_zlist[i])
-    wave, flux, ivar, mask, std = mutils.extract_data(fitsfile)
-    cont_flux = flux
-    norm_std = std
 
-    vel = mutils.obswave_to_vel(wave[mask], vel_zeropoint=vel_zeropoint, wave_zeropoint_value=wave_zeropoint_value)
-    x_mask = wave[mask] <= (2800 * (1 + qso_zlist[i]))
-
-    vel = vel[x_mask]
-    cont_flux = cont_flux[mask][x_mask]
-    ivar = ivar[mask][x_mask]
-    norm_std = norm_std[mask][x_mask]
-
-    cont_flux = cont_flux.reshape((1, len(cont_flux)))
-    ivar = ivar.reshape((1, len(ivar)))
-    norm_std = norm_std.reshape((1, len(norm_std)))
-    """
-
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
     good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
     good_ivar = ivar[outmask]
     norm_good_flux = good_flux / fluxfit
@@ -108,8 +90,8 @@ all_std = np.array(all_std)
 sig_bins, sig_pdf_tot = utils.pdf_calc(all_signif, sig_min, sig_max, nbins)
 _, sig_pdf_noise = utils.pdf_calc(all_std, sig_min, sig_max, nbins)
 
+plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='b', alpha=0.7, label='all noise')
 plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='all spectra')
-plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='orange', alpha=1.0, lw=2, label='all noise')
 plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
 plt.axvspan(signif_mask_nsigma, sig_max, facecolor = 'k', alpha = 0.2, label='masked')
 

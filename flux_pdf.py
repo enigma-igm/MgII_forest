@@ -15,7 +15,7 @@ import mutils
 #                 '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0252-0503_stacked_coadd_tellcorr.fits', \
 #                 '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits']
 
-fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
@@ -39,7 +39,7 @@ all_std_cent = []
 noise = []
 
 for i, fitsfile in enumerate(fitsfile_list):
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[i])
 
     good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
     norm_good_flux = good_flux / fluxfit
@@ -69,8 +69,8 @@ flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - all_transmission, oneminf_min, on
 _, flux_pdf_noise = utils.pdf_calc(noise, oneminf_min, oneminf_max, nbins)
 _, flux_pdf_gnoise = utils.pdf_calc(gaussian_noise, oneminf_min, oneminf_max, nbins)
 
+plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='b', alpha=0.7, label='all noise')
 plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='all spectra')
-plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='orange', alpha=1.0, lw=2, label='all noise')
 #plt.plot(flux_bins, flux_pdf_gnoise, drawstyle='steps-mid', color='y', alpha=1.0, lw=2, label='gaussian noise')
 plt.axvline(one_minF_thresh, color='k', ls='--', lw=2)
 plt.axvspan(one_minF_thresh, oneminf_max, facecolor = 'k', alpha = 0.2, label='masked')
