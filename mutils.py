@@ -85,7 +85,7 @@ def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, 
 ###### by-eye strong absorbers masks for each QSO, before continuum-normalizing ######
 def custom_mask_J0313(plot=False):
     #fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits'
-    fitsfile =  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits'
+    fitsfile =  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits'
     wave, flux, ivar, mask, std = extract_data(fitsfile)
 
     mask_wave1 = [19815, 19825]
