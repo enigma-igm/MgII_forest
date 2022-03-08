@@ -58,8 +58,9 @@ def extract_data(fitsfile):
     ivar_arr = data['ivar'].astype('float64')
     mask_arr = data['mask'].astype('bool')
     std_arr = np.sqrt(putils.inverse(ivar_arr))
+    tell_arr = data['telluric'].astype('float64')
 
-    return wave_arr, flux_arr, ivar_arr, mask_arr, std_arr
+    return wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, tell_arr
 
 def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, plot=False):
 
@@ -86,7 +87,7 @@ def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, 
 def custom_mask_J0313(plot=False):
     #fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J0313-1806_stacked_coadd_tellcorr.fits'
     fitsfile =  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits'
-    wave, flux, ivar, mask, std = extract_data(fitsfile)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
 
     mask_wave1 = [19815, 19825]
     mask_wave2 = [19865, 19870]
@@ -114,7 +115,7 @@ def custom_mask_J0313(plot=False):
 def custom_mask_J1342(plot=False):
     #fitsfile = '/Users/suksientie/Research/data_redux/mgii_stack_fits/J1342+0928_stacked_coadd_tellcorr.fits'
     fitsfile = '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits'
-    wave, flux, ivar, mask, std = extract_data(fitsfile)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
 
     # visually-identified strong absorbers
     mask_wave1 = [21920, 21940]
@@ -142,9 +143,9 @@ def custom_mask_J1342(plot=False):
 
 def custom_mask_J0038(plot=False):
     #fitsfile = '/Users/suksientie/Research/data_redux/2010_done/Redux/J0038-1527_201024_done/J0038-1527_coadd_tellcorr.fits'
-    fitsfile = '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr.fits'
-    wave, flux, ivar, mask, std = extract_data(fitsfile)
+    fitsfile = '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits'  #vel1_tellcorr.fits'
 
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
     # visually-identified strong absorbers
     mask_wave1 = [19777, 19796]
     mask_wave2 = [19828, 19855]
@@ -170,7 +171,7 @@ def custom_mask_J0038(plot=False):
 def extract_and_norm(fitsfile, everyn_bkpt):
     # combining extract_data() and continuum_normalize() including custom masking
 
-    wave, flux, ivar, mask, std = extract_data(fitsfile)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
     qso_name = fitsfile.split('/')[-1].split('_')[0]
 
     if qso_name == 'J0313-1806':
@@ -190,7 +191,7 @@ def extract_and_norm(fitsfile, everyn_bkpt):
     # outmask = final mask including the original data mask and mask returned during continuum fitting
     # sset = object returned from continuum fitting
 
-    return wave, flux, ivar, mask, std, fluxfit, outmask, sset
+    return wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell
 
 ###### compute_model_grid.py testing ######
 def init_skewers_compute_model_grid():
