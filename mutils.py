@@ -222,7 +222,7 @@ def init_onespec(iqso):
     datapath = '/Users/suksientie/Research/data_redux/'
     # datapath = '/mnt/quasar/sstie/MgII_forest/z75/'
 
-    fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+    fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
@@ -232,7 +232,7 @@ def init_onespec(iqso):
     everyn_break_list = [20, 20, 20, 20]
 
     fitsfile = fitsfile_list[iqso]
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset = extract_and_norm(fitsfile, everyn_break_list[iqso])
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso])
     vel_data = obswave_to_vel_2(wave)
 
     redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift

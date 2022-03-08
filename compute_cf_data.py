@@ -18,7 +18,7 @@ from enigma.reion_forest import utils as reion_utils
 import mutils
 
 """
-fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                      '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                      '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                      '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
@@ -50,7 +50,7 @@ def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False):
 
     # extract and continuum normalize
     # converting Angstrom to km/s
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset = mutils.extract_and_norm(fitsfile, everyn_break)
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break)
 
     # the "norm" and "good" arrays are what MgiiFinder and CF will operate on
     good_wave, good_flux, good_std, good_ivar = wave[outmask], flux[outmask], std[outmask], ivar[outmask]
@@ -288,7 +288,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     xi_noise_mask_all = np.array(xi_noise_mask_all)
     #xi_mean_noise_mask = np.mean(xi_noise_mask_all, axis=0)
 
-    embed()
+    #embed()
     if plot:
         plt.figure()
         for i in range(4):

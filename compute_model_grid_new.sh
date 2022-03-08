@@ -14,4 +14,4 @@ echo "Finish: $now"
 
 # dlogZ = 0.02 for np.linspace(-6.0, -2.0, 201) as above
 # nhi x nlogZ = 51 x 201 = 10251 models
-# nohup nice -n 19 ./test_Referee report:
+# nohup nice -n 19 ./test_compute_model.sh > run.log &

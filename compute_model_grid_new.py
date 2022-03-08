@@ -25,7 +25,7 @@ import pdb
 datapath = '/Users/suksientie/Research/data_redux/'
 #datapath = '/mnt/quasar/sstie/MgII_forest/z75/' # on IGM
 
-fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel123_coadd_tellcorr.fits', \
+fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
@@ -163,6 +163,7 @@ def forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy
 
     return ranindx, rand_flux_lores, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew
 
+import pdb
 def plot_forward_model_onespec(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask_chunk, good_vel_data, norm_good_flux, ncopy_plot, title=None):
 
     ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
@@ -270,7 +271,8 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
     qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
 
     # average correction from 4 realizations of 1000 copies
-    corr_all = [0.689, 0.640, 0.616, 0.583]  #  [1.0, 1.0, 1.0, 1.0]
+    corr_all = [0.689, 0.640, 0.616, 0.583]
+    #corr_all = [1.0, 1.0, 1.0, 1.0]
     xi_mock_qso_all = []
 
     for iqso, fitsfile in enumerate(fitsfile_list):
