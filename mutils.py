@@ -6,7 +6,7 @@ Functions here are:
     - custom_mask_J0313
     - custom_mask_J1342
     - custom_mask_J0038
-    - extxract_and_norm
+    - extract_and_norm
     - init_skewers_compute_model_grid
     - init_onespec
     - pad_fluxfit
@@ -66,6 +66,9 @@ def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, 
 
     # continuum normalize using breakpoint spline method in Pypeit
     # note: not including the custom masks yet
+
+    # nbkpt: NOT the total number of breakpoints, but instead it's placing a breakpoint at every n-th index,
+    # since we're using the 'everyn' argument below. I.e. if nbkpt=20, it places a breakpoint at every 20-th element.
     (sset, outmask) = iterfit(wave_arr, flux_arr, invvar=ivar_arr, inmask=mask_arr, upper=3, lower=3, x2=None,
                               maxiter=10, nord=4, bkpt=None, fullbkpt=None, kwargs_bspline = {'everyn': nbkpt})
 
@@ -192,6 +195,22 @@ def extract_and_norm(fitsfile, everyn_bkpt):
     # sset = object returned from continuum fitting
 
     return wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell
+
+def all_absorber_redshift(fitsfile_list):
+
+    qso_zlist = [7.6, 7.54, 7.0, 7.0]
+    everyn_break_list = [20, 20, 20, 20]
+    all_z = []
+
+    for iqso, fitsfile in enumerate(fitsfile_list):
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso])
+        redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
+        good_wave = wave[outmask][redshift_mask]
+        z_abs = good_wave/2800 - 1
+        all_z.extend(z_abs)
+
+    print(np.mean(all_z), np.median(all_z))
+    return all_z
 
 ###### compute_model_grid.py testing ######
 def init_skewers_compute_model_grid():

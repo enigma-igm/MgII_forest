@@ -32,7 +32,8 @@ fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
-everyn_break_list = [20, 20, 20, 20]
+everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
+                                     # this results in dwave_breakpoint ~ 40 A --> dvel_breakpoint = 600 km/s
 
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):
