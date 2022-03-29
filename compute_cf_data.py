@@ -44,8 +44,9 @@ fwhm = 90 # what is used in compute_model_grid.py
 vmin_corr = 10
 vmax_corr = 2000
 dv_corr = 100  # slightly larger than fwhm
+corr_all = [0.689, 0.640, 0.616, 0.583] # values used by compute_model_grid_new.py
 
-def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False):
+def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False, std_corr=1.0):
     # compute the CF for one QSO spectrum
 
     # extract and continuum normalize
@@ -105,9 +106,9 @@ def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False):
     ### now dealing with CF from pure noise alone (not masking)
     #fnoise = rand.normal(0, norm_good_std)
     fnoise = []
-    n_real = 500
+    n_real = 50
     for i in range(n_real): # generate n_real of the noise vector
-        fnoise.append(rand.normal(0, norm_good_std[0])) # taking the 0-th index because norm_good_std has been reshaped above
+        fnoise.append(rand.normal(0, std_corr*norm_good_std[0])) # taking the 0-th index because norm_good_std has been reshaped above
     fnoise = np.array(fnoise)
 
     #meanflux_tot = np.mean(fnoise)
@@ -260,7 +261,9 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     xi_noise_mask_all = []
 
     for ifile, fitsfile in enumerate(fitsfile_list):
-        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, _ = onespec(fitsfile, qso_z=qso_zlist[ifile], shuffle=shuffle, seed=seed_list[ifile])
+        std_corr = corr_all[ifile]
+        print("std_corr", std_corr)
+        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, _ = onespec(fitsfile, qso_z=qso_zlist[ifile], shuffle=shuffle, seed=seed_list[ifile], std_corr=std_corr)
         xi_unmask_all.append(xi_unmask[0])
         xi_mask_all.append(xi_mask[0])
         #xi_noise_unmask_all.append(xi_noise[0])
@@ -290,46 +293,144 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
 
     #embed()
     if plot:
+        xi_scale = 1e5
+        ymin, ymax = -0.0010 * xi_scale, 0.0006 * xi_scale
+
         plt.figure()
         for i in range(4):
             for xi in xi_noise_unmask_all[i]: # plotting all 500 realizations of the noise 2PCF (not masked)
-                plt.plot(vel_mid, xi, linewidth=0.5, alpha=0.1)
+                plt.plot(vel_mid, xi*xi_scale, c='k', linewidth=0.5, alpha=0.1)
 
         for xi in xi_unmask_all:
-            plt.plot(vel_mid, xi, linewidth=0.7, c='tab:orange', alpha=0.5)
+            plt.plot(vel_mid, xi*xi_scale, linewidth=1.0, c='tab:orange', alpha=0.7)
 
-        plt.errorbar(vel_mid, xi_mean_unmask, yerr=xi_std_unmask/np.sqrt(4.), marker='o', c='tab:orange', ecolor='tab:orange', capthick=1.5, capsize=2, \
+        plt.errorbar(vel_mid, xi_mean_unmask*xi_scale, yerr=(xi_std_unmask/np.sqrt(4.))*xi_scale, lw=2.0, marker='o', c='tab:orange', ecolor='tab:orange', capthick=2.0, capsize=2, \
                      mec='none', label='data, unmasked', zorder=20)
         #plt.plot(vel_mid, xi_mean_noise_unmask, linewidth=1.5, c='tab:gray', label='noise, unmasked')
 
         plt.legend(fontsize=15, loc=4)
         plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
-        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v) \times 10^5$', fontsize=18)
         vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
         print("vel doublet at", vel_doublet.value)
         plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
-        plt.title('vmin_corr = %0.1f, vmax_corr = %0.1f, dv_corr = %0.1f' % (vmin_corr, vmax_corr, dv_corr), fontsize=15)
+        #plt.title('vmin_corr = %0.1f, vmax_corr = %0.1f, dv_corr = %0.1f' % (vmin_corr, vmax_corr, dv_corr), fontsize=15)
+        plt.ylim([ymin, ymax])
 
         plt.figure()
         for i in range(4):
             for xi in xi_noise_mask_all[i]: # plotting all 500 realizations of the noise 2PCF (masked)
-                plt.plot(vel_mid, xi, linewidth=0.5, alpha=0.1)
+                plt.plot(vel_mid, xi*xi_scale, c='k', linewidth=0.5, alpha=0.1)
 
         for xi in xi_mask_all:
-            plt.plot(vel_mid, xi, linewidth=0.7, c='tab:orange', alpha=0.5)
-        plt.errorbar(vel_mid, xi_mean_mask, yerr=xi_std_mask / np.sqrt(4.), marker='o', c='tab:orange', ecolor='tab:orange', capthick=1.5, capsize=2, \
+            plt.plot(vel_mid, xi*xi_scale, linewidth=1.0, c='tab:orange', alpha=0.7)
+
+        plt.errorbar(vel_mid, xi_mean_mask*xi_scale, yerr=(xi_std_mask / np.sqrt(4.))*xi_scale, lw=2.0, marker='o', c='tab:orange', ecolor='tab:orange', capthick=2.0, capsize=2, \
                      mec='none', label='data, masked', zorder=20)
         #plt.plot(vel_mid, xi_mean_noise_mask, linewidth=1.5, c='tab:gray', label='noise, masked')
 
         plt.legend(fontsize=15, loc=4)
         plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
-        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v) \times 10^5$', fontsize=18)
         vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
         print("vel doublet at", vel_doublet.value)
         plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5,
                     label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
-        plt.title('vmin_corr = %0.1f, vmax_corr = %0.1f, dv_corr = %0.1f' % (vmin_corr, vmax_corr, dv_corr),
-                  fontsize=15)
+        #plt.title('vmin_corr = %0.1f, vmax_corr = %0.1f, dv_corr = %0.1f' % (vmin_corr, vmax_corr, dv_corr),
+        #          fontsize=15)
+        plt.ylim([ymin, ymax])
+
+        plt.show()
+
+    return vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask_all, xi_noise_mask_all, xi_unmask_all, xi_mask_all
+
+# testing code (not used; 3/29/2022), instead use allspec() above
+def allspec_bccptalk(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None, None, None, None], plot_noise_realization=False):
+    # running onespec() for all the 4 QSOs
+
+    xi_unmask_all = []
+    xi_mask_all = []
+    xi_noise_unmask_all = []
+    xi_noise_mask_all = []
+
+    for ifile, fitsfile in enumerate(fitsfile_list):
+        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, _ = onespec(fitsfile, qso_z=qso_zlist[ifile], shuffle=shuffle, seed=seed_list[ifile])
+        xi_unmask_all.append(xi_unmask[0])
+        xi_mask_all.append(xi_mask[0])
+        #xi_noise_unmask_all.append(xi_noise[0])
+        #xi_noise_mask_all.append(xi_noise_masked[0])
+        xi_noise_unmask_all.append(xi_noise)
+        xi_noise_mask_all.append(xi_noise_masked)
+
+    ### un-masked quantities
+    # data
+    xi_unmask_all = np.array(xi_unmask_all)
+    xi_mean_unmask = np.mean(xi_unmask_all, axis=0)
+    xi_std_unmask = np.std(xi_unmask_all, axis=0)
+
+    # noise
+    xi_noise_unmask_all = np.array(xi_noise_unmask_all) # = (nqso, n_real, n_velmid)
+    #xi_mean_noise_unmask = np.mean(xi_noise_unmask_all, axis=0)
+
+    ### masked quantities
+    # data
+    xi_mask_all = np.array(xi_mask_all)
+    xi_mean_mask = np.mean(xi_mask_all, axis=0)
+    xi_std_mask = np.std(xi_mask_all, axis=0)
+
+    # noise
+    xi_noise_mask_all = np.array(xi_noise_mask_all)
+    #xi_mean_noise_mask = np.mean(xi_noise_mask_all, axis=0)
+
+    if plot:
+        xi_scale = 1e5
+        ymin, ymax = -0.0004*xi_scale, 0.0003*xi_scale
+
+        #### plotting unmasked ####
+        plt.figure()
+        if plot_noise_realization:
+            print("yes")
+            for i in range(4):
+                for xi in xi_noise_unmask_all[i]: # plotting all 500 realizations of the noise 2PCF (not masked)
+                    plt.plot(vel_mid, xi, linewidth=0.5, alpha=0.1)
+
+        for xi in xi_unmask_all:
+            plt.plot(vel_mid, xi*xi_scale, linewidth=0.7, c='tab:orange', alpha=0.5)
+
+        plt.errorbar(vel_mid, xi_mean_unmask*xi_scale, yerr=(xi_std_unmask/np.sqrt(4.))*xi_scale, marker='o', c='tab:orange', ecolor='tab:orange', capthick=1.5, capsize=2, \
+                     mec='none', label='data, unmasked', zorder=20)
+        #plt.plot(vel_mid, xi_mean_noise_unmask, linewidth=1.5, c='tab:gray', label='noise, unmasked')
+
+        plt.legend(fontsize=15, loc=4)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v) \times 10^5$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        print("vel doublet at", vel_doublet.value)
+        plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+        plt.ylim([ymin, ymax])
+
+        #### plotting masked ####
+        plt.figure()
+        if plot_noise_realization:
+            for i in range(4):
+                for xi in xi_noise_mask_all[i]: # plotting all 500 realizations of the noise 2PCF (masked)
+                    plt.plot(vel_mid, xi, linewidth=0.5, alpha=0.1)
+
+        for xi in xi_mask_all:
+            plt.plot(vel_mid, xi*xi_scale, linewidth=0.7, c='tab:orange', alpha=0.5)
+
+        plt.errorbar(vel_mid, xi_mean_mask*xi_scale, yerr=(xi_std_mask / np.sqrt(4.))*xi_scale, marker='o', c='tab:orange', ecolor='tab:orange', capthick=1.5, capsize=2, \
+                     mec='none', label='data, masked', zorder=20)
+        #plt.plot(vel_mid, xi_mean_noise_mask, linewidth=1.5, c='tab:gray', label='noise, masked')
+
+        plt.legend(fontsize=15, loc=4)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v) \times 10^5$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        print("vel doublet at", vel_doublet.value)
+        plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5,
+                    label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+        plt.ylim([ymin, ymax])
 
         plt.show()
 
