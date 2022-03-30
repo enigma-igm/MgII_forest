@@ -212,6 +212,45 @@ def all_absorber_redshift(fitsfile_list):
     print(np.mean(all_z), np.median(all_z))
     return all_z
 
+def qso_pathlength(fitsfile, qso_name, qso_z):
+    # 3/29/2022: forgot that I wrote the same code above (all_absorber_redshift)
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, 20)
+
+    redshift_mask = wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
+    master_mask = redshift_mask * outmask
+
+    good_wave = wave[master_mask]
+    good_z = good_wave/2800 - 1
+    dz_pathlength = good_z.max() - good_z.min()
+    median_z = np.median(good_z)
+    print(qso_name, "median z=", median_z, "dz=", dz_pathlength)
+    #print(good_z.min(), good_z.max())
+
+    return good_z
+
+def qso_exclude_proximity_zone(fitsfile, qso_z, exclude_rest=1216-1185, plot=False):
+    # BAO lyaf: 1040 A < lambda_rest < 1200 A
+    # Bosman+2021: lambda_rest < 1185 A
+    # the default exclude_rest value uses Bosman cut off
+
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, 20)
+
+    redshift_mask = wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
+    master_mask = redshift_mask * outmask
+
+    good_wave = wave[master_mask]
+    obs_wave_max = (2800 - exclude_rest)*(1 + qso_z)
+    npix_out = len(np.where(good_wave > obs_wave_max)[0])
+    print(npix_out/len(good_wave), obs_wave_max, good_wave.max())
+
+    if plot:
+        plt.figure()
+        plt.plot(wave, flux)
+        plt.axvline(obs_wave_max, color='r', label='obs wave max')
+        plt.axvline(2800 * (1 + qso_z), color='k', label='qso redshift')
+        plt.legend()
+        plt.show()
+
 ###### compute_model_grid.py testing ######
 def init_skewers_compute_model_grid():
     # initialize Nyx skewers for testing purposes in compute_model_grid.py
@@ -236,6 +275,7 @@ def init_skewers_compute_model_grid():
 
     return vel_lores, flux_lores, vel_mid, xi_mean
 
+import pdb
 def init_onespec(iqso):
     # initialize all needed data from one qso for testing compute_model_grid.py
     datapath = '/Users/suksientie/Research/data_redux/'
@@ -249,20 +289,28 @@ def init_onespec(iqso):
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
     qso_zlist = [7.6, 7.54, 7.0, 7.0]
     everyn_break_list = [20, 20, 20, 20]
+    exclude_restwave = 1216 - 1185
 
     fitsfile = fitsfile_list[iqso]
     wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso])
     vel_data = obswave_to_vel_2(wave)
 
     redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
-    master_mask = redshift_mask * outmask # final ultimate mask
+    obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
+    proximity_zone_mask = wave < obs_wave_max
+
+    #master_mask = redshift_mask * outmask # final ultimate mask
+    master_mask = redshift_mask * outmask * proximity_zone_mask
 
     # masked arrays
     good_wave = wave[master_mask]
     good_flux = flux[master_mask]
     good_ivar = ivar[master_mask]
     good_std = std[master_mask]
-    fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+
+    fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max)
+    #fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+    fluxfit_redshift = fluxfit[fluxfit_custom_mask]
     norm_good_flux = good_flux / fluxfit_redshift
     norm_good_std = good_std / fluxfit_redshift
     good_vel_data = obswave_to_vel_2(good_wave)

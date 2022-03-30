@@ -28,7 +28,7 @@ xylabel_fontsize = 20
 legend_fontsize = 14
 
 ### Some controls
-plot_normalized = True
+plot_normalized = False
 vel_unit = False # always off for now
 show_breakpoints = False # always off for now
 
@@ -45,6 +45,7 @@ fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/
 
 qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
+exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(len(fitsfile_list), figsize=(16, 10), sharex=True)
 fig.subplots_adjust(left=0.1, bottom=0.07, right=0.96, top=0.93, wspace=0, hspace=0.)
@@ -90,6 +91,10 @@ for i, fitsfile in enumerate(fitsfile_list):
     good_wave, good_flux, good_std = wave[outmask], flux[outmask], std[outmask]
     norm_good_flux = good_flux/fluxfit
     norm_good_std = good_std/fluxfit
+    norm_good_snr = norm_good_flux/norm_good_std
+    print(np.mean(norm_good_snr), np.median(norm_good_snr))
+
+    obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[i])
 
     if vel_unit:
         print("using velocity unit in plot")
@@ -136,8 +141,10 @@ for i, fitsfile in enumerate(fitsfile_list):
     plot_ax.yaxis.set_minor_locator(AutoMinorLocator())
     plot_ax.tick_params(top=True, which='both', labelsize=xytick_size)
     if not vel_unit:
-        plot_ax.axvline((qso_zlist[i] + 1) * 2800, ls=':', c=color_ls[i], lw=2)
+        plot_ax.axvline((qso_zlist[i] + 1) * 2800, ls='--', c=color_ls[i], lw=2)
+        plot_ax.axvline(obs_wave_max, ls='--', c='k', lw=2)
         plot_ax.set_xlim([wave_min, wave_max])
+
     plot_ax.set_ylim([ymin, ymax])
     plot_ax.legend(fontsize=legend_fontsize, loc=1)
     if i == 3:

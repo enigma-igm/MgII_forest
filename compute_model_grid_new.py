@@ -34,6 +34,7 @@ qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
 everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> dvel_breakpoint = 600 km/s
+exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):
@@ -106,16 +107,23 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
 
 def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_nsigma=8, one_minF_thresh = 0.3):
     # returns good pixel mask from cgm masking for all 4 qsos
+    # 3/29/22: added proximity zone mask
     gpm_allspec = []
     for iqso, fitsfile in enumerate(fitsfile_list):
         wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
 
         redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso])) # removing spectral region beyond qso redshift
+        obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
+        proximity_zone_mask = wave[outmask] < obs_wave_max
 
-        good_wave = wave[outmask][redshift_mask]
-        good_flux = flux[outmask][redshift_mask]
-        good_ivar = ivar[outmask][redshift_mask]
-        norm_good_flux = good_flux / fluxfit[redshift_mask]
+        #good_wave = wave[outmask][redshift_mask][proximity_zone_mask]
+        #good_flux = flux[outmask][redshift_mask][proximity_zone_mask]
+        #good_ivar = ivar[outmask][redshift_mask][proximity_zone_mask]
+        #norm_good_flux = good_flux / fluxfit[redshift_mask]
+        good_wave = wave[outmask][redshift_mask * proximity_zone_mask]
+        good_flux = flux[outmask][redshift_mask * proximity_zone_mask]
+        good_ivar = ivar[outmask][redshift_mask * proximity_zone_mask]
+        norm_good_flux = good_flux / fluxfit[redshift_mask * proximity_zone_mask]
 
         vel_data = mutils.obswave_to_vel_2(good_wave)
 
@@ -282,12 +290,18 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
         vel_data = mutils.obswave_to_vel_2(wave)
 
         redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
-        master_mask = redshift_mask * outmask
+        obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
+        proximity_zone_mask = wave < obs_wave_max
+
+        #master_mask = redshift_mask * outmask
+        master_mask = redshift_mask * outmask * proximity_zone_mask
 
         good_wave = wave[master_mask]
         good_vel_data = mutils.obswave_to_vel_2(good_wave)
 
-        fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+        fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max)
+        # fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+        fluxfit_redshift = fluxfit[fluxfit_custom_mask]
         norm_good_flux = flux[master_mask] / fluxfit_redshift
         norm_good_std = std[master_mask] / fluxfit_redshift
 

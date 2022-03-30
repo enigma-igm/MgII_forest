@@ -26,6 +26,7 @@ qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.6, 7.54, 7.0, 7.0]
 """
 everyn_break = 20
+exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
 ########## masks settings ##########
 signif_thresh = 4.0
@@ -46,8 +47,9 @@ vmax_corr = 2000
 dv_corr = 100  # slightly larger than fwhm
 corr_all = [0.689, 0.640, 0.616, 0.583] # values used by compute_model_grid_new.py
 
-def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False, std_corr=1.0):
+def onespec(fitsfile, qso_z, shuffle=False, seed=None, plot=False, std_corr=1.0):
     # compute the CF for one QSO spectrum
+    # 3/29/22: added proximity zone mask
 
     # extract and continuum normalize
     # converting Angstrom to km/s
@@ -59,6 +61,16 @@ def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False, std_corr
     norm_good_std = good_std / fluxfit
     vel = mutils.obswave_to_vel_2(good_wave)
 
+    # applying additional masks on redshift and proximity zones
+    redshift_mask = good_wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
+    obs_wave_max = (2800 - exclude_restwave) * (1 + qso_z)
+    proximity_zone_mask = good_wave < obs_wave_max
+
+    vel = vel[redshift_mask * proximity_zone_mask]
+    norm_good_flux = norm_good_flux[redshift_mask * proximity_zone_mask]
+    norm_good_std = norm_good_std[redshift_mask * proximity_zone_mask]
+    good_ivar = good_ivar[redshift_mask * proximity_zone_mask]
+
     rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
 
     # if want to shuffle
@@ -67,13 +79,14 @@ def onespec(fitsfile, qso_z=None, shuffle=False, seed=None, plot=False, std_corr
         rand.shuffle(good_ivar)
 
     # if qso_z provided, then also mask out region redward of the QSO redshift
+    """
     if qso_z != None:
         redshift_mask = good_wave <= (2800 * (1 + qso_z))
         vel = vel[redshift_mask]
         norm_good_flux = norm_good_flux[redshift_mask]
         norm_good_std = norm_good_std[redshift_mask]
         good_ivar = good_ivar[redshift_mask]
-
+    """
     # reshaping arrays to be compatible with MgiiFinder
     # applied on the "good" arrays, i.e. quantities that have been masked
     norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
