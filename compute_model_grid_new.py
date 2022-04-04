@@ -31,10 +31,11 @@ fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits
                  datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.6, 7.54, 7.0, 7.0]
+qso_zlist = [7.642, 7.541, 7.001, 7.034] # precise redshifts from Yang+2021
 everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> dvel_breakpoint = 600 km/s
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
+median_z = 6.574 # median redshift of measurement (excluding proximity zones)
 
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):
@@ -83,7 +84,7 @@ def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
     ranindx = rand.choice(indx_flux_lores, replace=False, size=nskew_to_match_data)  # grab a set of random skewers
     return ranindx, nskew_to_match_data
 
-def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False): # 10, 220
+def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is_mask): # 10, 220
 
     pad_width = nskew_to_match_data * npix_sim_skew - len(data_arr)
 
@@ -108,6 +109,7 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
 def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_nsigma=8, one_minF_thresh = 0.3):
     # returns good pixel mask from cgm masking for all 4 qsos
     # 3/29/22: added proximity zone mask
+    # redshift bin mask applied to the outputs later on
     gpm_allspec = []
     for iqso, fitsfile in enumerate(fitsfile_list):
         wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
@@ -274,14 +276,19 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_
     return vel_mid, xi_mock, npix_xi
 
 ########################## mock dataset #############################
-def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, master_seed=None, cgm_gpm_allspec=None):
+def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
 
     master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
     qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
 
     # average correction from 4 realizations of 1000 copies
-    corr_all = [0.689, 0.640, 0.616, 0.583]
-    #corr_all = [1.0, 1.0, 1.0, 1.0]
+    if redshift_bin == 'all':
+        corr_all = [0.687, 0.635, 0.617, 0.58] # [0.689, 0.640, 0.616, 0.583] # before PZ masking
+    elif redshift_bin == 'low':
+        corr_all = [0.66, 0.59, 0.62, 0.57]
+    elif redshift_bin == 'high':
+        corr_all = [0.70, 0.69, 0.57, 0.59]
+
     xi_mock_qso_all = []
 
     for iqso, fitsfile in enumerate(fitsfile_list):
@@ -293,13 +300,22 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
         obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
         proximity_zone_mask = wave < obs_wave_max
 
-        #master_mask = redshift_mask * outmask
-        master_mask = redshift_mask * outmask * proximity_zone_mask
+        if redshift_bin == 'low':
+            zbin_mask = wave < (2800 * (1 + median_z))
+            zbin_mask_fluxfit = wave[outmask] < (2800 * (1 + median_z))
+        elif redshift_bin == 'high':
+            zbin_mask = wave >= (2800 * (1 + median_z))
+            zbin_mask_fluxfit = wave[outmask] >= (2800 * (1 + median_z))
+        elif redshift_bin == 'all':
+            zbin_mask = np.ones_like(wave, dtype=bool)
+            zbin_mask_fluxfit = np.ones_like(wave[outmask], dtype=bool)
+
+        master_mask = redshift_mask * outmask * proximity_zone_mask * zbin_mask # redshift_mask * outmask
 
         good_wave = wave[master_mask]
         good_vel_data = mutils.obswave_to_vel_2(good_wave)
 
-        fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max)
+        fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max) * zbin_mask_fluxfit
         # fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
         fluxfit_redshift = fluxfit[fluxfit_custom_mask]
         norm_good_flux = flux[master_mask] / fluxfit_redshift
@@ -312,11 +328,11 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
         _, _, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=qso_seed_list[iqso], std_corr=corr_all[iqso])
 
         # deal with CGM mask if argued before computing the 2PCF
-        master_mask_chunk = reshape_data_array(master_mask, nskew_to_match_data, npix_sim_skew)
+        master_mask_chunk = reshape_data_array(master_mask, nskew_to_match_data, npix_sim_skew, True)
         if type(cgm_gpm_allspec) == type(None):
             all_mask = master_mask_chunk
         else:
-            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso][0], nskew_to_match_data, npix_sim_skew) # reshaping GPM from cgm masking
+            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso][0], nskew_to_match_data, npix_sim_skew, True) # reshaping GPM from cgm masking
             all_mask = master_mask_chunk * gpm_onespec_chunk
 
         # compute the 2PCF
@@ -349,7 +365,7 @@ def compute_model(args):
     # compute CF and covariance of mock dataset at each point of model grid
     # args: tuple of arguments from parser
 
-    ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, cgm_masking_gpm = args
+    ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm = args
     rantaufile = os.path.join(xhi_path, 'ran_skewers_' + zstr + '_OVT_' + 'xHI_{:4.2f}'.format(xHI) + '_tau.fits')
     params = Table.read(rantaufile, hdu=1)
     skewers = Table.read(rantaufile, hdu=2)
@@ -365,7 +381,7 @@ def compute_model(args):
     xi_mean = np.mean(xi_nless, axis=0)
 
     # noisy quantities for all QSOs
-    xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, master_seed=master_seed, cgm_gpm_allspec=cgm_masking_gpm)
+    xi_mock_keep, covar = mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=master_seed, cgm_gpm_allspec=cgm_masking_gpm)
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
 
@@ -381,7 +397,7 @@ def test_compute_model():
     fwhm = 90
     sampling = 3
     vmin_corr = 10
-    vmax_corr = 2000
+    vmax_corr = 3500
     dv_corr = fwhm
     ncopy = 5
     #ncovar = 10
@@ -394,7 +410,8 @@ def test_compute_model():
     else:
         cgm_masking_gpm = None
 
-    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, cgm_masking_gpm
+    redshift_bin = 'all' # 'high', 'all'
+    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm
 
     output = compute_model(args)
     ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = output
@@ -454,8 +471,8 @@ def parser():
     parser.add_argument('--nproc', type=int, help="Number of processors to run on")
     parser.add_argument('--fwhm', type=float, default=90.0, help="spectral resolution in km/s")
     parser.add_argument('--samp', type=float, default=3.0, help="Spectral sampling: pixels per fwhm resolution element")
-    parser.add_argument('--vmin', type=float, default=30.0, help="Minimum of velocity bins for correlation function")
-    parser.add_argument('--vmax', type=float, default=3100, help="Maximum of velocity bins for correlation function")
+    parser.add_argument('--vmin', type=float, default=10.0, help="Minimum of velocity bins for correlation function")
+    parser.add_argument('--vmax', type=float, default=3500, help="Maximum of velocity bins for correlation function")
     parser.add_argument('--dv', type=float, default=None, help="Width of velocity bins for correlation function. "
                                                                "If not set fwhm will be used")
     parser.add_argument('--ncopy', type=int, default=1000, help="number of forward-modeled spectra for each qso")
@@ -464,6 +481,9 @@ def parser():
     parser.add_argument('--logZmin', type=float, default=-6.0, help="minimum logZ value")
     parser.add_argument('--logZmax', type=float, default=-2.0, help="maximum logZ value")
     parser.add_argument('--cgm_masking', action='store_true', help='whether to mask cgm or not')
+    parser.add_argument('--lowz_bin', action='store_true', help='use the low redshift bin, defined to be z < 6.754 (median)')
+    parser.add_argument('--highz_bin', action='store_true', help='use the high redshift bin, defined to be z >= 6.754 (median)')
+    parser.add_argument('--allz_bin', action='store_true', help='use all redshift bin')
     return parser.parse_args()
 
 def main():
@@ -482,6 +502,15 @@ def main():
         cgm_masking_gpm = init_cgm_masking(fwhm)
     else:
         cgm_masking_gpm = None
+
+    if args.lowz_bin:
+        redshift_bin = 'low'
+    elif args.highz_bin:
+        redshift_bin = 'high'
+    elif args.allz_bin:
+        redshift_bin = 'all'
+    else:
+        raise ValueError('must set one of these arguments: "--lowz_bin", "--highz_bin", or "--allz_bin"')
 
     # Grid of metallicities
     nlogZ = args.nlogZ
@@ -504,7 +533,7 @@ def main():
     files = glob.glob(os.path.join(xhi_path, '*_tau.fits'))
     params = Table.read(files[0], hdu=1)
 
-    args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, ncopy, cgm_masking_gpm
+    args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm
     all_args = []
     seed_vec = np.full(nhi*nlogZ, master_seed) # same seed for each CPU process
 
@@ -541,8 +570,8 @@ def main():
 
     ncovar = 0 # hardwired
     nmock = ncopy # hardwired
-    param_model=Table([[ncopy], [ncovar], [nmock], [fwhm],[sampling],[master_seed], [nhi], [xhi_val], [nlogZ], [logZ_vec], [ncorr], [vmin_corr],[vmax_corr], [vel_mid]],
-                      names=('ncopy', 'ncovar', 'nmock', 'fwhm', 'sampling', 'seed', 'nhi', 'xhi', 'nlogZ', 'logZ', 'ncorr', 'vmin_corr', 'vmax_corr', 'vel_mid'))
+    param_model=Table([[ncopy], [ncovar], [nmock], [fwhm],[sampling],[master_seed], [nhi], [xhi_val], [nlogZ], [logZ_vec], [ncorr], [vmin_corr],[vmax_corr], [vel_mid], [redshift_bin]],
+                      names=('ncopy', 'ncovar', 'nmock', 'fwhm', 'sampling', 'seed', 'nhi', 'xhi', 'nlogZ', 'logZ', 'ncorr', 'vmin_corr', 'vmax_corr', 'vel_mid', 'redshift_bin'))
     param_out = hstack((params, param_model))
 
     # Write out to multi-extension fits
