@@ -77,11 +77,12 @@ def continuum_normalize(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbkpt, 
     _, flux_fit = sset.fit(wave_arr[outmask], flux_arr[outmask], ivar_arr[outmask])
 
     if plot:
-        plt.plot(wave_arr, flux_arr, c='b', alpha=0.3, drawstyle='steps-mid')
-        plt.plot(wave_arr[outmask], flux_arr[outmask], c='b', drawstyle='steps-mid')
-        plt.plot(wave_arr[outmask], flux_fit, c='r', drawstyle='steps-mid')
-        plt.plot(wave_arr[outmask], std_arr[outmask], c='k', drawstyle='steps-mid')
-        plt.ylim([0, 0.50])
+        plt.plot(wave_arr, flux_arr, c='b', alpha=0.3, drawstyle='steps-mid', label='flux')
+        plt.plot(wave_arr[outmask], flux_arr[outmask], c='b', drawstyle='steps-mid', label='flux (masked)')
+        plt.plot(wave_arr[outmask], flux_fit, c='r', drawstyle='steps-mid', label='continuum fit')
+        plt.plot(wave_arr[outmask], std_arr[outmask], c='k', drawstyle='steps-mid', label='sigma (masked)')
+        plt.legend()
+        #plt.ylim([0, 0.50])
         plt.show()
 
     return flux_fit, outmask, sset
@@ -171,11 +172,11 @@ def custom_mask_J0038(plot=False):
 
     return wave, flux, ivar, mask, std, out_gpm
 
-def extract_and_norm(fitsfile, everyn_bkpt):
+def extract_and_norm(fitsfile, everyn_bkpt, qso_name):
     # combining extract_data() and continuum_normalize() including custom masking
 
     wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
-    qso_name = fitsfile.split('/')[-1].split('_')[0]
+    #qso_name = fitsfile.split('/')[-1].split('_')[0]
 
     if qso_name == 'J0313-1806':
         wave, flux, ivar, mask, std, out_gpm = custom_mask_J0313()
@@ -198,12 +199,13 @@ def extract_and_norm(fitsfile, everyn_bkpt):
 
 def all_absorber_redshift(fitsfile_list):
 
-    qso_zlist = [7.6, 7.54, 7.0, 7.0]
+    qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
+    qso_zlist = [7.642, 7.541, 7.001, 7.034]
     everyn_break_list = [20, 20, 20, 20]
     all_z = []
 
     for iqso, fitsfile in enumerate(fitsfile_list):
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso])
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
         redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
         good_wave = wave[outmask][redshift_mask]
         z_abs = good_wave/2800 - 1
@@ -212,12 +214,15 @@ def all_absorber_redshift(fitsfile_list):
     print(np.mean(all_z), np.median(all_z))
     return all_z
 
-def qso_pathlength(fitsfile, qso_name, qso_z):
+def qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185):
     # 3/29/2022: forgot that I wrote the same code above (all_absorber_redshift)
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, 20)
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, 20, qso_name)
 
     redshift_mask = wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
-    master_mask = redshift_mask * outmask
+    obs_wave_max = (2800 - exclude_rest) * (1 + qso_z)
+    proximity_zone_mask = wave < obs_wave_max
+
+    master_mask = outmask * redshift_mask * proximity_zone_mask
 
     good_wave = wave[master_mask]
     good_z = good_wave/2800 - 1
@@ -226,14 +231,14 @@ def qso_pathlength(fitsfile, qso_name, qso_z):
     print(qso_name, "median z=", median_z, "dz=", dz_pathlength)
     #print(good_z.min(), good_z.max())
 
-    return good_z
+    return good_z, outmask, redshift_mask, proximity_zone_mask
 
-def qso_exclude_proximity_zone(fitsfile, qso_z, exclude_rest=1216-1185, plot=False):
+def qso_exclude_proximity_zone(fitsfile, qso_z, qso_name, exclude_rest=1216-1185, plot=False):
     # BAO lyaf: 1040 A < lambda_rest < 1200 A
     # Bosman+2021: lambda_rest < 1185 A
     # the default exclude_rest value uses Bosman cut off
 
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, 20)
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, 20, qso_name)
 
     redshift_mask = wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
     master_mask = redshift_mask * outmask
@@ -266,7 +271,7 @@ def init_skewers_compute_model_grid():
     vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
-    vmin_corr, vmax_corr, dv_corr = 10, 2000, 100
+    vmin_corr, vmax_corr, dv_corr = 10, 3500, 100
 
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
@@ -276,7 +281,7 @@ def init_skewers_compute_model_grid():
     return vel_lores, flux_lores, vel_mid, xi_mean
 
 import pdb
-def init_onespec(iqso):
+def init_onespec(iqso, redshift_bin):
     # initialize all needed data from one qso for testing compute_model_grid.py
     datapath = '/Users/suksientie/Research/data_redux/'
     # datapath = '/mnt/quasar/sstie/MgII_forest/z75/'
@@ -287,20 +292,33 @@ def init_onespec(iqso):
                      datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
 
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-    qso_zlist = [7.6, 7.54, 7.0, 7.0]
+    qso_zlist = [7.642, 7.541, 7.001, 7.034]
     everyn_break_list = [20, 20, 20, 20]
     exclude_restwave = 1216 - 1185
+    median_z = 6.574  # median redshift of measurement (excluding proximity zones)
 
     fitsfile = fitsfile_list[iqso]
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso])
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
     vel_data = obswave_to_vel_2(wave)
 
     redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
     obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
     proximity_zone_mask = wave < obs_wave_max
 
+    if redshift_bin == 'low':
+        zbin_mask = wave < (2800 * (1 + median_z))
+        zbin_mask_fluxfit = wave[outmask] < (2800 * (1 + median_z))
+
+    elif redshift_bin == 'high':
+        zbin_mask = wave >= (2800 * (1 + median_z))
+        zbin_mask_fluxfit = wave[outmask] >= (2800 * (1 + median_z))
+
+    elif redshift_bin == 'all':
+        zbin_mask = np.ones_like(wave, dtype=bool)
+        zbin_mask_fluxfit = np.ones_like(wave[outmask], dtype=bool)
+
     #master_mask = redshift_mask * outmask # final ultimate mask
-    master_mask = redshift_mask * outmask * proximity_zone_mask
+    master_mask = redshift_mask * outmask * proximity_zone_mask * zbin_mask
 
     # masked arrays
     good_wave = wave[master_mask]
@@ -308,8 +326,9 @@ def init_onespec(iqso):
     good_ivar = ivar[master_mask]
     good_std = std[master_mask]
 
-    fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max)
-    #fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+    # applying all the data masks above to the fitted continuum
+    # fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
+    fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max) * zbin_mask_fluxfit
     fluxfit_redshift = fluxfit[fluxfit_custom_mask]
     norm_good_flux = good_flux / fluxfit_redshift
     norm_good_std = good_std / fluxfit_redshift
@@ -342,7 +361,42 @@ def pad_fluxfit(outmask, fluxfit):
 
     return fluxfit_new
 
-import compute_model_grid as cmg
+################################
+import compute_model_grid_new as cmg
+import pdb
+def do_all_onespec_cmg(iqso, redshift_bin, ncopy, vel_lores, flux_lores, std_corr=1.0, cgm_gpm_allspec=None):
+
+    vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, norm_flux, ivar = \
+        init_onespec(iqso, redshift_bin)
+
+    ranindx, rand_flux_lores, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = \
+        cmg.forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=None, std_corr=std_corr)
+
+    master_mask_chunk = cmg.reshape_data_array(master_mask, nskew_to_match_data, npix_sim_skew, True)
+
+    if type(cgm_gpm_allspec) == type(None):
+        pass
+    else:
+        gpm_onespec_chunk = cmg.reshape_data_array(cgm_gpm_allspec[iqso][0], nskew_to_match_data, npix_sim_skew, True)  # reshaping GPM from cgm masking
+        master_mask_chunk *= gpm_onespec_chunk
+
+    flux_masked = []
+    noise_masked = []
+    for icopy in range(ncopy):
+        flux_masked.append(noisy_flux_lores_ncopy[icopy][master_mask_chunk])
+        noise_masked.append(rand_noise_ncopy[icopy][master_mask_chunk])
+    flux_masked = np.array(flux_masked)
+    noise_masked = np.array(noise_masked)
+    print("ratio", np.std(norm_good_flux) / np.nanstd(flux_masked.flatten()), np.std(norm_good_flux),
+          np.nanstd(flux_masked.flatten()))
+    """
+    
+    ncopy_plot= 5
+    cmg.plot_forward_model_onespec(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask_chunk, \
+                                   good_vel_data, norm_good_flux, ncopy_plot)
+    plt.show()
+    """
+
 # START HERE: generate cf_corr for each QSO
 def compare_cf_data_fm(qso_fitsfile, qso_z, iqso, std_corr, vel_lores, flux_lores, ncopy, seed=None, plot=False):
 

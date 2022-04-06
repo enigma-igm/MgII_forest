@@ -4,10 +4,10 @@ echo "Start: $now"
 
 python /home/sstie/MgII_forest/compute_model_grid_new.py \
 --nproc 10 --fwhm 90 --samp 3 \
---vmin 10 --vmax 2000 --dv 100 \
+--vmin 10 --vmax 3500 --dv 100 \
 --ncopy 1000 --seed 9251761 \
 --logZmin -6.0 --logZmax -2.0 --nlogZ 201 \
---cgm_masking
+--cgm_masking --allz_bin
 
 now=`date`
 echo "Finish: $now"

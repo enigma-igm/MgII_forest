@@ -28,7 +28,7 @@ xylabel_fontsize = 20
 legend_fontsize = 14
 
 ### Some controls
-plot_normalized = False
+plot_normalized = True
 vel_unit = False # always off for now
 show_breakpoints = False # always off for now
 

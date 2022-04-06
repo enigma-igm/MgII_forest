@@ -42,7 +42,7 @@ fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits
                  datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.6, 7.54, 7.0, 7.0]
+qso_zlist = [7.642, 7.541, 7.001, 7.034]
 
 def init(modelfile, actual_data=True):
     # modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000.fits'

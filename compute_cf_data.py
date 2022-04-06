@@ -48,13 +48,13 @@ dv_corr = 100  # slightly larger than fwhm
 corr_all = [0.689, 0.640, 0.616, 0.583] # values used by compute_model_grid_new.py
 median_z = 6.574
 
-def onespec(fitsfile, qso_z, shuffle=False, seed=None, plot=False, std_corr=1.0, redshift_bin=None):
+def onespec(fitsfile, qso_z, qso_name, shuffle=False, seed=None, plot=False, std_corr=1.0, redshift_bin=None):
     # compute the CF for one QSO spectrum
     # 3/29/22: added proximity zone mask
 
     # extract and continuum normalize
     # converting Angstrom to km/s
-    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break)
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break, qso_name)
 
     # the "norm" and "good" arrays are what MgiiFinder and CF will operate on
     good_wave, good_flux, good_std, good_ivar = wave[outmask], flux[outmask], std[outmask], ivar[outmask]
@@ -272,8 +272,133 @@ def onespec2(iqso, seed=None, plot=False):
 
     return good_vel_data, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
 
-from IPython import embed
-def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None, None, None, None], redshift_bin=None):
+def onespec_restwave(fitsfile, qso_z, qso_name, shuffle=False, seed=None, plot=False, std_corr=1.0, redshift_bin=None):
+    # just making sure that the dv grid is unchanged whether one uses obs or rest frame wavelength.
+    wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break, qso_name)
+
+    # the "norm" and "good" arrays are what MgiiFinder and CF will operate on
+    good_wave, good_flux, good_std, good_ivar = wave[outmask], flux[outmask], std[outmask], ivar[outmask]
+    norm_good_flux = good_flux / fluxfit
+    norm_good_std = good_std / fluxfit
+
+    # applying additional masks on redshift and proximity zones
+    redshift_mask = good_wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
+    obs_wave_max = (2800 - exclude_restwave) * (1 + qso_z)
+    proximity_zone_mask = good_wave < obs_wave_max
+
+    if redshift_bin == 'low':
+        zbin_mask = good_wave < (2800 * (1 + median_z))
+    elif redshift_bin == 'high':
+        zbin_mask = good_wave >= (2800 * (1 + median_z))
+    elif redshift_bin == None:
+        zbin_mask = np.ones_like(good_wave, dtype=bool)
+
+    good_rest_wave = good_wave / (1 + qso_z)
+    vel_restwave = mutils.obswave_to_vel_2(good_rest_wave)#[redshift_mask * proximity_zone_mask * zbin_mask]
+    vel = mutils.obswave_to_vel_2(good_wave)#[redshift_mask * proximity_zone_mask * zbin_mask]
+
+    return vel_restwave, vel, good_rest_wave, good_wave, good_flux
+
+    norm_good_flux = norm_good_flux[redshift_mask * proximity_zone_mask * zbin_mask]
+    norm_good_std = norm_good_std[redshift_mask * proximity_zone_mask * zbin_mask]
+    good_ivar = good_ivar[redshift_mask * proximity_zone_mask * zbin_mask]
+
+    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+
+    # if want to shuffle
+    if shuffle:
+        rand.shuffle(norm_good_flux)
+        rand.shuffle(good_ivar)
+
+    # if qso_z provided, then also mask out region redward of the QSO redshift
+    """
+    if qso_z != None:
+        redshift_mask = good_wave <= (2800 * (1 + qso_z))
+        vel = vel[redshift_mask]
+        norm_good_flux = norm_good_flux[redshift_mask]
+        norm_good_std = norm_good_std[redshift_mask]
+        good_ivar = good_ivar[redshift_mask]
+    """
+    # reshaping arrays to be compatible with MgiiFinder
+    # applied on the "good" arrays, i.e. quantities that have been masked
+    norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
+    good_ivar = good_ivar.reshape((1, len(good_ivar)))
+    norm_good_std = norm_good_std.reshape((1, len(norm_good_std)))
+
+    mgii_tot = MgiiFinder(vel, norm_good_flux, good_ivar, fwhm, signif_thresh, signif_mask_nsigma=signif_mask_nsigma,
+                          signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+
+    ### CF from not masking CGM (computed from "good" masked arrays)
+    meanflux_tot = np.mean(norm_good_flux)
+    deltaf_tot = (norm_good_flux - meanflux_tot) / meanflux_tot
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr)
+    xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
+
+    ### CF from masking CGM
+    meanflux_tot_mask = np.mean(norm_good_flux[mgii_tot.fit_gpm])
+    deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
+    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel, vmin_corr, vmax_corr,
+                                                                       dv_corr, gpm=mgii_tot.fit_gpm)
+    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0) # again not really averaging here since we only have 1 spectrum
+
+    print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
+
+    # fractional path used
+    fraction_used = np.sum(mgii_tot.fit_gpm) / mgii_tot.fit_gpm.size
+    print("::::: fraction pixels used :::::", fraction_used)
+
+    ### now dealing with CF from pure noise alone (not masking)
+    #fnoise = rand.normal(0, norm_good_std)
+    fnoise = []
+    n_real = 50
+    for i in range(n_real): # generate n_real of the noise vector
+        fnoise.append(rand.normal(0, std_corr*norm_good_std[0])) # taking the 0-th index because norm_good_std has been reshaped above
+    fnoise = np.array(fnoise)
+
+    #meanflux_tot = np.mean(fnoise)
+    #deltaf_tot = (fnoise - meanflux_tot) / meanflux_tot
+    deltaf_tot = fnoise / meanflux_tot
+    vel_mid, xi_noise, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr)
+
+    ### noise CF with masking
+    #meanflux_tot_mask = np.mean(fnoise[mgii_tot.fit_gpm])
+    #deltaf_tot_mask = (fnoise - meanflux_tot_mask) / meanflux_tot_mask
+    deltaf_tot_mask = fnoise / meanflux_tot_mask
+    vel_mid, xi_noise_masked, npix_tot, _ = reion_utils.compute_xi(deltaf_tot_mask, vel, vmin_corr, vmax_corr, dv_corr, gpm=mgii_tot.fit_gpm)
+
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
+
+    if plot:
+        # plot with no masking
+        plt.figure()
+        for i in range(n_real):
+            plt.plot(vel_mid, xi_noise[i], linewidth=1., c='tab:gray', ls='--', alpha=0.1)
+
+        plt.plot(vel_mid, xi_mean_tot, linewidth=1.5, label='data unmasked')
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        # plot with masking
+        plt.figure()
+        for i in range(n_real):
+            plt.plot(vel_mid, xi_noise_masked[i], linewidth=1., c='tab:gray', ls='--', alpha=0.1)
+        plt.plot(vel_mid, xi_mean_tot_mask, linewidth=1.5, label='data masked')
+
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        plt.show()
+
+    return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
+
+def allspec(fitsfile_list, qso_zlist, qso_namelist, plot=False, shuffle=False, seed_list=[None, None, None, None], redshift_bin=None):
     # running onespec() for all the 4 QSOs
 
     xi_unmask_all = []
@@ -284,7 +409,7 @@ def allspec(fitsfile_list, qso_zlist, plot=False, shuffle=False, seed_list=[None
     for ifile, fitsfile in enumerate(fitsfile_list):
         std_corr = corr_all[ifile]
         print("std_corr", std_corr)
-        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, _ = onespec(fitsfile, qso_z=qso_zlist[ifile], shuffle=shuffle, seed=seed_list[ifile], \
+        v, f, ivar, vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, _ = onespec(fitsfile, qso_zlist[ifile], qso_namelist[ifile], shuffle=shuffle, seed=seed_list[ifile], \
                                                                                         std_corr=std_corr, redshift_bin=redshift_bin)
         xi_unmask_all.append(xi_unmask[0])
         xi_mask_all.append(xi_mask[0])

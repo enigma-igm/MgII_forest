@@ -111,8 +111,9 @@ def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_
     # 3/29/22: added proximity zone mask
     # redshift bin mask applied to the outputs later on
     gpm_allspec = []
+    mgii_tot_all = []
     for iqso, fitsfile in enumerate(fitsfile_list):
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
 
         redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso])) # removing spectral region beyond qso redshift
         obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
@@ -137,9 +138,10 @@ def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
         gpm_allspec.append(mgii_tot.fit_gpm)
+        mgii_tot_all.append(mgii_tot)
 
     # 'gpm_allspec' is a list, where gpm for each spec has different length
-    return gpm_allspec
+    return gpm_allspec, mgii_tot_all
 
 ########################## one data spectrum #############################
 def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=None, std_corr=1.0):
@@ -293,7 +295,7 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
 
     for iqso, fitsfile in enumerate(fitsfile_list):
         # initialize all qso data
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso])
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
         vel_data = mutils.obswave_to_vel_2(wave)
 
         redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
@@ -406,11 +408,11 @@ def test_compute_model():
     logZ = -3.5
     cgm_masking = True
     if cgm_masking:
-        cgm_masking_gpm = init_cgm_masking(fwhm)
+        cgm_masking_gpm, _ = init_cgm_masking(fwhm)
     else:
         cgm_masking_gpm = None
 
-    redshift_bin = 'all' # 'high', 'all'
+    redshift_bin = 'low' # 'high', 'all'
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm
 
     output = compute_model(args)
@@ -499,7 +501,7 @@ def main():
     dv_corr = args.dv if args.dv is not None else fwhm
     cgm_masking = args.cgm_masking
     if cgm_masking:
-        cgm_masking_gpm = init_cgm_masking(fwhm)
+        cgm_masking_gpm, _ = init_cgm_masking(fwhm)
     else:
         cgm_masking_gpm = None
 
