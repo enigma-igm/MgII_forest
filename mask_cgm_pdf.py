@@ -36,7 +36,7 @@ everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
 # chi PDF
-signif_thresh = 4.0
+signif_thresh = 2.0 # 4.0
 signif_mask_dv = 300.0 # value used in Hennawi+2021
 signif_mask_nsigma = 3 #10 #8 # chi threshold
 one_minF_thresh = 0.3 # flux threshold
