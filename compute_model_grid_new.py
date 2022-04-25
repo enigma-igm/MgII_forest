@@ -320,7 +320,7 @@ def test_compute_model():
     redshift_bin = 'all' # 'low', 'high', 'all'
 
     if cgm_masking:
-        cgm_masking_gpm, _ = init_cgm_masking(redshift_bin)
+        cgm_masking_gpm, _ = init_cgm_masking(redshift_bin, datapath)
     else:
         cgm_masking_gpm = None
 
