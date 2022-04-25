@@ -332,7 +332,7 @@ def test_compute_model():
     master_seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
     logZ = -3.5
     cgm_masking = True
-    redshift_bin = 'low'  # 'high', 'all'
+    redshift_bin = 'high'  # 'low', 'high', 'all'
 
     if cgm_masking:
         cgm_masking_gpm, _ = init_cgm_masking(redshift_bin)

@@ -103,5 +103,5 @@ atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
 atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
 plt.tight_layout()
-plt.savefig("combined_coadds.png")
+#plt.savefig("combined_coadds.png")
 plt.show()
