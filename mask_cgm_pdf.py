@@ -17,7 +17,7 @@ from astropy import constants as const
 ########## global variables ##########
 fwhm = 90
 sampling = 3
-seed = 4101877 # seed for generating random realizations of qso noise
+seed = None #4101877 # seed for generating random realizations of qso noise
 
 if seed != None:
     rand = np.random.RandomState(seed)
@@ -27,11 +27,12 @@ else:
 fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-0653/vel1_tellcorr_pad.fits']
 
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.642, 7.541, 7.001, 7.034] # precise redshifts from Yang+2021
-everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
+qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.0] # precise redshifts from Yang+2021
+everyn_break_list = [20, 20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> 600 km/s
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
@@ -48,46 +49,9 @@ dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
 
 # flux PDF
 nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
+color_ls = ['r', 'g', 'c', 'orange']
 
-def init_old():
-    # masked
-    norm_good_flux_all = []
-    norm_good_std_all = []
-    good_ivar_all = []
-    good_wave_all = []
-    vel_data_all = []
-    noise_all = []
-
-    for iqso, fitsfile in enumerate(fitsfile_list):
-        #wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], '')
-
-        # masks
-        redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
-        obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
-        proximity_zone_mask = wave[outmask] < obs_wave_max
-
-        # masked quantities
-        good_wave = wave[outmask][redshift_mask * proximity_zone_mask]
-        good_flux = flux[outmask][redshift_mask * proximity_zone_mask]
-        good_ivar = ivar[outmask][redshift_mask * proximity_zone_mask]
-        good_std = std[outmask][redshift_mask * proximity_zone_mask]
-        vel_data = mutils.obswave_to_vel_2(good_wave)
-
-        norm_good_flux = good_flux / fluxfit[redshift_mask * proximity_zone_mask]
-        norm_good_std = good_std / fluxfit[redshift_mask * proximity_zone_mask]
-
-        norm_good_flux_all.append(norm_good_flux)
-        norm_good_std_all.append(norm_good_std)
-        good_ivar_all.append(good_ivar)
-        good_wave_all.append(good_wave)
-        vel_data_all.append(vel_data)
-        noise_all.append(rand.normal(0, norm_good_std))
-
-    return norm_good_flux_all, norm_good_std_all, good_ivar_all, vel_data_all, good_wave_all, noise_all
-
-def init(redshift_bin='all'):
-
+def init(redshift_bin='all', do_not_apply_any_mask=False):
     norm_good_flux_all = []
     norm_good_std_all = []
     norm_good_ivar_all = []
@@ -99,18 +63,21 @@ def init(redshift_bin='all'):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+        vel_data = mutils.obswave_to_vel_2(wave)
 
-        masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask # using all masks except the strong absorber masks
-        #masks_for_cgm_masking = mask * zbin_mask  # using all masks except the strong absorber masks
+        if do_not_apply_any_mask:
+            masks_for_cgm_masking = np.ones_like(wave, dtype=bool)
+        else:
+            masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask # using all masks except the strong absorber masks
+
         print(np.sum(masks_for_cgm_masking), len(wave))
 
         # masks quantities
         norm_good_flux = (flux/fluxfit)[masks_for_cgm_masking]
         norm_good_std = (std/fluxfit)[masks_for_cgm_masking]
         norm_good_ivar = (ivar*(fluxfit**2))[masks_for_cgm_masking]
-        #good_ivar = ivar[masks_for_cgm_masking]
         good_wave = wave[masks_for_cgm_masking]
-        good_vel_data = mutils.obswave_to_vel_2(good_wave)
+        good_vel_data = vel_data[masks_for_cgm_masking]
 
         norm_good_flux_all.append(norm_good_flux)
         norm_good_std_all.append(norm_good_std)
@@ -140,8 +107,8 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
         flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - norm_good_flux, oneminf_min, oneminf_max, nbins_flux)
         _, flux_pdf_noise = utils.pdf_calc(noise, oneminf_min, oneminf_max, nbins_flux)
 
-        plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=1.0, lw=2, label=qso_namelist[i])
-        plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='k', alpha=0.7, label='gaussian noise')
+        plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=1.0, lw=2, color=color_ls[i], label=qso_namelist[i])
+        plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='b', alpha=1.0, label='gaussian noise')
 
         plt.axvline(one_minF_thresh, color='k', ls='--', lw=2)
         plt.axvspan(one_minF_thresh, oneminf_max, facecolor='k', alpha=0.2, label='masked')
@@ -149,10 +116,9 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
     else:
         # plot PDF for each qso
         for i in range(nqso):
-
             norm_good_flux, noise = norm_good_flux_all[i], noise_all[i]
             flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - norm_good_flux, oneminf_min, oneminf_max, nbins_flux)
-            plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=0.5, label=qso_namelist[i])
+            plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], label=qso_namelist[i])
 
             all_transmission.extend(norm_good_flux)
             all_noise.extend(noise)
@@ -163,11 +129,9 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
 
         flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - all_transmission, oneminf_min, oneminf_max, nbins_flux)
         _, flux_pdf_noise = utils.pdf_calc(all_noise, oneminf_min, oneminf_max, nbins_flux)
-        # _, flux_pdf_gnoise = utils.pdf_calc(gaussian_noise, oneminf_min, oneminf_max, nbins)
 
-        plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='b', alpha=0.7, label='all gaussian noise')
+        plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='b', alpha=1.0, label='all gaussian noise')
         plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='all spectra')
-        # plt.plot(flux_bins, flux_pdf_gnoise, drawstyle='steps-mid', color='y', alpha=1.0, lw=2, label='gaussian noise')
         plt.axvline(one_minF_thresh, color='k', ls='--', lw=2)
         plt.axvspan(one_minF_thresh, oneminf_max, facecolor='k', alpha=0.2, label='masked')
 
@@ -227,7 +191,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         if plot:
             # plotting chi PDF of each QSO
             sig_bins, sig_pdf_tot = utils.pdf_calc(mgii_tot.signif, sig_min, sig_max, nbins_chi)
-            plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, label=qso_namelist[i])
+            plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], label=qso_namelist[i])
 
             # chi PDF of pure noise
             mgii_noise = MgiiFinder(vel_data, 1.0 + noise, norm_good_ivar, fwhm, signif_thresh,
@@ -245,7 +209,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         sig_bins, sig_pdf_tot = utils.pdf_calc(all_chi, sig_min, sig_max, nbins_chi)
         _, sig_pdf_noise = utils.pdf_calc(all_chi_noise, sig_min, sig_max, nbins_chi)
 
-        plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='b', alpha=0.7, label='all gaussian noise')
+        plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='b', alpha=1.0, label='all gaussian noise')
         plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='all spectra')
         plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
         plt.axvspan(signif_mask_nsigma, sig_max, facecolor='k', alpha=0.2, label='masked')
@@ -354,35 +318,85 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     ax2.yaxis.set_minor_locator(AutoMinorLocator())
     ax2.legend(fontsize=13)
 
+    # plot upper axis --- the CORRECT way, since vel and wave transformation is non-linear
+    def forward(x):
+        return np.interp(x, vel_data, wave_data)
+
+    def inverse(x):
+        return np.interp(x, wave_data, vel_data)
+
+    secax = ax1.secondary_xaxis('top', functions=(forward, inverse))
+    secax.xaxis.set_minor_locator(AutoMinorLocator())
+    secax.set_xlabel('obs wavelength (A)', fontsize=18, labelpad=8)
+
+    """
     # plot upper axis
     wave_min, wave_max = wave_data.min(), wave_data.max()
     atwin = ax1.twiny()
     atwin.set_xlabel('obs wavelength (A)', fontsize=18, labelpad=8)
+    #xtick_loc = np.arange(wave_min, wave_max + 100, 100)
+    #atwin.set_xticks(xtick_loc)
     atwin.axis([wave_min, wave_max, flux_min, flux_max])
     atwin.tick_params(top=True, axis="x")
-    atwin.xaxis.set_minor_locator(AutoMinorLocator())
-
+    #atwin.xaxis.set_minor_locator(AutoMinorLocator())
+    """
     plt.tight_layout()
     plt.show()
     #plt.close()
 
-def do_all():
+def do_allqso_allzbin():
     # get mgii_tot_all for all qso and for all redshift bins
 
     redshift_bin = 'low'
-    lowz_good_vel_data_all, lowz_norm_good_flux_all, lowz_norm_good_std_all, lowz_good_ivar_all, lowz_noise_all = init(redshift_bin)
+    lowz_good_vel_data_all, lowz_good_wave_data_all, lowz_norm_good_flux_all, lowz_norm_good_std_all, lowz_good_ivar_all, lowz_noise_all = init(redshift_bin)
     lowz_mgii_tot_all = chi_pdf(lowz_good_vel_data_all, lowz_norm_good_flux_all, lowz_good_ivar_all, lowz_noise_all, plot=False)
 
     redshift_bin = 'high'
-    highz_good_vel_data_all, highz_norm_good_flux_all, highz_norm_good_std_all, highz_good_ivar_all, highz_noise_all = init(redshift_bin)
+    highz_good_vel_data_all, highz_good_wave_data_all, highz_norm_good_flux_all, highz_norm_good_std_all, highz_good_ivar_all, highz_noise_all = init(redshift_bin)
     highz_mgii_tot_all = chi_pdf(highz_good_vel_data_all, highz_norm_good_flux_all, highz_good_ivar_all, highz_noise_all, plot=False)
 
     redshift_bin = 'all'
-    allz_good_vel_data_all, allz_norm_good_flux_all, allz_norm_good_std_all, allz_good_ivar_all, allz_noise_all = init(redshift_bin)
+    allz_good_vel_data_all, allz_good_wave_data_all, allz_norm_good_flux_all, allz_norm_good_std_all, allz_good_ivar_all, allz_noise_all = init(redshift_bin)
     allz_mgii_tot_all = chi_pdf(allz_good_vel_data_all, allz_norm_good_flux_all, allz_good_ivar_all, allz_noise_all, plot=False)
 
     return lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all
 
 
+def init_old():
+    # masked
+    norm_good_flux_all = []
+    norm_good_std_all = []
+    good_ivar_all = []
+    good_wave_all = []
+    vel_data_all = []
+    noise_all = []
+
+    for iqso, fitsfile in enumerate(fitsfile_list):
+        #wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
+        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], '')
+
+        # masks
+        redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
+        obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
+        proximity_zone_mask = wave[outmask] < obs_wave_max
+
+        # masked quantities
+        good_wave = wave[outmask][redshift_mask * proximity_zone_mask]
+        good_flux = flux[outmask][redshift_mask * proximity_zone_mask]
+        good_ivar = ivar[outmask][redshift_mask * proximity_zone_mask]
+        good_std = std[outmask][redshift_mask * proximity_zone_mask]
+        vel_data = mutils.obswave_to_vel_2(good_wave)
+
+        norm_good_flux = good_flux / fluxfit[redshift_mask * proximity_zone_mask]
+        norm_good_std = good_std / fluxfit[redshift_mask * proximity_zone_mask]
+
+        norm_good_flux_all.append(norm_good_flux)
+        norm_good_std_all.append(norm_good_std)
+        good_ivar_all.append(good_ivar)
+        good_wave_all.append(good_wave)
+        vel_data_all.append(vel_data)
+        noise_all.append(rand.normal(0, norm_good_std))
+
+    return norm_good_flux_all, norm_good_std_all, good_ivar_all, vel_data_all, good_wave_all, noise_all
 
 

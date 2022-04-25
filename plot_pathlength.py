@@ -25,15 +25,16 @@ good_z_all = []
 good_z_all2 = []
 
 for iqso, fitsfile in enumerate(fitsfile_list):
-    gz, outmask, z_mask, pz_mask = mutils.qso_pathlength(fitsfile, '', qso_zlist[iqso])
+    gz = mutils.final_qso_pathlength(fitsfile, '', qso_zlist[iqso])
     good_z_all.append(gz)
     good_z_all2.extend(gz)
 
-    plt.plot(gz, (iqso+1)*np.ones(len(gz)), 'k.')
-    plt.plot(qso_zlist[iqso], iqso + 1, 'ko')
+    plt.plot(gz, (iqso+1)*np.ones(len(gz)), 'ko')
+    plt.plot(qso_zlist[iqso], iqso + 1, 'r*', ms=8)
 
 median_z = np.median(good_z_all2)
-plt.axvline(median_z)
+print(median_z)
+plt.axvline(median_z, ls='--')
 plt.xlabel('z')
 plt.ylabel('QSO sightline')
 

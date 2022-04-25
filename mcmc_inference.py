@@ -27,7 +27,7 @@ from astropy import units as u
 from astropy.io import fits
 import compute_cf_data
 
-seed = 988765 #2213142
+seed = 109721 #988765 #2213142
 rand = np.random.RandomState(seed)
 figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/'
 
@@ -58,7 +58,7 @@ def init(modelfile, actual_data=True):
     if actual_data:
         print("==== using actual data ==== ")
         xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
-        vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(fitsfile_list, qso_zlist, plot=False)
+        vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(fitsfile_list, qso_zlist, qso_namelist, plot=False)
         xi_data = xi_mean_mask
         xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
 
@@ -113,6 +113,34 @@ def init(modelfile, actual_data=True):
 
     return fine_out, coarse_out, data_out
 
+def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=0.0, vmax=1.0):
+    # plotting the correlation matrix (copied from CIV_forest/metal_corrfunc.py)
+
+    xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
+    xhi_data, logZ_data, xi_data, covar_array, params = data_out
+    vmin_corr = params['vmin_corr'][0]
+    vmax_corr = params['vmax_corr'][0]
+
+    ixhi = find_closest(xhi_coarse, xhi_want)
+    iZ = find_closest(logZ_coarse, logZ_want)
+    xhi_data = xhi_coarse[ixhi]
+    logZ_data = logZ_coarse[iZ]
+    covar = covar_array[ixhi, iZ, :, :]
+
+    # correlation matrix; easier to visualize compared to covar matrix
+    corr = covar / np.sqrt(np.outer(np.diag(covar), np.diag(covar)))
+    print(corr.min(), corr.max())
+
+    plt.figure(figsize=(8, 8))
+    plt.imshow(corr, origin='lower', interpolation='nearest', extent=[vmin_corr, vmax_corr, vmin_corr, vmax_corr], \
+               vmin=vmin, vmax=vmax, cmap='inferno')
+    plt.xlabel(r'$\Delta v$ (km/s)', fontsize=15)
+    plt.ylabel(r'$\Delta v$ (km/s)', fontsize=15)
+    plt.title('For model (logZ, xHI) = (%0.2f, %0.2f)' % (logZ_data, xhi_data))
+    plt.colorbar()
+
+    plt.show()
+
 def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalkers=40, savefits_chain=None, actual_data=True):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
@@ -161,6 +189,8 @@ def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalker
     chain = sampler.get_chain()
 
     inference.walker_plot(chain, truths, var_label, figpath + 'walkers.pdf')
+
+    return sampler, param_samples, flat_samples
 
     # Make the corner plot, again use the true values in the chain
     if actual_data:

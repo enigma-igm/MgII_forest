@@ -19,6 +19,7 @@ from enigma.reion_forest.mgii_find import MgiiFinder
 from multiprocessing import Pool
 from tqdm import tqdm
 import mutils
+import mask_cgm_pdf as mask_cgm
 import pdb
 
 ###################### global variables ######################
@@ -28,14 +29,15 @@ datapath = '/Users/suksientie/Research/data_redux/'
 fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
+                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits']
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.642, 7.541, 7.001, 7.034] # precise redshifts from Yang+2021
 everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> dvel_breakpoint = 600 km/s
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
-median_z = 6.574 # median redshift of measurement (excluding proximity zones)
+median_z = 6.57 # median redshift of measurement after excluding proximity zones; 4/20/2022
+corr_all = [0.758, 0.753, 0.701, 0.724] # 4/20/2022 (determined from mutils.plot_allspec_pdf)
 
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):
@@ -66,6 +68,7 @@ def read_model_grid(modelfile):
     return param, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array
 
 def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
+    # draw n number of random skewers that match the total data pathlength
     # vel_lores = Nyx velocity grid (numpy array)
     # vel_data = data velocity grid (numpy array)
     # tot_nyx_skews = total number of Nyx skewers (int)
@@ -85,6 +88,9 @@ def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
     return ranindx, nskew_to_match_data
 
 def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is_mask): # 10, 220
+    # reshape the data spectrum to match the dimension of the simulated skewers array,
+    # which is of shape (nskew_to_match_data, npix_sim_skew)
+    # note: set data_arr_is_mask = True if the data array is a mask
 
     pad_width = nskew_to_match_data * npix_sim_skew - len(data_arr)
 
@@ -106,44 +112,21 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
     new_data_arr = padded_data_arr.reshape(nskew_to_match_data, npix_sim_skew)
     return new_data_arr
 
-def init_cgm_masking(fwhm, signif_thresh=4.0, signif_mask_dv=300.0, signif_mask_nsigma=8, one_minF_thresh = 0.3):
-    # returns good pixel mask from cgm masking for all 4 qsos
-    # 3/29/22: added proximity zone mask
-    # redshift bin mask applied to the outputs later on
+def init_cgm_masking(redshift_bin):
+
+    # retaining the shape of the cgm masks to be the same as data shape, so not applying mask before running CGM masking
+    good_vel_data_all, good_wave_data_all, norm_good_flux_all, norm_good_std_all, good_ivar_all, noise_all = \
+        mask_cgm.init(redshift_bin, do_not_apply_any_mask=True)
+
+    mgii_tot_all = mask_cgm.chi_pdf(good_vel_data_all, norm_good_flux_all, good_ivar_all, noise_all, plot=False)
     gpm_allspec = []
-    mgii_tot_all = []
-    for iqso, fitsfile in enumerate(fitsfile_list):
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
 
-        redshift_mask = wave[outmask] <= (2800 * (1 + qso_zlist[iqso])) # removing spectral region beyond qso redshift
-        obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
-        proximity_zone_mask = wave[outmask] < obs_wave_max
+    for i in range(len(mgii_tot_all)):
+        gpm_allspec.append(mgii_tot_all[i].fit_gpm[0])
 
-        #good_wave = wave[outmask][redshift_mask][proximity_zone_mask]
-        #good_flux = flux[outmask][redshift_mask][proximity_zone_mask]
-        #good_ivar = ivar[outmask][redshift_mask][proximity_zone_mask]
-        #norm_good_flux = good_flux / fluxfit[redshift_mask]
-        good_wave = wave[outmask][redshift_mask * proximity_zone_mask]
-        good_flux = flux[outmask][redshift_mask * proximity_zone_mask]
-        good_ivar = ivar[outmask][redshift_mask * proximity_zone_mask]
-        norm_good_flux = good_flux / fluxfit[redshift_mask * proximity_zone_mask]
-
-        vel_data = mutils.obswave_to_vel_2(good_wave)
-
-        # reshaping to be compatible with MgiiFinder
-        norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
-        good_ivar = good_ivar.reshape((1, len(good_ivar)))
-
-        mgii_tot = MgiiFinder(vel_data, norm_good_flux, good_ivar, fwhm, signif_thresh,
-                              signif_mask_nsigma=signif_mask_nsigma,
-                              signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
-        gpm_allspec.append(mgii_tot.fit_gpm)
-        mgii_tot_all.append(mgii_tot)
-
-    # 'gpm_allspec' is a list, where gpm for each spec has different length
     return gpm_allspec, mgii_tot_all
 
-########################## one data spectrum #############################
+########################## simulating one data spectrum #############################
 def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=None, std_corr=1.0):
 
     npix_sim_skew = len(vel_lores)
@@ -176,7 +159,6 @@ def forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy
 
     return ranindx, rand_flux_lores, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew
 
-import pdb
 def plot_forward_model_onespec(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask_chunk, good_vel_data, norm_good_flux, ncopy_plot, title=None):
 
     ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
@@ -196,58 +178,30 @@ def plot_forward_model_onespec(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_fl
     plt.xlabel('Velocity (km/s)', fontsize=15)
     plt.tight_layout()
 
-    ##### plot flux PDF
-    plt.figure(figsize=(10, 8))
-    if title != None:
-        plt.title(title, fontsize=18)
-    plt.hist(norm_good_flux, bins=np.arange(0, 3, 0.02), histtype='step', label='data', density=True)
+def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask, vel_data, norm_flux, ncopy_plot, title=None):
 
-    # applying raw data mask to flux_lores_rand_noise, since we're comparing to "norm_good_flux"
-    flux_masked = []
-    noise_masked = []
-    for icopy in range(ncopy):
-        flux_masked.append(noisy_flux_lores_ncopy[icopy][master_mask_chunk])
-        noise_masked.append(rand_noise_ncopy[icopy][master_mask_chunk])
-    flux_masked = np.array(flux_masked)
-    noise_masked = np.array(noise_masked)
+    ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
 
-    plt.hist(flux_masked.flatten(), bins=np.arange(0, 3, 0.02), histtype='step', label='sim (ncopy=%d), good pix' % ncopy, density=True)
-    plt.xlabel('normalized flux', fontsize=15)
-    plt.ylabel('PDF', fontsize=15)
-    plt.legend(fontsize=15)
-    plt.tight_layout()
-    print("ratio", np.std(norm_good_flux) / np.nanstd(flux_masked.flatten()), np.std(norm_good_flux),
-          np.nanstd(flux_masked.flatten()))
-
-    ##### plot (1 - F) PDF
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(12, 8))
     if title != None:
         plt.title(title, fontsize=18)
 
-    nbins, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
-    flux_bins, flux_pdf_data = utils.pdf_calc(1.0 - norm_good_flux, oneminf_min, oneminf_max, nbins)
-    _, flux_pdf_flux_lores = utils.pdf_calc(1 - rand_flux_lores.flatten(), oneminf_min, oneminf_max, nbins)
-    _, flux_pdf_mock_all = utils.pdf_calc(1.0 - flux_masked.flatten(), oneminf_min, oneminf_max,
-                                          nbins)  # all mock spectra
-    _, flux_pdf_noise = utils.pdf_calc(noise_masked.flatten(), oneminf_min, oneminf_max, nbins)
-
+    nan_pad_mask = ~np.isnan(noisy_flux_lores_ncopy[0])
+    ##### plot subset of mock spectra
     for i in range(ncopy_plot):
-        flux_lores_comb = (noisy_flux_lores_ncopy[i])[master_mask_chunk]  # this also flattens the 2d array
-        _, flux_pdf_mock = utils.pdf_calc(1.0 - flux_lores_comb, oneminf_min, oneminf_max, nbins)
-        plt.plot(flux_bins, flux_pdf_mock, drawstyle='steps-mid', color='g', lw=0.5,
-                 alpha=0.6)  # individual mock spectrum
+        flux_lores_comb = noisy_flux_lores_ncopy[i][nan_pad_mask]
+        plt.plot(vel_data, flux_lores_comb + (i + 1), alpha=0.5, drawstyle='steps-mid')
 
-    plt.plot(flux_bins, flux_pdf_data, drawstyle='steps-mid', alpha=1.0, lw=2, label='data')
-    plt.plot(flux_bins, flux_pdf_mock_all, drawstyle='steps-mid', color='g', alpha=1.0, lw=2,
-             label='sim (ncopy=%d), good pix' % ncopy)
-    plt.plot(flux_bins, flux_pdf_noise, drawstyle='steps-mid', color='k', alpha=1.0, lw=2, label='pure noise', zorder=1)
+    plt.plot(vel_data, norm_flux, 'k', drawstyle='steps-mid')
 
-    plt.legend()
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('1$-$F')
-    plt.ylabel('PDF')
+    ind_masked = np.where(master_mask == False)[0]
+    for j in range(len(ind_masked)):  # bad way to plot masked pixels
+        plt.axvline(vel_data[ind_masked[j]], color='k', alpha=0.2, lw=2)
+
+    plt.ylabel('Flux (+ arbitrary offset)', fontsize=15)
+    plt.xlabel('Velocity (km/s)', fontsize=15)
     plt.tight_layout()
+
 
 def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
@@ -283,62 +237,33 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
     master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
     qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
 
-    # average correction from 4 realizations of 1000 copies
-    if redshift_bin == 'all':
-        corr_all = [0.687, 0.635, 0.617, 0.58] # [0.689, 0.640, 0.616, 0.583] # before PZ masking
-    elif redshift_bin == 'low':
-        corr_all = [0.66, 0.59, 0.62, 0.57]
-    elif redshift_bin == 'high':
-        corr_all = [0.70, 0.69, 0.57, 0.59]
-
     xi_mock_qso_all = []
 
     for iqso, fitsfile in enumerate(fitsfile_list):
         # initialize all qso data
-        wave, flux, ivar, mask, std, fluxfit, outmask, sset, tell = mutils.extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
+        raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+        norm_flux = flux / fluxfit
+        norm_std = std / fluxfit
         vel_data = mutils.obswave_to_vel_2(wave)
-
-        redshift_mask = wave <= (2800 * (1 + qso_zlist[iqso]))  # removing spectral region beyond qso redshift
-        obs_wave_max = (2800 - exclude_restwave) * (1 + qso_zlist[iqso])
-        proximity_zone_mask = wave < obs_wave_max
-
-        if redshift_bin == 'low':
-            zbin_mask = wave < (2800 * (1 + median_z))
-            zbin_mask_fluxfit = wave[outmask] < (2800 * (1 + median_z))
-        elif redshift_bin == 'high':
-            zbin_mask = wave >= (2800 * (1 + median_z))
-            zbin_mask_fluxfit = wave[outmask] >= (2800 * (1 + median_z))
-        elif redshift_bin == 'all':
-            zbin_mask = np.ones_like(wave, dtype=bool)
-            zbin_mask_fluxfit = np.ones_like(wave[outmask], dtype=bool)
-
-        master_mask = redshift_mask * outmask * proximity_zone_mask * zbin_mask # redshift_mask * outmask
-
-        good_wave = wave[master_mask]
-        good_vel_data = mutils.obswave_to_vel_2(good_wave)
-
-        fluxfit_custom_mask = (wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))) * (wave[outmask] < obs_wave_max) * zbin_mask_fluxfit
-        # fluxfit_redshift = fluxfit[wave[outmask] <= (2800 * (1 + qso_zlist[iqso]))]
-        fluxfit_redshift = fluxfit[fluxfit_custom_mask]
-        norm_good_flux = flux[master_mask] / fluxfit_redshift
-        norm_good_std = std[master_mask] / fluxfit_redshift
-
-        fluxfit_new = mutils.pad_fluxfit(outmask, fluxfit)  # in order to make 'fluxfit' (masked) same shape as raw data
-        norm_std = std / fluxfit_new
 
         # generate mock data spectrum
         _, _, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=qso_seed_list[iqso], std_corr=corr_all[iqso])
 
+        usable_data_mask = mask * redshift_mask * pz_mask * zbin_mask
+        usable_data_mask_chunk = reshape_data_array(usable_data_mask, nskew_to_match_data, npix_sim_skew, True)
+
         # deal with CGM mask if argued before computing the 2PCF
-        master_mask_chunk = reshape_data_array(master_mask, nskew_to_match_data, npix_sim_skew, True)
         if type(cgm_gpm_allspec) == type(None):
-            all_mask = master_mask_chunk
+            all_mask_chunk = usable_data_mask_chunk
         else:
-            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso][0], nskew_to_match_data, npix_sim_skew, True) # reshaping GPM from cgm masking
-            all_mask = master_mask_chunk * gpm_onespec_chunk
+            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso], nskew_to_match_data, npix_sim_skew, True) # reshaping GPM from cgm masking
+            all_mask_chunk = usable_data_mask_chunk * gpm_onespec_chunk
 
         # compute the 2PCF
-        vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=all_mask)
+        vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=all_mask_chunk)
         xi_mock_qso_all.append(xi_mock)
 
     vel_mid = np.array(vel_mid)
@@ -400,69 +325,25 @@ def test_compute_model():
     sampling = 3
     vmin_corr = 10
     vmax_corr = 3500
-    dv_corr = fwhm
+    dv_corr = 100
     ncopy = 5
     #ncovar = 10
     #nmock = 10
     master_seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
     logZ = -3.5
     cgm_masking = True
+    redshift_bin = 'low'  # 'high', 'all'
+
     if cgm_masking:
-        cgm_masking_gpm, _ = init_cgm_masking(fwhm)
+        cgm_masking_gpm, _ = init_cgm_masking(redshift_bin)
     else:
         cgm_masking_gpm = None
 
-    redshift_bin = 'low' # 'high', 'all'
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm
 
     output = compute_model(args)
     ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = output
 
-    """
-    nhi, nlogZ = 5, 5 # dummy values
-    xhi_val = xHI
-    ncorr = vel_mid.shape[0]
-    xi_mock_array = np.zeros((nhi, nlogZ,) + xi_mock.shape)
-    xi_mean_array = np.zeros((nhi, nlogZ,) + xi_mean.shape)
-    covar_array = np.zeros((nhi, nlogZ,) + covar.shape)
-    icovar_array = np.zeros((nhi, nlogZ,) + icovar.shape)
-    lndet_array = np.zeros((nhi, nlogZ))
-
-    # Unpack the output
-    for out in output:
-        ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = out
-        # Right out a random subset of these so that we don't use so much disk.
-        xi_mock_array[ihi, iZ, :, :] = xi_mock
-        xi_mean_array[ihi, iZ, :] = xi_mean
-        covar_array[ihi, iZ, :, :] = covar
-        icovar_array[ihi, iZ, :, :] = icovar
-        lndet_array[ihi, iZ] = logdet
-
-    ncovar = 0  # hardwired
-    nmock = ncopy  # hardwired
-    
-    param_model = Table(
-        [[ncopy], [ncovar], [nmock], [fwhm], [sampling], [master_seed], [nhi], [xhi_val], [nlogZ], [logZ_vec], [ncorr],
-         [vmin_corr], [vmax_corr], [vel_mid]],
-        names=(
-        'ncopy', 'ncovar', 'nmock', 'fwhm', 'sampling', 'seed', 'nhi', 'xhi', 'nlogZ', 'logZ', 'ncorr', 'vmin_corr',
-        'vmax_corr', 'vel_mid'))
-    param_out = hstack((params, param_model))
-
-    # Write out to multi-extension fits
-    print('Writing out to disk')
-    # Write to outfile
-    hdu_param = fits.table_to_hdu(param_out)
-    hdu_param.name = 'METADATA'
-    hdulist = fits.HDUList()
-    hdulist.append(hdu_param)
-    hdulist.append(fits.ImageHDU(data=xi_mock_array, name='XI_MOCK'))
-    hdulist.append(fits.ImageHDU(data=xi_mean_array, name='XI_MEAN'))
-    hdulist.append(fits.ImageHDU(data=covar_array, name='COVAR'))
-    hdulist.append(fits.ImageHDU(data=icovar_array, name='ICOVAR'))
-    hdulist.append(fits.ImageHDU(data=lndet_array, name='LNDET'))
-    hdulist.writeto(outfile, overwrite=True)
-    """
     return output
 
 ###################### main() ######################
@@ -528,7 +409,7 @@ def main():
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
     outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/'
-    outfilename = 'corr_func_models_fwhm_{:5.3f}_samp_{:5.3f}'.format(fwhm, sampling) + '.fits'
+    outfilename = 'corr_func_models_fwhm_{:5.3f}_samp_{:5.3f}_{:s}'.format(fwhm, sampling, redshift_bin) + '.fits'
     outfile = os.path.join(outpath, outfilename)
 
     xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'
