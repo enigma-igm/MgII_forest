@@ -68,7 +68,8 @@ def read_model_grid(modelfile):
     return param, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array
 
 def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
-    # draw n number of random skewers that match the total data pathlength
+    # draw n number of random Nyx skewers that match the total data pathlength
+
     # vel_lores = Nyx velocity grid (numpy array)
     # vel_data = data velocity grid (numpy array)
     # tot_nyx_skews = total number of Nyx skewers (int)
@@ -129,6 +130,8 @@ def init_cgm_masking(redshift_bin):
 ########################## simulating one data spectrum #############################
 def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=None, std_corr=1.0):
 
+    # return "ncopy" of simulated noise from data
+
     npix_sim_skew = len(vel_lores)
     tot_nyx_skews = len(flux_lores)
     ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=seed)
@@ -138,6 +141,7 @@ def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy,
     else:
         rand = np.random.RandomState()
 
+    # reshape data sigma array
     norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
 
     rand_noise_ncopy = np.zeros((ncopy, nskew_to_match_data, npix_sim_skew))
@@ -158,25 +162,6 @@ def forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy
     noisy_flux_lores_ncopy = rand_flux_lores + rand_noise_ncopy # rand_flux_lores automatically broadcasted across the ncopy-axis
 
     return ranindx, rand_flux_lores, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew
-
-def plot_forward_model_onespec(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask_chunk, good_vel_data, norm_good_flux, ncopy_plot, title=None):
-
-    ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
-
-    plt.figure(figsize=(12, 8))
-    if title != None:
-        plt.title(title, fontsize=18)
-
-    ##### plot subset of mock spectra
-    for i in range(ncopy_plot):
-        flux_lores_comb = (noisy_flux_lores_ncopy[i])[master_mask_chunk] # this also flattens the 2d array
-        plt.plot(good_vel_data, flux_lores_comb + (i + 1), alpha=0.5, drawstyle='steps-mid')
-
-    plt.plot(good_vel_data, norm_good_flux, 'k', drawstyle='steps-mid')
-    #plt.plot(good_vel_data, rand_flux_lores[master_mask_chunk], 'white', drawstyle='steps-mid')
-    plt.ylabel('Flux (+ arbitrary offset)', fontsize=15)
-    plt.xlabel('Velocity (km/s)', fontsize=15)
-    plt.tight_layout()
 
 def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask, vel_data, norm_flux, ncopy_plot, title=None):
 
@@ -332,7 +317,7 @@ def test_compute_model():
     master_seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
     logZ = -3.5
     cgm_masking = True
-    redshift_bin = 'high'  # 'low', 'high', 'all'
+    redshift_bin = 'all' # 'low', 'high', 'all'
 
     if cgm_masking:
         cgm_masking_gpm, _ = init_cgm_masking(redshift_bin)
