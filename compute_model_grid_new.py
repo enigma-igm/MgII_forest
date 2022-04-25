@@ -113,11 +113,11 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
     new_data_arr = padded_data_arr.reshape(nskew_to_match_data, npix_sim_skew)
     return new_data_arr
 
-def init_cgm_masking(redshift_bin):
+def init_cgm_masking(redshift_bin, datapath):
 
     # retaining the shape of the cgm masks to be the same as data shape, so not applying mask before running CGM masking
     good_vel_data_all, good_wave_data_all, norm_good_flux_all, norm_good_std_all, good_ivar_all, noise_all = \
-        mask_cgm.init(redshift_bin, do_not_apply_any_mask=True)
+        mask_cgm.init(redshift_bin, datapath, do_not_apply_any_mask=True)
 
     mgii_tot_all = mask_cgm.chi_pdf(good_vel_data_all, norm_good_flux_all, good_ivar_all, noise_all, plot=False)
     gpm_allspec = []
@@ -365,11 +365,6 @@ def main():
     vmin_corr = args.vmin
     vmax_corr = args.vmax
     dv_corr = args.dv if args.dv is not None else fwhm
-    cgm_masking = args.cgm_masking
-    if cgm_masking:
-        cgm_masking_gpm, _ = init_cgm_masking(fwhm)
-    else:
-        cgm_masking_gpm = None
 
     if args.lowz_bin:
         redshift_bin = 'low'
@@ -379,6 +374,12 @@ def main():
         redshift_bin = 'all'
     else:
         raise ValueError('must set one of these arguments: "--lowz_bin", "--highz_bin", or "--allz_bin"')
+
+    cgm_masking = args.cgm_masking
+    if cgm_masking:
+        cgm_masking_gpm, _ = init_cgm_masking(redshift_bin, datapath)
+    else:
+        cgm_masking_gpm = None
 
     # Grid of metallicities
     nlogZ = args.nlogZ
