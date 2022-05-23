@@ -13,7 +13,9 @@ datapath = '/Users/suksientie/Research/data_redux/'
 
 fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                 datapath + 'wavegrid_vel'
+                            ''
+                            '/J0252-0503/vel12_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
@@ -34,9 +36,22 @@ for iqso, fitsfile in enumerate(fitsfile_list):
 
 median_z = np.median(good_z_all2)
 print(median_z)
-plt.axvline(median_z, ls='--')
-plt.xlabel('z')
-plt.ylabel('QSO sightline')
+#plt.axvline(median_z, ls='--')
+#plt.xlabel('z')
+#plt.ylabel('QSO sightline')
+#plt.show()
 
-plt.show()
+total_npix_lowz = 0
+total_npix_highz = 0
 
+for iqso in range(len(good_z_all)):
+    npix_all = len(good_z_all[iqso])
+    npix_lowz = np.sum(good_z_all[iqso] < median_z)
+    npix_highz = np.sum(good_z_all[iqso] >= median_z)
+    print('%0.2f, %0.2f' % (npix_lowz/npix_all, npix_highz/npix_all))
+
+    total_npix_lowz += npix_lowz
+    total_npix_highz += npix_highz
+
+print("total npix lowz", total_npix_lowz)
+print("total npix highz", total_npix_highz)

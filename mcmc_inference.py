@@ -1,6 +1,7 @@
 '''
 Functions here:
     - init
+    - init_mockdata
     - run_mcmc
     - corrfunc_plot
 '''
@@ -27,7 +28,11 @@ from astropy import units as u
 from astropy.io import fits
 import compute_cf_data
 
-seed = 109721 #988765 #2213142
+seed = None #434519 #1097212 #988765 #2213142
+if seed == None:
+    seed = np.random.randint(0, 1000000)
+    print(seed)
+
 rand = np.random.RandomState(seed)
 figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/'
 
@@ -35,6 +40,7 @@ logZ_guess = -5.0 #-4.50 # -3.70
 xhi_guess  = 0.50 # 0.74
 linearZprior = False
 
+"""
 datapath = '/Users/suksientie/Research/data_redux/'
 fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
@@ -43,8 +49,64 @@ fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.642, 7.541, 7.001, 7.034]
+"""
 
-def init(modelfile, actual_data=True):
+def init(modelfile, redshift_bin, cgm_fit_gpm_all):
+
+    # options for redshift_bin: 'all', 'low', 'high'
+    params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
+    logZ_coarse = params['logZ'].flatten()
+    xhi_coarse = params['xhi'].flatten()
+    vel_corr = params['vel_mid'].flatten()
+    vel_min = params['vmin_corr'][0]
+    vel_max = params['vmax_corr'][0]
+    nlogZ = params['nlogZ'][0]
+    nhi = params['nhi'][0]
+
+    xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
+    nqso = 4
+    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None])
+    xi_data = xi_mean_mask
+    xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
+
+    # Interpolate the likelihood onto a fine grid to speed up the MCMC
+    nlogZ = logZ_coarse.size
+    nlogZ_fine = 1001
+    logZ_fine_min = logZ_coarse.min()
+    logZ_fine_max = logZ_coarse.max()
+    dlogZ_fine = (logZ_fine_max - logZ_fine_min) / (nlogZ_fine - 1)
+    logZ_fine = logZ_fine_min + np.arange(nlogZ_fine) * dlogZ_fine
+
+    nhi = xhi_coarse.size
+    nhi_fine = 1001
+    xhi_fine_min = 0.0
+    xhi_fine_max = 1.0
+    dxhi = (xhi_fine_max - xhi_fine_min) / (nhi_fine - 1)
+    xhi_fine = np.arange(nhi_fine) * dxhi
+
+    # Loop over the coarse grid and evaluate the likelihood at each location
+    lnlike_coarse = np.zeros((nhi, nlogZ,))
+    for ixhi, xhi in enumerate(xhi_coarse):
+        for iZ, logZ in enumerate(logZ_coarse):
+            lnlike_coarse[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_array[ixhi, iZ, :], lndet_array[ixhi, iZ],
+                                                  icovar_array[ixhi, iZ, :, :])
+
+    lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
+    xi_model_fine = inference.interp_model(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, xi_model_array)
+
+    # Make a 2d surface plot of the likelhiood
+    logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
+    lnlikefile = figpath + 'lnlike.pdf'
+    inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
+
+    fine_out = xhi_fine, logZ_fine, lnlike_fine, xi_model_fine
+    coarse_out = xhi_coarse, logZ_coarse, lnlike_coarse
+    data_out = xhi_data, logZ_data, xi_data, covar_array, params
+
+    return fine_out, coarse_out, data_out
+
+def init_mockdata(modelfile):
+
     # modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000.fits'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
     logZ_coarse = params['logZ'].flatten()
@@ -55,27 +117,19 @@ def init(modelfile, actual_data=True):
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
-    if actual_data:
-        print("==== using actual data ==== ")
-        xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
-        vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(fitsfile_list, qso_zlist, qso_namelist, plot=False)
-        xi_data = xi_mean_mask
-        xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
+    # Pick the mock data that we will run with
+    nmock = xi_mock_array.shape[2]
+    imock = rand.choice(np.arange(nmock), size=1)
 
-    else:
-        # Pick the mock data that we will run with
-        nmock = xi_mock_array.shape[2]
-        imock = rand.choice(np.arange(nmock), size=1)
+    # find the closest model values to guesses
+    ixhi = find_closest(xhi_coarse, xhi_guess)
+    iZ = find_closest(logZ_coarse, logZ_guess)
+    print("imock, ixhi, iZ", imock, ixhi, iZ)
 
-        # find the closest model values to guesses
-        ixhi = find_closest(xhi_coarse, xhi_guess)
-        iZ = find_closest(logZ_coarse, logZ_guess)
-        print("imock, ixhi, iZ", imock, ixhi, iZ)
-
-        xhi_data = xhi_coarse[ixhi]
-        logZ_data = logZ_coarse[iZ]
-        xi_data = xi_mock_array[ixhi, iZ, imock, :].flatten()
-        xi_mask = np.ones_like(xi_data, dtype=bool) # Boolean array
+    xhi_data = xhi_coarse[ixhi]
+    logZ_data = logZ_coarse[iZ]
+    xi_data = xi_mock_array[ixhi, iZ, imock, :].flatten()
+    xi_mask = np.ones_like(xi_data, dtype=bool) # Boolean array
 
     # Interpolate the likelihood onto a fine grid to speed up the MCMC
     nlogZ = logZ_coarse.size
@@ -112,34 +166,6 @@ def init(modelfile, actual_data=True):
     data_out = xhi_data, logZ_data, xi_data, covar_array, params
 
     return fine_out, coarse_out, data_out
-
-def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=0.0, vmax=1.0):
-    # plotting the correlation matrix (copied from CIV_forest/metal_corrfunc.py)
-
-    xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
-    xhi_data, logZ_data, xi_data, covar_array, params = data_out
-    vmin_corr = params['vmin_corr'][0]
-    vmax_corr = params['vmax_corr'][0]
-
-    ixhi = find_closest(xhi_coarse, xhi_want)
-    iZ = find_closest(logZ_coarse, logZ_want)
-    xhi_data = xhi_coarse[ixhi]
-    logZ_data = logZ_coarse[iZ]
-    covar = covar_array[ixhi, iZ, :, :]
-
-    # correlation matrix; easier to visualize compared to covar matrix
-    corr = covar / np.sqrt(np.outer(np.diag(covar), np.diag(covar)))
-    print(corr.min(), corr.max())
-
-    plt.figure(figsize=(8, 8))
-    plt.imshow(corr, origin='lower', interpolation='nearest', extent=[vmin_corr, vmax_corr, vmin_corr, vmax_corr], \
-               vmin=vmin, vmax=vmax, cmap='inferno')
-    plt.xlabel(r'$\Delta v$ (km/s)', fontsize=15)
-    plt.ylabel(r'$\Delta v$ (km/s)', fontsize=15)
-    plt.title('For model (logZ, xHI) = (%0.2f, %0.2f)' % (logZ_data, xhi_data))
-    plt.colorbar()
-
-    plt.show()
 
 def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalkers=40, savefits_chain=None, actual_data=True):
 
@@ -190,8 +216,6 @@ def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalker
 
     inference.walker_plot(chain, truths, var_label, figpath + 'walkers.pdf')
 
-    return sampler, param_samples, flat_samples
-
     # Make the corner plot, again use the true values in the chain
     if actual_data:
         fig = corner.corner(param_samples, labels=var_label, levels=(0.68,), color='k',
@@ -241,6 +265,7 @@ def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalker
 
     return sampler, param_samples, flat_samples
 
+################################## plotting ##################################
 def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
                   corrfile, nrand=50, rand=None):
 
@@ -266,6 +291,7 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     # Average the diagonal instead?
     covar_mean = inference.covar_model(theta_mean, xhi_coarse, logZ_coarse, covar_array)
     xi_err = np.sqrt(np.diag(covar_mean))
+
     # Grab some realizations
     imock = rand.choice(np.arange(samples.shape[0]), size=nrand)
     xi_model_rand = xi_model_samp[imock, :]
@@ -354,3 +380,132 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     fx.savefig(corrfile)
     plt.close()
     #plt.show()
+
+def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=0.0, vmax=1.0):
+    # plotting the correlation matrix (copied from CIV_forest/metal_corrfunc.py)
+
+    xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
+    xhi_data, logZ_data, xi_data, covar_array, params = data_out
+    vmin_corr = params['vmin_corr'][0]
+    vmax_corr = params['vmax_corr'][0]
+
+    ixhi = find_closest(xhi_coarse, xhi_want)
+    iZ = find_closest(logZ_coarse, logZ_want)
+    xhi_data = xhi_coarse[ixhi]
+    logZ_data = logZ_coarse[iZ]
+    covar = covar_array[ixhi, iZ, :, :]
+
+    # correlation matrix; easier to visualize compared to covar matrix
+    corr = covar / np.sqrt(np.outer(np.diag(covar), np.diag(covar)))
+    corr = covar
+    print(corr.min(), corr.max())
+
+    plt.figure(figsize=(8, 8))
+    plt.imshow(corr, origin='lower', interpolation='nearest', extent=[vmin_corr, vmax_corr, vmin_corr, vmax_corr], \
+               vmin=vmin, vmax=vmax, cmap='inferno')
+    plt.xlabel(r'$\Delta v$ (km/s)', fontsize=15)
+    plt.ylabel(r'$\Delta v$ (km/s)', fontsize=15)
+    plt.title('For model (logZ, xHI) = (%0.2f, %0.2f)' % (logZ_data, xhi_data))
+    plt.colorbar()
+
+    plt.show()
+
+def corr_matrix(covar_array):
+
+    # constructing the correlation matrix
+    corr_array = []
+    for i in range(len(covar_array)):
+        corr_array_dim1 = []
+        for j in range(len(covar_array[i])):
+            corr = covar_array[i, j] / np.sqrt(np.outer(np.diag(covar_array[i, j]), np.diag(
+                covar_array[i, j])))  # correlation matrix; see Eqn 14 of Hennawi+ 2020
+            corr_array_dim1.append(corr)
+        corr_array.append(corr_array_dim1)
+
+    corr_array = np.array(corr_array)
+    return corr_array
+
+def plot_single_corr_elem(coarse_out, data_out, corr_array, rand_ixhi=None, rand_ilogZ=None, rand_i=None, rand_j=None):
+
+    xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
+    xhi_data, logZ_data, xi_data, covar_array, params = data_out
+    nxHI, nlogZ, ncorr, _ = np.shape(covar_array)
+
+    if rand_i == None and rand_j == None:
+        rand_i, rand_j = np.random.randint(ncorr), np.random.randint(ncorr)
+        print(rand_i, rand_j)
+
+    if rand_ixhi == None:
+        rand_ixhi = np.random.randint(nxHI)
+        print(rand_ixhi, xhi_coarse[rand_ixhi])
+
+    if rand_ilogZ == None:
+        rand_ilogZ = np.random.randint(nlogZ)
+        print(rand_ilogZ, logZ_coarse[rand_ilogZ])
+
+    plt.subplot(121)
+    plt.title('ilogZ = %d, logZ = %0.2f' % (rand_ilogZ, logZ_coarse[rand_ilogZ]))
+    plt.plot(xhi_coarse, corr_array[:,rand_ilogZ, rand_i, rand_j], label='($i,j$)=(%d,%d)' % (rand_i, rand_j))
+    plt.xlabel('xHI')
+    plt.ylabel(r'Corr$_{ij}$=Cov$_{ij}$/$\sqrt{Cov_{ii}Cov_{jj}}$')
+    plt.legend()
+
+    plt.subplot(122)
+    plt.title('ixHI = %d, xHI = %0.2f' % (rand_ixhi, xhi_coarse[rand_ixhi]))
+    plt.plot(logZ_coarse, corr_array[rand_ixhi, :, rand_i, rand_j])
+    plt.xlabel('logZ')
+
+    #plt.yscale('log')
+    #plt.legend()
+    plt.show()
+
+def lnlike_plot_slice(xhi_arr, logZ_arr, lnlike_arr, xhi_want, logZ_want):
+    ixhi = find_closest(xhi_arr, xhi_want)
+    iZ = find_closest(logZ_arr, logZ_want)
+
+    lnlike_arr = lnlike_arr - lnlike_arr.max()
+    lnlike_arr = np.exp(lnlike_arr)
+
+    plt.subplot(121)
+    plt.plot(logZ_arr, lnlike_arr[ixhi])
+    plt.xlabel('logZ')
+    plt.ylabel('likelihood')
+
+    plt.subplot(122)
+    plt.plot(xhi_arr, lnlike_arr[:,iZ])
+    plt.xlabel('xHI')
+
+    plt.tight_layout()
+    plt.suptitle('model: (xhi, logZ) = (%0.2f, %0.2f)' % (xhi_want, logZ_want), fontsize=15)
+    plt.show()
+
+def lnlike_plot_logZ_many(xhi_arr, logZ_arr, lnlike_arr, xhi_want_arr):
+
+    lnlike_arr_new = lnlike_arr - lnlike_arr.max()
+    lnlike_arr_new = np.exp(lnlike_arr_new)
+
+    for i in range(len(xhi_want_arr)):
+        ixhi = find_closest(xhi_arr, xhi_want_arr[i])
+        plt.plot(logZ_arr, lnlike_arr_new[ixhi], label='xHI = %0.2f' % xhi_want_arr[i])
+
+    plt.xlabel('logZ')
+    plt.ylabel('likelihood')
+
+    plt.legend()
+    plt.show()
+
+def lnlike_plot_xhi_many(xhi_arr, logZ_arr, lnlike_arr, logZ_want_arr):
+
+    lnlike_arr_new = lnlike_arr - lnlike_arr.max()
+    lnlike_arr_new = np.exp(lnlike_arr_new)
+
+    for i in range(len(logZ_want_arr)):
+        iZ = find_closest(logZ_arr, logZ_want_arr[i])
+        plt.plot(xhi_arr, lnlike_arr_new[:, iZ], label='logZ = %0.2f' % logZ_want_arr[i])
+
+    plt.xlabel('xHI')
+    plt.ylabel('likelihood')
+
+    plt.legend()
+    plt.show()
+

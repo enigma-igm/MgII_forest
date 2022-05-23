@@ -1,3 +1,13 @@
+'''
+Functions here:
+    - init
+    - flux_pdf
+    - chi_pdf
+    - chi_pdf_onespec
+    - plot_masked_onespec
+    - do_allqso_allzbin
+'''
+
 import numpy as np
 from matplotlib import pyplot as plt
 import sys
@@ -23,12 +33,6 @@ if seed != None:
     rand = np.random.RandomState(seed)
 else:
     rand = np.random.RandomState()
-
-fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-0653/vel1_tellcorr_pad.fits']
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
 qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.0] # precise redshifts from Yang+2021
@@ -145,7 +149,7 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
     strong_lines = LineList('Strong', verbose=False)
     wave_blue = strong_lines['MgII 2796']['wrest']
     Wfactor = ((fwhm / sampling) * u.km / u.s / const.c).decompose() * wave_blue.value
-    print("Wfactor", Wfactor)
+    print("Wfactor", Wfactor) # 0.28 A
 
     Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
     ymin, ymax = 1e-3, 1.0
@@ -361,6 +365,12 @@ def do_allqso_allzbin():
 
     return lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all
 
+######################## old stuffs ########################
+fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits', \
+                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-0653/vel1_tellcorr_pad.fits']
 
 def init_old():
     # masked

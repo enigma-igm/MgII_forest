@@ -39,7 +39,7 @@ qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
 qso_zlist = [7.642, 7.541, 7.001, 7.034]
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(len(fitsfile_list), figsize=(16, 10), sharex=True)
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(len(fitsfile_list), figsize=(16, 11), sharex=True, sharey=True)
 fig.subplots_adjust(left=0.1, bottom=0.07, right=0.96, top=0.93, wspace=0, hspace=0.)
 color_ls = ['k', 'k', 'k', 'k'] # ['r', 'g', 'b', 'orange']
 
@@ -59,10 +59,10 @@ for i, fitsfile in enumerate(fitsfile_list):
     #good_wave, good_flux, good_ivar, good_std, good_vel_data, norm_good_flux, norm_good_std = masked_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
     all_masks = mask * redshift_mask * pz_mask * zbin_mask
-    median_snr = np.nanmedian(flux / std)
+    print("masked fraction", 1 - np.sum(all_masks) / len(all_masks))
 
-    print(1 - np.sum(all_masks)/len(all_masks))
-    print(median_snr)
+    median_snr = np.nanmedian((flux / std)[all_masks])
+    print("median snr", median_snr)
 
     if i == 0: plot_ax = ax1
     elif i == 1: plot_ax = ax2
@@ -72,17 +72,17 @@ for i, fitsfile in enumerate(fitsfile_list):
     if plot_normalized:
         plot_ax.plot(wave, flux/fluxfit, c=color_ls[i], drawstyle='steps-mid', label=qso_namelist[i] + ' (z=%0.2f)' % qso_zlist[i])
         plot_ax.plot(wave, std/fluxfit, c='k', alpha=0.5, drawstyle='steps-mid')
-        plot_ax.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
+        #plot_ax.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
         ind_masked = np.where(all_masks == False)[0]
         for j in range(len(ind_masked)): # bad way to plot masked pixels
-            plot_ax.axvline(wave[ind_masked[j]], color='k', alpha=0.2, lw=2)
+            plot_ax.axvline(wave[ind_masked[j]], color='k', alpha=0.1, lw=2)
 
     else:
         plot_ax.plot(wave, flux, c=color_ls[i], alpha=1.0, drawstyle='steps-mid', label=qso_namelist[i] + ' (z=%0.2f)' % qso_zlist[i])
         plot_ax.plot(wave, tell*(ymax-0.02), alpha=0.3, drawstyle='steps-mid') # telluric
         plot_ax.plot(wave, fluxfit, c='r', lw=1.0, drawstyle='steps-mid')
         plot_ax.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid')
-        plot_ax.set_ylabel('Flux', fontsize=xylabel_fontsize)
+        #plot_ax.set_ylabel(r'Flux $(10^{-17}$ erg s$^{-1}$ cm$^{-2}$ $\mathrm{{\AA}}^{-1})$', fontsize=xylabel_fontsize)
 
     plot_ax.xaxis.set_minor_locator(AutoMinorLocator())
     plot_ax.yaxis.set_minor_locator(AutoMinorLocator())
@@ -102,6 +102,15 @@ atwin.axis([zmin, zmax, ymin, ymax])
 atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
 atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
-plt.tight_layout()
-#plt.savefig("combined_coadds.png")
+if plot_normalized:
+    fig.text(0.04, 0.5, r'$F_{\mathrm{norm}}$', va='center', rotation='vertical', fontsize=xylabel_fontsize+5)
+else:
+    fig.text(0.04, 0.5, r'Flux $(10^{-17}$ erg s$^{-1}$ cm$^{-2}$ $\mathrm{{\AA}}^{-1})$', va='center', rotation='vertical', fontsize=xylabel_fontsize)
+#plt.tight_layout()
+
+if plot_normalized:
+    plt.savefig("paper_plots/combined_coadds_norm.pdf")
+else:
+    plt.savefig("paper_plots/combined_coadds.pdf")
+
 plt.show()
