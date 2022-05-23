@@ -30,16 +30,12 @@ legend_fontsize = 14
 plot_normalized = True
 redshift_bin = 'all'
 
-fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr.fits']
-
-qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.642, 7.541, 7.001, 7.034]
+qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527'] #, 'J0038-0653']
+qso_zlist = [7.642, 7.541, 7.001, 7.034] #, 7.0]
+nqso = 4 #5
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(len(fitsfile_list), figsize=(16, 11), sharex=True, sharey=True)
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(nqso, figsize=(16, 11), sharex=True, sharey=True)
 fig.subplots_adjust(left=0.1, bottom=0.07, right=0.96, top=0.93, wspace=0, hspace=0.)
 color_ls = ['k', 'k', 'k', 'k'] # ['r', 'g', 'b', 'orange']
 
@@ -52,7 +48,7 @@ wave_min, wave_max = 19500, 24100
 zmin, zmax = wave_min / 2800 - 1, wave_max / 2800 - 1
 everyn_break_list = [20, 20, 20, 20]
 
-for i, fitsfile in enumerate(fitsfile_list):
+for i in range(nqso):
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin)
 
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -108,9 +104,10 @@ else:
     fig.text(0.04, 0.5, r'Flux $(10^{-17}$ erg s$^{-1}$ cm$^{-2}$ $\mathrm{{\AA}}^{-1})$', va='center', rotation='vertical', fontsize=xylabel_fontsize)
 #plt.tight_layout()
 
+"""
 if plot_normalized:
     plt.savefig("paper_plots/combined_coadds_norm.pdf")
 else:
     plt.savefig("paper_plots/combined_coadds.pdf")
-
+"""
 plt.show()
