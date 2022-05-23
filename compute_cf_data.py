@@ -20,7 +20,6 @@ from enigma.reion_forest import utils as reion_utils
 import mutils
 import mask_cgm_pdf as mask_cgm
 
-
 everyn_break = 20
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
@@ -28,11 +27,12 @@ exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclu
 mosfire_res = 3610 # K-band for 0.7" slit (https://www2.keck.hawaii.edu/inst/mosfire/grating.html)
 fwhm = 90 # used in compute_model_grid.py
 
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
 vmin_corr = 10
 vmax_corr = 3500
-dv_corr = 100  # slightly larger than fwhm
-#corr_all = [0.689, 0.640, 0.616, 0.583] # values used by compute_model_grid_new.py
-corr_all = [0.758, 0.753, 0.701, 0.724] # determined from mutils.plot_allspec_pdf
+dv_corr = 90  # 5/23/2022; to ensure npix_corr behaving correctly (smoothly)
+#corr_all = [0.689, 0.640, 0.616, 0.583] # old values used by compute_model_grid_new.py
+corr_all = [0.758, 0.753, 0.701, 0.724, 0.759] # determined from mutils.plot_allspec_pdf
 median_z = 6.57 # value used in mutils.init_onespec
 
 def init_cgm_fit_gpm():
@@ -130,7 +130,9 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
 
     if plot:
         # plot with no masking
-        plt.figure()
+        plt.figure(figsize=(12, 5))
+        plt.suptitle('%s, %s-z bin' % (qso_namelist[iqso], redshift_bin))
+        plt.subplot(121)
         for i in range(n_real):
             plt.plot(vel_mid, xi_noise[i], linewidth=1., c='tab:gray', ls='--', alpha=0.1)
 
@@ -142,7 +144,8 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
         plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
 
         # plot with masking
-        plt.figure()
+        #plt.figure()
+        plt.subplot(122)
         for i in range(n_real):
             plt.plot(vel_mid, xi_noise_masked[i], linewidth=1., c='tab:gray', ls='--', alpha=0.1)
         plt.plot(vel_mid, xi_mean_tot_mask, linewidth=1.5, label='data masked')
@@ -153,6 +156,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
         vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
         plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
 
+        plt.tight_layout()
         plt.show()
 
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
@@ -585,3 +589,33 @@ def onespec_random(iqso, redshift_bin, vel_lores, mask_chunk):
     plt.axvline(1160, color='k', ls='--')
 
     return vel_mid, xi_mean_tot, xi_tot, npix_tot, xi_tot_long, npix_tot_long
+
+#################### non-linear dv bins ####################
+# 5/23/2022
+from astropy.table import Table
+
+def cf_dlogvbin_init(rantaufile, logZ):
+    fwhm = 90
+    sampling = 3
+
+    params = Table.read(rantaufile, hdu=1)
+    skewers = Table.read(rantaufile, hdu=2)
+
+    vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), \
+    vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
+    (oden, v_los, T, xHI), cgm_tuple = reion_utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
+
+    return vel_lores, flux_lores
+
+def cf_dlogvbin(vel_lores, flux_lores):
+    vmin, vmax, dv = 1e-6, 1e6, 30
+
+    flux_lores = flux_lores[0:100] # just looking at a subset
+    mean_flux_nless = np.mean(flux_lores)
+    delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
+
+    (vel_mid, xi_nless, npix, xi_nless_zero_lag) = reion_utils.compute_xi(delta_f_nless, np.log10(vel_lores), np.log10(
+        vmin), np.log10(vmax), np.log10(dv))
+    xi_mean = np.mean(xi_nless, axis=0)
+
+    return vel_mid, xi_mean, npix
