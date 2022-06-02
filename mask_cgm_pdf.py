@@ -53,7 +53,7 @@ dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
 
 # flux PDF
 nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
-color_ls = ['r', 'g', 'c', 'orange']
+color_ls = ['r', 'g', 'c', 'orange', 'm']
 
 def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', do_not_apply_any_mask=False):
     norm_good_flux_all = []
@@ -63,7 +63,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
     good_wave_all = []
     noise_all = []
 
-    for iqso in range(4):
+    for iqso in range(5):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
