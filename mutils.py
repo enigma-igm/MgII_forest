@@ -314,7 +314,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_r
                      datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits', \
-                     datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr_pad.fits']
+                     datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
     qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.0]
@@ -448,7 +448,7 @@ def plot_allspec_pdf():
     plt.show()
 
 ######################################################
-def init_skewers_compute_model_grid():
+def init_skewers_compute_model_grid(dv_corr):
     # initialize Nyx skewers for testing compute_model_grid_new.py
     file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
     params = Table.read(file, hdu=1)
@@ -462,7 +462,7 @@ def init_skewers_compute_model_grid():
     vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
-    vmin_corr, vmax_corr, dv_corr = 10, 3500, 100
+    vmin_corr, vmax_corr = 10, 3500
 
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless

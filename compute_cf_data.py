@@ -62,6 +62,8 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
 
+    v_lo_all, v_hi_all = custom_cf_bin()
+
     ###### CF from not masking CGM ######
     all_masks = mask * redshift_mask * pz_mask * zbin_mask
 
@@ -80,7 +82,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     meanflux_tot = np.mean(norm_good_flux)
     deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
     #return vel, np.zeros(norm_flux.shape)
-    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, gpm=all_masks)
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, given_bins=(v_lo_all, v_hi_all), gpm=all_masks)
     xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
 
     ###### CF from masking CGM ######
@@ -90,7 +92,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     #vel_cgm = vel[all_masks][cgm_fit_gpm]
     deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
     vel_cgm = vel[all_masks]
-    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, gpm=cgm_fit_gpm)
+    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=(v_lo_all, v_hi_all), gpm=cgm_fit_gpm)
     xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0) # again not really averaging here since we only have 1 spectrum
 
     print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
@@ -118,13 +120,13 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     #meanflux_tot = np.mean(fnoise)
     #deltaf_tot = (fnoise - meanflux_tot) / meanflux_tot
     deltaf_tot = fnoise / meanflux_tot
-    vel_mid, xi_noise, _, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_nreal)
+    vel_mid, xi_noise, _, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, given_bins=(v_lo_all, v_hi_all), gpm=all_masks_nreal)
 
     ###### CF from pure noise (CGM masking) ######
     #meanflux_tot_mask = np.mean(fnoise[mgii_tot.fit_gpm])
     #deltaf_tot_mask = (fnoise - meanflux_tot_mask) / meanflux_tot_mask
     deltaf_tot_mask = fnoise_masked / meanflux_tot_mask
-    vel_mid, xi_noise_masked, _, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, gpm=cgm_fit_gpm_nreal)
+    vel_mid, xi_noise_masked, _, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=(v_lo_all, v_hi_all), gpm=cgm_fit_gpm_nreal)
 
     print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
 
@@ -202,7 +204,8 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
         xi_scale = 1
         ymin, ymax = -0.0010 * xi_scale, 0.002 * xi_scale
 
-        for i in range(4):
+        plt.figure()
+        for i in range(nqso):
             for xi in xi_noise_unmask_all[i]: # plotting all 500 realizations of the noise 2PCF (not masked)
                 plt.plot(vel_mid, xi*xi_scale, c='k', linewidth=0.5, alpha=0.1)
 
@@ -220,13 +223,14 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
         print("vel doublet at", vel_doublet.value)
         plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
         plt.ylim([ymin, ymax])
+        plt.xscale('log')
         plt.tight_layout()
 
         plt.figure()
         xi_scale = 1e5
         ymin, ymax = -0.0010 * xi_scale, 0.0006 * xi_scale
 
-        for i in range(4):
+        for i in range(nqso):
             for xi in xi_noise_mask_all[i]: # plotting all 500 realizations of the noise 2PCF (masked)
                 plt.plot(vel_mid, xi*xi_scale, c='k', linewidth=0.5, alpha=0.1)
 
@@ -243,6 +247,7 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
         vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
         plt.axvline(vel_doublet.value, color='green', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
         plt.ylim([ymin, ymax])
+        plt.xscale('log')
         plt.tight_layout()
 
         plt.show()
@@ -271,7 +276,7 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
 
     plt.subplot(131)
     plt.title('z < %0.3f' % median_z, fontsize=15)
-    for i in range(4):
+    for i in range(nqso):
         for xi in xi_noise_unmask_low[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
             plt.plot(vel_mid_low, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
 
@@ -289,10 +294,11 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     print("vel doublet at", vel_doublet.value)
     plt.axvline(vel_doublet.value, color='green', linestyle='--', linewidth=2.0, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
     plt.ylim([ymin, ymax])
+    #plt.xscale('log')
 
     plt.subplot(132)
     plt.title('z >= %0.3f' % median_z, fontsize=15)
-    for i in range(4):
+    for i in range(nqso):
         for xi in xi_noise_unmask_high[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
             plt.plot(vel_mid_high, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
 
@@ -311,10 +317,11 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     plt.axvline(vel_doublet.value, color='green', linestyle='--', linewidth=2.0,
                 label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
     plt.ylim([ymin, ymax])
+    #plt.xscale('log')
 
     plt.subplot(133)
     plt.title('All z', fontsize=15)
-    for i in range(4):
+    for i in range(nqso):
         for xi in xi_noise_unmask_all[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
             plt.plot(vel_mid, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
 
@@ -333,6 +340,7 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     plt.axvline(vel_doublet.value, color='green', linestyle='--', linewidth=2.0,
                 label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
     plt.ylim([ymin, ymax])
+    #plt.xscale('log')
     plt.tight_layout()
 
     ##### masked #####
@@ -362,6 +370,7 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     plt.axvline(vel_doublet.value, color='green', linestyle='--', linewidth=2.0,
                 label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
     plt.ylim([ymin, ymax])
+    #plt.xscale('log')
 
     plt.subplot(132)
     plt.title('z >= %0.3f' % median_z, fontsize=15)
@@ -385,6 +394,7 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     plt.axvline(vel_doublet.value, color='green', linestyle='--', linewidth=2.0,
                 label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
     plt.ylim([ymin, ymax])
+    #plt.xscale('log')
 
     plt.subplot(133)
     plt.title('All z', fontsize=15)
@@ -408,8 +418,86 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     plt.axvline(vel_doublet.value, color='green', linestyle='--', linewidth=2.0,
                 label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
     plt.ylim([ymin, ymax])
-    plt.tight_layout()
+    #plt.xscale('log')
 
+    plt.tight_layout()
+    plt.show()
+
+#################################################
+def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores):
+    dv_corr = 100
+    # cgm_fit_gpm = output from cmg.init_cgm_masking
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+    nskew_to_match_data, npix_sim_skew = 10, 220
+
+    ###### CF from not masking CGM ######
+    all_masks = mask * redshift_mask * pz_mask * zbin_mask
+
+    norm_good_flux = (flux / fluxfit)[all_masks]
+    norm_flux = flux / fluxfit
+    vel = mutils.obswave_to_vel_2(wave)
+    meanflux_tot = np.mean(norm_good_flux)
+    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
+
+    deltaf_chunk = cmg.reshape_data_array(deltaf_tot, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+    all_masks_chunk = cmg.reshape_data_array(all_masks, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
+
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_chunk)
+    xi_mean_tot = np.mean(xi_tot, axis=0)  # average over nskew_to_match_data
+
+    ###### CF from masking CGM ######x
+    gpm_onespec_chunk = cmg.reshape_data_array(cgm_fit_gpm, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
+    all_masks_chunk *= gpm_onespec_chunk
+
+    norm_flux_chunk = cmg.reshape_data_array(norm_flux, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+    meanflux_tot_mask = np.mean(norm_flux_chunk[all_masks_chunk])
+
+    deltaf_mask_chunk = (norm_flux_chunk - meanflux_tot_mask)/meanflux_tot_mask
+
+
+    vel_mid, xi_tot_mask, npix_tot_mask, _ = reion_utils.compute_xi(deltaf_mask_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_chunk)
+    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0)  # average over nskew_to_match_data
+
+    return vel_mid, xi_mean_tot, xi_mean_tot_mask
+
+def allspec_chunk(gpm_allspec, redshift_bin):
+
+    dv_corr = 100
+    vel_lores, _, _, _, _, _ = mutils.init_skewers_compute_model_grid(dv_corr)
+
+    xi_unmask_all = []
+    xi_mask_all = []
+
+    nqso = 4
+    for iqso in range(nqso):
+        vel_mid, xi_mean_tot, xi_mean_tot_mask = onespec_chunk(iqso, redshift_bin, gpm_allspec[iqso], vel_lores)
+        xi_unmask_all.append(xi_mean_tot)
+        xi_mask_all.append(xi_mean_tot_mask)
+
+    xi_unmask_all = np.array(xi_unmask_all)
+    xi_mean_unmask = np.mean(xi_unmask_all, axis=0)
+
+    xi_mask_all = np.array(xi_mask_all)
+    xi_mean_mask = np.mean(xi_mask_all, axis=0)
+
+    return vel_mid, xi_mean_unmask, xi_mean_mask
+
+def compare_cf(allz_fit_gpm, gpm_allspec, vel_lores):
+    nqso = 4
+    for iqso in range(nqso):
+        vel_mid_long, xi_tot_long, xi_tot_mask_long, _, _ = onespec(iqso, 'all', allz_fit_gpm[iqso])
+        vel_mid, xi_mean_tot, xi_mean_tot_mask = onespec_chunk(iqso, 'all', gpm_allspec[iqso], vel_lores)
+
+        plt.figure()
+        plt.plot(vel_mid_long, xi_tot_long[0], 'k', lw=2, label='no CGM mask')
+        plt.plot(vel_mid_long, xi_tot_mask_long[0], 'b', lw=2, label='CGM mask')
+        plt.plot(vel_mid, xi_mean_tot, 'k', alpha=0.5, label='no CGM mask (chunk)')
+        plt.plot(vel_mid, xi_mean_tot_mask, 'b', alpha = 0.5, label = 'CGM mask (chunk)')
+        plt.axvline(768, ls='--')
+        plt.legend()
     plt.show()
 
 #################### debugging ####################
@@ -505,6 +593,104 @@ def allspec_npixcorr(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=
 
     return vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask_all, xi_noise_mask_all, xi_unmask_all, xi_mask_all, npix_unmask_all, npix_mask_all
 
+def onespec_sigma(iqso, redshift_bin, vmin_corr, vmax_corr, dv_corr, fit_gpm):
+
+    # plotting the CF of the error vector for one QSO
+
+    # "iqso" ranges from 0-4 (now including Jinyi's red quasar)
+    # "fit_gpm" = output from init_cgm_fit_gpm for the relevant redshift bin and iqso
+
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+    # not using any masks
+    vel = mutils.obswave_to_vel_2(wave)
+    vel_mid_nm, xi_tot_nm, npix_tot_nm, _ = reion_utils.compute_xi(std, vel, vmin_corr, vmax_corr, dv_corr)
+
+    # only using the reduction and PZ mask
+    all_masks = mask * redshift_mask * pz_mask * zbin_mask
+    vel_mid_am, xi_tot_am, npix_tot_am, _ = reion_utils.compute_xi(std, vel, vmin_corr, vmax_corr, dv_corr, gpm=all_masks)
+
+    # using all masks including the cgm mask
+    vel_mid_cgm, xi_tot_cgm, npix_tot_cgm, _ = reion_utils.compute_xi(std[all_masks], vel[all_masks], vmin_corr, vmax_corr, dv_corr, gpm=fit_gpm)
+
+    plt.title('%s, %s-z bin, vmin=%d, vmax=%d, dv_corr=%d' % (qso_namelist[iqso], redshift_bin, vmin_corr, vmax_corr, dv_corr))
+    plt.plot(vel_mid_nm, xi_tot_nm[0], label='no masks')
+    plt.plot(vel_mid_am, xi_tot_am[0], label='masks except CGM mask')
+    plt.plot(vel_mid_cgm, xi_tot_cgm[0], label='all masks')
+    plt.axvline(30*20, color='k', ls=':', label='continuum bkpt')
+    plt.axvline(768, color='k', ls='--', label='MgII')
+    plt.axvline(1200, color='k', ls='-', label='large err bin')
+    plt.xlabel(r'$\Delta v$ [km/s]')
+    plt.ylabel('CF of sigma array')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    return vel_mid_nm, xi_tot_nm, npix_tot_nm, vel_mid_am, xi_tot_am, npix_tot_am, vel_mid_cgm, xi_tot_cgm, npix_tot_cgm
+
+import compute_model_grid_new as cmg
+def onespec_sigma_chunk(iqso, redshift_bin, vmin_corr, vmax_corr, dv_corr, vel_lores):
+
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+    std_chunk = cmg.reshape_data_array(std, 10, 220, data_arr_is_mask=False)
+
+    # not using any masks
+    vel_mid_nm, xi_tot_nm, npix_tot_nm, _ = reion_utils.compute_xi(std_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr)
+    xi_mean_tot_nm = np.median(xi_tot_nm, axis=0) # np.mean(xi_tot_nm, axis=0)
+
+    # using only reduction and PZ masks
+    all_masks = mask * redshift_mask * pz_mask * zbin_mask
+    all_masks_chunk = cmg.reshape_data_array(all_masks, 10, 220, data_arr_is_mask=True)
+    vel_mid_am, xi_tot_am, npix_tot_am, _ = reion_utils.compute_xi(std_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_chunk)
+    xi_mean_tot_am = np.median(xi_tot_am, axis=0) #np.mean(xi_tot_am, axis=0)
+
+    # using all masks including CGM mask
+    gpm_allspec, mgii_tot_all = cmg.init_cgm_masking(redshift_bin, '/Users/suksientie/Research/data_redux/')
+    gpm_onespec = gpm_allspec[iqso]
+    gpm_onespec_chunk = cmg.reshape_data_array(gpm_onespec, 10, 220, data_arr_is_mask=True)
+    all_masks_chunk *= gpm_onespec_chunk
+    vel_mid_cgm, xi_tot_cgm, npix_tot_cgm, _ = reion_utils.compute_xi(std_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_chunk)
+    xi_mean_tot_cgm = np.median(xi_tot_cgm, axis=0)#np.mean(xi_tot_cgm, axis=0)
+
+    plt.title('%s, %s-z bin, vmin=%d, vmax=%d, dv_corr=%d' % (qso_namelist[iqso], redshift_bin, vmin_corr, vmax_corr, dv_corr))
+    plt.plot(vel_mid_nm, xi_mean_tot_nm, label='no masks')
+    plt.plot(vel_mid_am, xi_mean_tot_am, label='masks except CGM mask')
+    plt.plot(vel_mid_cgm, xi_mean_tot_cgm, label='all masks')
+    plt.axvline(30 * 20, color='k', ls=':', label='continuum bkpt')
+    plt.axvline(768, color='k', ls='--', label='MgII')
+    plt.axvline(1200, color='k', ls='-', label='large err bin')
+    plt.xlabel(r'$\Delta v$ [km/s]')
+    plt.ylabel('CF of sigma array')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    #return vel_mid_nm, xi_tot_nm, npix_tot_nm, vel_mid_am, xi_tot_am, npix_tot_am, vel_mid_cgm, xi_tot_cgm, npix_tot_cgm
+    return vel_mid_nm, xi_mean_tot_nm, npix_tot_nm, vel_mid_am, xi_mean_tot_am, npix_tot_am, vel_mid_cgm, xi_mean_tot_cgm, npix_tot_cgm
+
+def plot_compare_onespec_sigma(iqso, onespec_sigma_out, onespec_sigma_chunk_out):
+
+    vel_mid_nm, xi_tot_nm, npix_tot_nm, vel_mid_am, xi_tot_am, npix_tot_am, vel_mid_cgm, xi_tot_cgm, npix_tot_cgm = onespec_sigma_out
+    vel_mid_nm_chunk, xi_mean_nm_chunk, npix_tot_nm_chunk, vel_mid_am_chunk, xi_mean_am_chunk, npix_tot_am_chunk, vel_mid_cgm_chunk, xi_mean_cgm_chunk, npix_tot_cgm_chunk = onespec_sigma_chunk_out
+
+    plt.title(qso_namelist[iqso])
+    plt.plot(vel_mid_nm, xi_tot_nm[0], 'b', lw=2, label='no masks')
+    plt.plot(vel_mid_nm, xi_mean_nm_chunk, 'b', alpha = 0.5, label='no masks (chunk)')
+    plt.plot(vel_mid_am, xi_tot_am[0], 'orange', lw=2, label='masks except CGM mask')
+    plt.plot(vel_mid_am, xi_mean_am_chunk, 'orange', alpha = 0.5, label='masks except CGM mask (chunk)')
+    plt.plot(vel_mid_cgm, xi_tot_cgm[0], 'g', lw=2, label='all masks')
+    plt.plot(vel_mid_cgm, xi_mean_cgm_chunk, 'g', alpha=0.5, label='all masks (chunk)')
+    plt.xlabel(r'$\Delta v$ [km/s]')
+    plt.ylabel('CF of sigma array')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
 def onespec_zeros(iqso, redshift_bin, dv_corr):
 
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
@@ -544,8 +730,7 @@ def onespec_zeros_dvcorr():
     plt.show()
     return vel_mid_all, npix_tot_all
 
-import compute_model_grid_new as cmg
-def onespec_random(iqso, redshift_bin, vel_lores, mask_chunk):
+def onespec_random_chunk(iqso, redshift_bin, vel_lores, mask_chunk):
 
     vmin_corr, vmax_corr, dv_corr = 10, 3500, 100
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
@@ -591,31 +776,49 @@ def onespec_random(iqso, redshift_bin, vel_lores, mask_chunk):
     return vel_mid, xi_mean_tot, xi_tot, npix_tot, xi_tot_long, npix_tot_long
 
 #################### non-linear dv bins ####################
-# 5/23/2022
-from astropy.table import Table
-
-def cf_dlogvbin_init(rantaufile, logZ):
-    fwhm = 90
-    sampling = 3
-
-    params = Table.read(rantaufile, hdu=1)
-    skewers = Table.read(rantaufile, hdu=2)
-
-    vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), \
-    vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
-    (oden, v_los, T, xHI), cgm_tuple = reion_utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
-
-    return vel_lores, flux_lores
-
-def cf_dlogvbin(vel_lores, flux_lores):
-    vmin, vmax, dv = 1e-6, 1e6, 30
-
-    flux_lores = flux_lores[0:100] # just looking at a subset
+def custom_cf_bin():
+    """
+    flux_lores = flux_lores[0:100]  # just looking at a subset
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
 
     (vel_mid, xi_nless, npix, xi_nless_zero_lag) = reion_utils.compute_xi(delta_f_nless, np.log10(vel_lores), np.log10(
         vmin), np.log10(vmax), np.log10(dv))
     xi_mean = np.mean(xi_nless, axis=0)
+    """
 
-    return vel_mid, xi_mean, npix
+    # log on small-scale
+    vmin1, vmax1, dv1 = 10, 550, 0.2
+    log_vmin = np.log10(vmin1)
+    log_vmax = np.log10(vmax1)
+    ngrid = int(round((log_vmax - log_vmin) / dv1) + 1)  # number of grid points including vmin and vmax
+    log_v_corr = log_vmin + dv1 * np.arange(ngrid)
+    log_v_lo = log_v_corr[:-1]  # excluding the last point (=vmax)
+    log_v_hi = log_v_corr[1:]  # excluding the first point (=vmin)
+    v_lo1 = 10 ** log_v_lo
+    v_hi1 = 10 ** log_v_hi
+    v_mid = 10. ** ((log_v_hi + log_v_lo) / 2.0)
+    #print(v_mid)
+
+    # linear around peak
+    v_bins2 = np.arange(550, 1000, 90)
+    v_lo2 = v_bins2[:-1]
+    v_hi2 = v_bins2[1:]
+
+    # log on large-scale
+    vmin3, vmax3, dv3 = 1000, 3500, 0.1
+    log_vmin = np.log10(vmin3)
+    log_vmax = np.log10(vmax3)
+    ngrid = int(round((log_vmax - log_vmin) / dv3) + 1)  # number of grid points including vmin and vmax
+    log_v_corr = log_vmin + dv3 * np.arange(ngrid)
+    log_v_lo = log_v_corr[:-1]  # excluding the last point (=vmax)
+    log_v_hi = log_v_corr[1:]  # excluding the first point (=vmin)
+    v_lo3 = 10 ** log_v_lo
+    v_hi3 = 10 ** log_v_hi
+    v_mid = 10. ** ((log_v_hi + log_v_lo) / 2.0)
+    #print(v_mid)
+
+    v_lo_all = np.concatenate((v_lo1, v_lo2, v_lo3))
+    v_hi_all = np.concatenate((v_hi1, v_hi2, v_hi3))
+
+    return v_lo_all, v_hi_all
