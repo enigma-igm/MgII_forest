@@ -163,7 +163,7 @@ def forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy
 
     return ranindx, rand_flux_lores, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew
 
-def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, rand_noise_ncopy, rand_flux_lores, master_mask, vel_data, norm_flux, ncopy_plot, title=None):
+def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, master_mask, vel_data, norm_flux, ncopy_plot, title=None):
 
     ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
 
@@ -187,33 +187,35 @@ def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, rand_noise_ncopy, ran
     plt.xlabel('Velocity (km/s)', fontsize=15)
     plt.tight_layout()
 
-
 def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
 
     ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
-
     # compress ncopy and nskew dimensions together because compute_xi() only takes in 2D arrays
     # (tried keeping the original 3D array and looping over ncopy when compute_xi(), but loop process too slow, sth like 1.4 min per 100 copy)
     reshaped_flux = np.reshape(noisy_flux_lores_ncopy, (ncopy * nskew, npix))
 
     if type(mask) != type(None):
-        mask_ncopy = np.tile(mask, (ncopy, 1, 1))
-        mask_ncopy = np.reshape(mask_ncopy, (ncopy*nskew, npix)).astype(int) # reshaping the same way as above and recasting to int type so the next line can run
-        reshaped_flux_masked = np.where(mask_ncopy, reshaped_flux, np.nan)
-        mean_flux = np.nanmean(reshaped_flux_masked)
-        mask_ncopy = mask_ncopy.astype(bool)
+        #magsk_ncopy = np.tile(mask, (ncopy, 1, 1)) # making ncopy of the mask
+        #mask_ncopy = np.reshape(mask_ncopy, (ncopy*nskew, npix)).astype(int) # reshaping the same way as above and recasting to int type so the next line can run
+        #reshaped_flux_masked = np.where(mask_ncopy, reshaped_flux, np.nan)
+        #mean_flux = np.nanmean(reshaped_flux_masked)
+        # mask_ncopy = mask_ncopy.astype(bool)
 
+        mask_ncopy = np.tile(mask, (ncopy, 1, 1))
+        mask_ncopy = np.reshape(mask_ncopy, (ncopy * nskew, npix))
+        mean_flux = np.nanmean(reshaped_flux[mask_ncopy])
     else:
         mask_ncopy = None
         mean_flux = np.nanmean(reshaped_flux)
 
     delta_f = (reshaped_flux - mean_flux)/mean_flux
+
     (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=mask_ncopy)
 
     # reshape xi_mock into the original input shape
     xi_mock = np.reshape(xi_mock, (ncopy, nskew, len(vel_mid)))
-
+    npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
     return vel_mid, xi_mock, npix_xi
 
 ########################## mock dataset #############################
@@ -271,6 +273,186 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
     covar /= ncopy
 
     return xi_mock_keep, covar
+
+########################## looking into the bin at 1200 km/s with large error bar #############################
+def mock_mean_covar_debug(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
+
+    master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
+    qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
+
+    xi_mock_qso_all = []
+    npix_xi_all = []
+    all_mask_chunk_all = []
+
+    for iqso, fitsfile in enumerate(fitsfile_list):
+    #for iqso in range(0, 1):
+        # initialize all qso data
+        raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+        norm_flux = flux / fluxfit
+        norm_std = std / fluxfit
+        vel_data = mutils.obswave_to_vel_2(wave)
+
+        # generate mock data spectrum
+        _, _, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=qso_seed_list[iqso], std_corr=corr_all[iqso])
+
+        usable_data_mask = mask * redshift_mask * pz_mask * zbin_mask
+        usable_data_mask_chunk = reshape_data_array(usable_data_mask, nskew_to_match_data, npix_sim_skew, True)
+
+        # deal with CGM mask if argued before computing the 2PCF
+        if type(cgm_gpm_allspec) == type(None):
+            all_mask_chunk = usable_data_mask_chunk
+        else:
+            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso], nskew_to_match_data, npix_sim_skew, True) # reshaping GPM from cgm masking
+            all_mask_chunk = usable_data_mask_chunk * gpm_onespec_chunk
+
+        # compute the 2PCF
+        #all_mask_chunk = None
+        vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=all_mask_chunk)
+        xi_mock_qso_all.append(xi_mock)
+        npix_xi_all.append(npix_xi)
+        all_mask_chunk_all.append(all_mask_chunk)
+
+    #return noisy_flux_lores_ncopy, all_mask_chunk
+
+    vel_mid = np.array(vel_mid)
+    xi_mock_qso_all = np.array(xi_mock_qso_all)
+    nqso, ncopy, nskew, npix = xi_mock_qso_all.shape
+
+    xi_mock_avg_nskew = np.mean(xi_mock_qso_all, axis=2) # average over nskew_to_match_data
+    xi_mock_mean = np.mean(xi_mock_avg_nskew, axis=0) # average over nqso
+    delta_xi = xi_mock_mean - xi_mean # delta_xi.shape = (ncopy, ncorr)
+
+    ncorr = xi_mean.shape[0]
+    covar = np.zeros((ncorr, ncorr))
+
+    for icopy in range(ncopy):
+        covar += np.outer(delta_xi[icopy], delta_xi[icopy])  # off-diagonal elements
+
+    xi_mock_keep = xi_mock_mean # xi_mock_mean[:nmock]
+
+    # Divid by ncovar since we estimated the mean from "independent" data
+    covar /= ncopy
+
+    return xi_mock_keep, covar, np.array(npix_xi_all), xi_mock_qso_all, all_mask_chunk_all
+
+def mock_mean_covar_debug2(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
+
+    master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
+    qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
+
+    xi_mock_qso_all = []
+    npix_xi_all = []
+    all_mask_chunk_all = []
+
+    for iqso, fitsfile in enumerate(fitsfile_list):
+    #for iqso in range(0, 1):
+        # initialize all qso data
+        raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+        norm_flux = flux / fluxfit
+        norm_std = std / fluxfit
+        vel_data = mutils.obswave_to_vel_2(wave)
+
+        # generate mock data spectrum
+        _, _, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=qso_seed_list[iqso], std_corr=corr_all[iqso])
+
+        usable_data_mask = mask * redshift_mask * pz_mask * zbin_mask
+        usable_data_mask_chunk = reshape_data_array(usable_data_mask, nskew_to_match_data, npix_sim_skew, True)
+
+        # deal with CGM mask if argued before computing the 2PCF
+        if type(cgm_gpm_allspec) == type(None):
+            all_mask_chunk = usable_data_mask_chunk
+        else:
+            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso], nskew_to_match_data, npix_sim_skew, True) # reshaping GPM from cgm masking
+            all_mask_chunk = usable_data_mask_chunk * gpm_onespec_chunk
+
+        # compute the 2PCF
+        #all_mask_chunk = None
+        #vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=all_mask_chunk)
+
+        std = reshape_data_array(std, nskew_to_match_data, npix_sim_skew, False)
+        std = np.reshape(std, (1, nskew_to_match_data, npix_sim_skew))
+        vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, std, vmin_corr, vmax_corr, dv_corr, mask=all_mask_chunk)
+        #vel_mid, xi_mock, npix_xi, xi_mock_zero_lag = utils.compute_xi(std, vel_data, vmin_corr, vmax_corr, dv_corr, \
+        #                                                               gpm=usable_data_mask * cgm_gpm_allspec[iqso])
+        xi_mock_qso_all.append(xi_mock)
+        npix_xi_all.append(npix_xi)
+        all_mask_chunk_all.append(all_mask_chunk)
+
+    #return noisy_flux_lores_ncopy, all_mask_chunk
+
+    vel_mid = np.array(vel_mid)
+    xi_mock_qso_all = np.array(xi_mock_qso_all)
+    nqso, ncopy, nskew, npix = xi_mock_qso_all.shape
+
+    #return np.array(npix_xi_all), xi_mock_qso_all, all_mask_chunk_all
+
+    xi_mock_avg_nskew = np.mean(xi_mock_qso_all, axis=2) # average over nskew_to_match_data
+    xi_mock_mean = np.mean(xi_mock_avg_nskew, axis=0) # average over nqso
+    delta_xi = xi_mock_mean - xi_mean # delta_xi.shape = (ncopy, ncorr)
+
+    ncorr = xi_mean.shape[0]
+    covar = np.zeros((ncorr, ncorr))
+
+    for icopy in range(ncopy):
+        covar += np.outer(delta_xi[icopy], delta_xi[icopy])  # off-diagonal elements
+
+    xi_mock_keep = xi_mock_mean # xi_mock_mean[:nmock]
+
+    # Divid by ncovar since we estimated the mean from "independent" data
+    covar /= ncopy
+
+    return xi_mock_keep, covar, np.array(npix_xi_all), xi_mock_qso_all, all_mask_chunk_all
+
+def mock_mean_covar_debug_plot(vel_mid, npix_xi_all, xi_mock_qso_all, all_mask_chunk_all):
+
+    plt.figure(figsize=(10,7))
+    for iqso in range(4):
+        plt.subplot(2, 2, iqso + 1)
+        for iskew in range(10):
+            if np.sum(npix_xi_all[iqso][0][iskew]) != 0:
+                if type(all_mask_chunk_all[iqso]) != type(None):
+                    npix_good = np.sum(all_mask_chunk_all[iqso][iskew])/220.
+                    label = '%d, npix_good_frac=%0.2f' % (iskew, npix_good)
+                else:
+                    label = iskew
+                plt.plot(vel_mid, npix_xi_all[iqso][0][iskew],label=label)
+
+        plt.xlabel('V (km/s)')
+        plt.ylabel('npix_corr')
+        plt.legend(loc=1)
+    plt.tight_layout()
+
+    plt.figure(figsize=(10, 7))
+    for iqso in range(4):
+        plt.subplot(2, 2, iqso + 1)
+        for iskew in range(10):
+            if np.sum(npix_xi_all[iqso][0][iskew]) != 0:
+                plt.plot(vel_mid, xi_mock_qso_all[iqso][0][iskew], label=iskew)
+        plt.xlabel('V (km/s)')
+        plt.ylabel('CF')
+        plt.legend(loc=1)
+    plt.tight_layout()
+
+    xi_mock_avg_nskew = np.mean(xi_mock_qso_all, axis=2)  # average over nskew_to_match_data
+
+    plt.figure(figsize=(10, 7))
+    plt.suptitle('Averaged over nskew')
+    for iqso in range(4):
+        plt.subplot(2, 2, iqso + 1)
+        #for icopy in range(50):
+        for icopy in range(1):
+            plt.plot(vel_mid, xi_mock_avg_nskew[iqso][icopy], alpha=0.3)
+        plt.xlabel('V (km/s)')
+        plt.ylabel('CF')
+
+    plt.tight_layout()
+    plt.show()
 
 ########################## running the grid #############################
 def compute_model(args):
