@@ -822,3 +822,26 @@ def custom_cf_bin():
     v_hi_all = np.concatenate((v_hi1, v_hi2, v_hi3))
 
     return v_lo_all, v_hi_all
+
+from scipy import interpolate
+def interp_vbin(vel_mid, xi_mean, kind='linear'):
+
+    f = interpolate.interp1d(vel_mid, xi_mean, kind=kind)
+
+    vmin1, vmax1, dv1 = 55, 3500, 0.05
+    log_vmin = np.log10(vmin1)
+    log_vmax = np.log10(vmax1)
+    ngrid = int(round((log_vmax - log_vmin) / dv1) + 1)  # number of grid points including vmin and vmax
+    log_v_corr = log_vmin + dv1 * np.arange(ngrid)
+    log_v_lo = log_v_corr[:-1]  # excluding the last point (=vmax)
+    log_v_hi = log_v_corr[1:]  # excluding the first point (=vmin)
+    v_lo1 = 10 ** log_v_lo
+    v_hi1 = 10 ** log_v_hi
+    v_mid = 10. ** ((log_v_hi + log_v_lo) / 2.0)
+
+    try:
+        xi_mean_new = f(v_mid)
+    except ValueError:
+        print(v_mid)
+
+    return v_mid, xi_mean_new
