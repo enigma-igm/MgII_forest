@@ -9,6 +9,7 @@ Functions here:
 '''
 
 import numpy as np
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
@@ -23,6 +24,23 @@ from matplotlib.ticker import AutoMinorLocator
 from linetools.lists.linelist import LineList
 from astropy import units as u
 from astropy import constants as const
+
+### Figure settings
+font = {'family' : 'serif', 'weight' : 'normal'}#, 'size': 11}
+plt.rc('font', **font)
+mpl.rcParams['axes.linewidth'] = 1.5
+mpl.rcParams['xtick.major.width'] = 1.5
+mpl.rcParams['ytick.major.width'] = 1.5
+mpl.rcParams['xtick.minor.width'] = 1.5
+mpl.rcParams['ytick.minor.width'] = 1.5
+mpl.rcParams['xtick.major.size'] = 7
+mpl.rcParams['xtick.minor.size'] = 4
+mpl.rcParams['ytick.major.size'] = 7
+mpl.rcParams['ytick.minor.size'] = 4
+
+xytick_size = 16
+xylabel_fontsize = 20
+legend_fontsize = 14
 
 ########## global variables ##########
 fwhm = 90
@@ -63,7 +81,8 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
     good_wave_all = []
     noise_all = []
 
-    for iqso in range(5):
+
+    for iqso in range(4):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
@@ -97,15 +116,17 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
 
     return good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all
 
-def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
+def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
 
     all_transmission = []
     all_noise = []
     nqso = len(norm_good_flux_all)
 
-    plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(9, 7.5))
+    fig.subplots_adjust(left=0.12, bottom=0.1, right=0.97, top=0.88)
 
     if plot_ispec != None:
+        # plot PDF for one QSO
         i = plot_ispec
         norm_good_flux, noise = norm_good_flux_all[i], noise_all[i]
         flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - norm_good_flux, oneminf_min, oneminf_max, nbins_flux)
@@ -118,7 +139,7 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
         plt.axvspan(one_minF_thresh, oneminf_max, facecolor='k', alpha=0.2, label='masked')
 
     else:
-        # plot PDF for each qso
+        # plot PDF for all qso
         for i in range(nqso):
             norm_good_flux, noise = norm_good_flux_all[i], noise_all[i]
             flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - norm_good_flux, oneminf_min, oneminf_max, nbins_flux)
@@ -139,12 +160,14 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
         plt.axvline(one_minF_thresh, color='k', ls='--', lw=2)
         plt.axvspan(one_minF_thresh, oneminf_max, facecolor='k', alpha=0.2, label='masked')
 
-    plt.legend()
+    plt.legend(loc=2, fontsize=legend_fontsize)
     plt.xlim([1e-4, 1.0])
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel('1$-$F')
-    plt.ylabel('PDF')
+    plt.xlabel('1$-$F', fontsize=xylabel_fontsize)
+    plt.ylabel('PDF', fontsize=xylabel_fontsize)
+    plt.gca().tick_params(axis="x", labelsize=xytick_size)
+    plt.gca().tick_params(axis="y", labelsize=xytick_size)
 
     strong_lines = LineList('Strong', verbose=False)
     wave_blue = strong_lines['MgII 2796']['wrest']
@@ -152,20 +175,22 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None):
     print("Wfactor", Wfactor) # 0.28 A
 
     Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
-    ymin, ymax = 1e-3, 1.0
+    ymin, ymax = 1e-3, 1.5
 
     atwin = plt.twiny()
-    atwin.set_xlabel(r'$W_{{\lambda, \mathrm{{pix}}}}$ [$\mathrm{{\AA}}]$', labelpad=10)
+    atwin.set_xlabel(r'$W_{{\lambda, \mathrm{{pix}}}}$ [$\mathrm{{\AA}}]$', labelpad=10, fontsize=xylabel_fontsize)
     atwin.xaxis.tick_top()
     atwin.set_xscale('log')
     atwin.axis([Wmin_top, Wmax_top, ymin, ymax])
-    atwin.tick_params(top=True)
-    atwin.tick_params(axis="both")
+    #atwin.tick_params(top=True, labelsize=xytick_size)
+    atwin.tick_params(top=True, axis="both", labelsize=xytick_size)
 
     plt.tight_layout()
+    if savefig != None:
+        plt.savefig(savefig)
     plt.show()
 
-def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False):
+def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None):
 
     all_chi = []
     all_chi_noise = []
@@ -173,7 +198,8 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
     nqso = len(norm_good_flux_all)
 
     if plot:
-        plt.figure(figsize=(8, 6))
+        fig = plt.figure(figsize=(9, 6.7))
+        fig.subplots_adjust(left=0.12, bottom=0.1, right=0.97, top=0.88)
 
     # PDF for each qso
     for i in range(nqso):
@@ -218,13 +244,18 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
         plt.axvspan(signif_mask_nsigma, sig_max, facecolor='k', alpha=0.2, label='masked')
 
-        plt.legend()
+        plt.legend(loc=2, fontsize=legend_fontsize)
         plt.xscale('log')
         plt.yscale('log')
-        plt.xlabel(r'$\chi$')
-        plt.ylabel('PDF')
+        plt.xlim([1e-3, 50])
+        plt.ylim(top=0.8)
+        plt.xlabel(r'$\chi$', fontsize=xylabel_fontsize)
+        plt.ylabel('PDF', fontsize=xylabel_fontsize)
+        plt.gca().tick_params(axis="both", labelsize=xytick_size)
 
         plt.tight_layout()
+        if savefig != None:
+            plt.savefig(savefig)
         plt.show()
 
     return mgii_tot_all
@@ -268,11 +299,9 @@ def chi_pdf_onespec(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_
     plt.tight_layout()
     plt.show()
 
-
     return mgii_tot
 
-def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flux_all, norm_good_std_all, iqso):
-    # vel_data_all can be substituted with good_wave_all
+def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flux_all, norm_good_std_all, iqso, chi_max, savefig=None):
 
     mgii_tot = mgii_tot_all[iqso]
     vel_data = vel_data_all[iqso]
@@ -291,36 +320,37 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     fs_mask_frac = np.sum(fs_mask)/len(fs_mask)
     print(f_mask_frac, s_mask_frac, fs_mask_frac)
 
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 6), sharex=True)
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.98, top=0.93, wspace=0, hspace=0.)
-    flux_min, flux_max = 0., 1.9
-    chi_min, chi_max = -5.0, 12
+    flux_min, flux_max = -0.05, 1.8
+    chi_min = -3.0 #, chi_max = -3.0, 8.4
 
-    ax1.set_title(qso_name + ' (z = %0.2f)' % qso_z + '\n', fontsize=18)
+    #ax1.set_title(qso_name + ' (z = %0.2f)' % qso_z + '\n', fontsize=18)
     ax1.plot(vel_data, norm_good_flux, drawstyle='steps-mid', color='k', linewidth=1.5, zorder=1)
     ax1.plot(vel_data, norm_good_std, drawstyle='steps-mid', color='k', linewidth=1.0, alpha=0.5)
-    ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=1.5, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))
+    ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=2, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))
     ax1.plot(vel_data[s_mask], norm_good_flux[s_mask], color='magenta', markersize=7, markeredgewidth=2.5, linestyle='none', alpha=0.7, zorder=2, marker='|')
     ax1.plot(vel_data[f_mask], norm_good_flux[f_mask], color = 'green', markersize = 7, markeredgewidth = 2.5, linestyle = 'none', alpha = 0.7, zorder = 3, marker = '|')
-    ax1.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=18)
+    ax1.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
     ax1.set_xlim([vel_data.min(), vel_data.max()])
     ax1.set_ylim([flux_min, flux_max])
+    ax1.tick_params(which='both', labelsize=xytick_size)
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    ax1.legend(fontsize=13)
+    ax1.legend(fontsize=legend_fontsize)
 
     neg = np.zeros_like(vel_data) - 100
     ax2.plot(vel_data, mgii_tot.signif[0], drawstyle='steps-mid', color='k')
-    ax2.axhline(y=signif_mask_nsigma, color='magenta', linestyle='dashed', linewidth=1.5, label=r'$\chi$ = %d (%0.2f pixels masked)' % (signif_mask_nsigma, s_mask_frac))
+    ax2.axhline(y=signif_mask_nsigma, color='magenta', linestyle='dashed', linewidth=2, label=r'$\chi$ = %d (%0.2f pixels masked)' % (signif_mask_nsigma, s_mask_frac))
     ax2.fill_between(vel_data, neg, mgii_tot.signif[0], where=s_mask, step = 'mid', facecolor = 'magenta', alpha = 0.5)
-    ax2.set_xlabel('v (km/s)', fontsize=18)
-    #ax2.set_xlabel('obs wavelength (A)', fontsize=18)
-    ax2.set_ylabel(r'$\chi$', fontsize=18)
+    ax2.set_xlabel('v (km/s)', fontsize=xylabel_fontsize)
+    ax2.set_ylabel(r'$\chi$', fontsize=xylabel_fontsize)
     ax2.set_xlim([vel_data.min(), vel_data.max()])
     ax2.set_ylim([chi_min, chi_max])
+    ax2.tick_params(which='both', labelsize=xytick_size)
     ax2.xaxis.set_minor_locator(AutoMinorLocator())
     ax2.yaxis.set_minor_locator(AutoMinorLocator())
-    ax2.legend(fontsize=13)
+    ax2.legend(fontsize=legend_fontsize)
 
     # plot upper axis --- the CORRECT way, since vel and wave transformation is non-linear
     def forward(x):
@@ -331,22 +361,13 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
 
     secax = ax1.secondary_xaxis('top', functions=(forward, inverse))
     secax.xaxis.set_minor_locator(AutoMinorLocator())
-    secax.set_xlabel('obs wavelength (A)', fontsize=18, labelpad=8)
+    secax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize, labelpad=8)
+    secax.tick_params(top=True, axis="both", labelsize=xytick_size)
 
-    """
-    # plot upper axis
-    wave_min, wave_max = wave_data.min(), wave_data.max()
-    atwin = ax1.twiny()
-    atwin.set_xlabel('obs wavelength (A)', fontsize=18, labelpad=8)
-    #xtick_loc = np.arange(wave_min, wave_max + 100, 100)
-    #atwin.set_xticks(xtick_loc)
-    atwin.axis([wave_min, wave_max, flux_min, flux_max])
-    atwin.tick_params(top=True, axis="x")
-    #atwin.xaxis.set_minor_locator(AutoMinorLocator())
-    """
     plt.tight_layout()
-    plt.show()
-    #plt.close()
+    if savefig != None:
+        plt.savefig(savefig)
+    #plt.show()
 
 def do_allqso_allzbin():
     # get mgii_tot_all for all qso and for all redshift bins
