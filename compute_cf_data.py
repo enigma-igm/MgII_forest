@@ -802,12 +802,12 @@ def custom_cf_bin():
     #print(v_mid)
 
     # linear around peak
-    v_bins2 = np.arange(550, 1000, 90)
+    v_bins2 = np.arange(550, 1000, 30)
     v_lo2 = v_bins2[:-1]
     v_hi2 = v_bins2[1:]
 
     # log on large-scale
-    vmin3, vmax3, dv3 = 1000, 3500, 0.1
+    vmin3, vmax3, dv3 = 1000, 3600, 0.1
     log_vmin = np.log10(vmin3)
     log_vmax = np.log10(vmax3)
     ngrid = int(round((log_vmax - log_vmin) / dv3) + 1)  # number of grid points including vmin and vmax
@@ -821,6 +821,39 @@ def custom_cf_bin():
 
     v_lo_all = np.concatenate((v_lo1, v_lo2, v_lo3))
     v_hi_all = np.concatenate((v_hi1, v_hi2, v_hi3))
+
+    return v_lo_all, v_hi_all
+
+def custom_cf_bin2():
+    """
+    flux_lores = flux_lores[0:100]  # just looking at a subset
+    mean_flux_nless = np.mean(flux_lores)
+    delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
+
+    (vel_mid, xi_nless, npix, xi_nless_zero_lag) = reion_utils.compute_xi(delta_f_nless, np.log10(vel_lores), np.log10(
+        vmin), np.log10(vmax), np.log10(dv))
+    xi_mean = np.mean(xi_nless, axis=0)
+    """
+
+    # linear around peak and small-scales
+    v_bins1 = np.arange(10, 1200, 60)
+    v_lo1 = v_bins1[:-1]
+    v_hi1 = v_bins1[1:]
+
+    # log on large-scale
+    vmin2, vmax2, dv2 = 1200, 3550, 0.1
+    log_vmin = np.log10(vmin2)
+    log_vmax = np.log10(vmax2)
+    ngrid = int(round((log_vmax - log_vmin) / dv2) + 1)  # number of grid points including vmin and vmax
+    log_v_corr = log_vmin + dv2 * np.arange(ngrid)
+    log_v_lo = log_v_corr[:-1]  # excluding the last point (=vmax)
+    log_v_hi = log_v_corr[1:]  # excluding the first point (=vmin)
+    v_lo2 = 10 ** log_v_lo
+    v_hi2 = 10 ** log_v_hi
+    v_mid = 10. ** ((log_v_hi + log_v_lo) / 2.0)
+
+    v_lo_all = np.concatenate((v_lo1, v_lo2))
+    v_hi_all = np.concatenate((v_hi1, v_hi2))
 
     return v_lo_all, v_hi_all
 
@@ -846,3 +879,32 @@ def interp_vbin(vel_mid, xi_mean, kind='linear'):
         print(v_mid)
 
     return v_mid, xi_mean_new
+
+def compare_lin_log_bins(deltaf, vel_lores, given_bins, dv_corr, loglegend, title):
+    vmin_corr, vmax_corr = 10, 3500
+
+    (vel_mid_lin, xi_nless_lin, npix, xi_nless_zero_lag) = reion_utils.compute_xi(deltaf, vel_lores, vmin_corr, vmax_corr, dv_corr)
+    xi_mean_lin = np.mean(xi_nless_lin, axis=0)
+
+    (vel_mid_log, xi_nless_log, npix, xi_nless_zero_lag) = reion_utils.compute_xi(deltaf, vel_lores, 0, 0, 0, given_bins=given_bins)
+    xi_mean_log = np.mean(xi_nless_log, axis=0)
+
+    plt.figure(figsize=(12,5))
+    plt.suptitle(title, fontsize=16)
+    plt.subplot(121)
+    plt.plot(vel_mid_lin, xi_mean_lin, 'kx-', label='linear with dv=%d' % dv_corr)
+    plt.plot(vel_mid_log, xi_mean_log, 'r.-', label=loglegend)
+    plt.xlabel(r'$\Delta v$ [km/s]')
+    plt.ylabel(r'$\xi(\Delta v)$')
+    plt.legend()
+
+    plt.subplot(122)
+    plt.plot(vel_mid_lin, xi_mean_lin, 'kx-', label='linear with dv=%d' % dv_corr)
+    plt.plot(vel_mid_log, xi_mean_log, 'r.-', label=loglegend)
+    plt.xlabel(r'$\Delta v$ [km/s]')
+    plt.ylabel(r'$\xi(\Delta v)$')
+    plt.xscale('log')
+    plt.tight_layout()
+    plt.show()
+
+    return vel_mid_log, xi_mean_log, vel_mid_lin, xi_mean_lin

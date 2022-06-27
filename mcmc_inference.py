@@ -65,7 +65,8 @@ def init(modelfile, redshift_bin, cgm_fit_gpm_all):
 
     xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
     nqso = 4
-    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None])
+    #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None])
+    vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(cgm_fit_gpm_all, redshift_bin)
     xi_data = xi_mean_mask
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
 

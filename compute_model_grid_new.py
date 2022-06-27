@@ -21,6 +21,7 @@ from tqdm import tqdm
 import mutils
 import mask_cgm_pdf as mask_cgm
 import pdb
+import compute_cf_data as ccf
 
 ###################### global variables ######################
 datapath = '/Users/suksientie/Research/data_redux/'
@@ -211,7 +212,8 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_
 
     delta_f = (reshaped_flux - mean_flux)/mean_flux
 
-    (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=mask_ncopy)
+    given_bins = ccf.custom_cf_bin2()
+    (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=mask_ncopy)
 
     # reshape xi_mock into the original input shape
     xi_mock = np.reshape(xi_mock, (ncopy, nskew, len(vel_mid)))
@@ -469,9 +471,10 @@ def compute_model(args):
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
     # noiseless quantities
+    given_bins = ccf.custom_cf_bin2()
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
-    (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr)
+    (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins)
     xi_mean = np.mean(xi_nless, axis=0)
 
     # noisy quantities for all QSOs
@@ -577,7 +580,7 @@ def main():
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
     outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/'
-    outfilename = 'corr_func_models_fwhm_{:5.3f}_samp_{:5.3f}_{:s}'.format(fwhm, sampling, redshift_bin) + '.fits'
+    outfilename = 'corr_func_models_fwhm_{:5.3f}_samp_{:5.3f}_{:s}_logbin'.format(fwhm, sampling, redshift_bin) + '.fits'
     outfile = os.path.join(outpath, outfilename)
 
     xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'

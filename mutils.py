@@ -448,26 +448,28 @@ def plot_allspec_pdf():
     plt.show()
 
 ######################################################
-def init_skewers_compute_model_grid(dv_corr):
+def init_skewers_compute_model_grid(filename, dv_corr, logZ):
     # initialize Nyx skewers for testing compute_model_grid_new.py
-    file = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
-    params = Table.read(file, hdu=1)
-    skewers = Table.read(file, hdu=2)
+
+    #filename = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
+    params = Table.read(filename, hdu=1)
+    skewers = Table.read(filename, hdu=2)
 
     fwhm = 90 # 83
     sampling = 3
-    logZ = -3.50
+    #logZ = -3.50
 
     vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), \
     vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
     vmin_corr, vmax_corr = 10, 3500
-
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
+
+    return delta_f_nless, vel_lores
+
     (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr)
     xi_mean = np.mean(xi_nless, axis=0)
 
     return vel_lores, flux_lores, vel_mid, xi_mean, npix, xi_nless
-
