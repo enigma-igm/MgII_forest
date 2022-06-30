@@ -64,7 +64,7 @@ def init(modelfile, redshift_bin, vel_lores):
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
-    cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/')
+    cgm_fit_gpm_all = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/')
 
     xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
     nqso = 4
