@@ -32,7 +32,7 @@ vmin_corr = 10
 vmax_corr = 3500
 dv_corr = 90  # 5/23/2022; to ensure npix_corr behaving correctly (smoothly)
 #corr_all = [0.689, 0.640, 0.616, 0.583] # old values used by compute_model_grid_new.py
-corr_all = [0.758, 0.753, 0.701, 0.724, 0.759] # determined from mutils.plot_allspec_pdf
+corr_all = [0.758, 0.753, 0.701, 0.724, 0.759] # determined from mutils.plot_allspec_pdf for redshift_bin='all'
 median_z = 6.57 # value used in mutils.init_onespec
 
 def init_cgm_fit_gpm():
@@ -425,7 +425,7 @@ def plot_allspec(nqso, lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm):
     plt.show()
 
 #################################################
-def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores):
+def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores, given_bins=None):
     dv_corr = 100
     # cgm_fit_gpm = output from cmg.init_cgm_masking
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
@@ -446,7 +446,7 @@ def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores):
     deltaf_chunk = cmg.reshape_data_array(deltaf_tot, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
     all_masks_chunk = cmg.reshape_data_array(all_masks, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
 
-    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_chunk)
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks_chunk)
     xi_mean_tot = np.mean(xi_tot, axis=0)  # average over nskew_to_match_data
 
     ###### CF from masking CGM ######x
@@ -458,23 +458,23 @@ def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores):
 
     deltaf_mask_chunk = (norm_flux_chunk - meanflux_tot_mask)/meanflux_tot_mask
 
-
-    vel_mid, xi_tot_mask, npix_tot_mask, _ = reion_utils.compute_xi(deltaf_mask_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, gpm=all_masks_chunk)
+    vel_mid, xi_tot_mask, npix_tot_mask, _ = reion_utils.compute_xi(deltaf_mask_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks_chunk)
     xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0)  # average over nskew_to_match_data
 
     return vel_mid, xi_mean_tot, xi_mean_tot_mask
 
-def allspec_chunk(gpm_allspec, redshift_bin):
+def allspec_chunk(gpm_allspec, redshift_bin, vel_lores, given_bins=None):
 
-    dv_corr = 100
-    vel_lores, _, _, _, _, _ = mutils.init_skewers_compute_model_grid(dv_corr)
+    #dv_corr = 100
+    #vel_lores, _, _, _, _, _ = mutils.init_skewers_compute_model_grid(dv_corr)
 
     xi_unmask_all = []
     xi_mask_all = []
 
     nqso = 4
     for iqso in range(nqso):
-        vel_mid, xi_mean_tot, xi_mean_tot_mask = onespec_chunk(iqso, redshift_bin, gpm_allspec[iqso], vel_lores)
+        vel_mid, xi_mean_tot, xi_mean_tot_mask = \
+            onespec_chunk(iqso, redshift_bin, gpm_allspec[iqso], vel_lores, given_bins=given_bins)
         xi_unmask_all.append(xi_mean_tot)
         xi_mask_all.append(xi_mean_tot_mask)
 

@@ -4,6 +4,14 @@ Functions here:
     - init_mockdata
     - run_mcmc
     - corrfunc_plot
+
+    (misc functions)
+    - plot_corrmatrix
+    - corr_matrix
+    - plot_single_corr_elem
+    - lnlike_plot_slice
+    - lnlike_plot_logZ_many
+    - lnlike_plot_xhi_many
 '''
 
 import numpy as np
@@ -27,6 +35,7 @@ from astropy.cosmology import FlatLambdaCDM
 from astropy import units as u
 from astropy.io import fits
 import compute_cf_data
+import compute_model_grid_new as cmg
 
 seed = None #434519 #1097212 #988765 #2213142
 if seed == None:
@@ -36,22 +45,14 @@ if seed == None:
 rand = np.random.RandomState(seed)
 figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/'
 
+# for init_mockdata()
 logZ_guess = -5.0 #-4.50 # -3.70
 xhi_guess  = 0.50 # 0.74
+
 linearZprior = False
+given_bins = compute_cf_data.custom_cf_bin2() # None
 
-"""
-datapath = '/Users/suksientie/Research/data_redux/'
-fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits']
-
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.642, 7.541, 7.001, 7.034]
-"""
-
-def init(modelfile, redshift_bin, cgm_fit_gpm_all):
+def init(modelfile, redshift_bin, vel_lores):
 
     # options for redshift_bin: 'all', 'low', 'high'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
@@ -63,10 +64,12 @@ def init(modelfile, redshift_bin, cgm_fit_gpm_all):
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
+    cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/')
+
     xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
     nqso = 4
     #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None])
-    vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(cgm_fit_gpm_all, redshift_bin)
+    vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(cgm_fit_gpm_all, redshift_bin, vel_lores, given_bins=given_bins)
     xi_data = xi_mean_mask
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
 

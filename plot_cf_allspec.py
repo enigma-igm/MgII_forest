@@ -6,6 +6,7 @@ from matplotlib.ticker import AutoMinorLocator
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM
 from astropy import units as u
+from astropy.table import Table
 import compute_cf_data as ccf
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
@@ -98,76 +99,6 @@ xi_scale = 1
 vmin, vmax = 0, 3500
 ymin, ymax = -0.0010 * xi_scale, 0.002 * xi_scale
 
-####### plot un-masked CF #######
-fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(14, 5), sharey=True)
-fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
-
-#for i in range(nqso):
-#    for xi in xi_noise_unmask_low[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
-#        ax1.plot(vel_mid_low, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
-
-ax1.fill_between(vel_mid_low, p5_unmask_low, p95_unmask_low, color='k', alpha=0.2, ec=None)
-
-for xi in xi_unmask_all_low:
-    ax1.plot(vel_mid_low, xi * xi_scale, linewidth=1.0) #, alpha=0.7) # c='tab:orange'
-
-ax1.errorbar(vel_mid_low, xi_mean_unmask_low * xi_scale, yerr=(xi_std_unmask_low / np.sqrt(nqso)) * xi_scale, lw=2.0, \
-             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20)
-
-ax1.text(2500, 0.85*ymax, r'$z < %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
-ax1.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
-ax1.set_ylabel(r'$\xi(\Delta v)$', fontsize=xylabel_fontsize)
-vel_doublet = 768.469
-ax1.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
-ax1.set_ylim([ymin, ymax])
-ax1.xaxis.set_minor_locator(AutoMinorLocator())
-ax1.yaxis.set_minor_locator(AutoMinorLocator())
-ax1.tick_params(top=True, which='both', labelsize=xytick_size)
-
-#for i in range(nqso):
-#    for xi in xi_noise_unmask_high[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
-#        ax2.plot(vel_mid_high, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
-
-ax2.fill_between(vel_mid_high, p5_unmask_high, p95_unmask_high, color='k', alpha=0.2, ec=None)
-
-for xi in xi_unmask_all_high:
-    ax2.plot(vel_mid, xi * xi_scale, linewidth=1.0) #, alpha=0.7) # c='tab:orange'
-
-ax2.errorbar(vel_mid, xi_mean_unmask_high * xi_scale, yerr=(xi_std_unmask_high / np.sqrt(nqso)) * xi_scale, lw=2.0, \
-             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20)
-
-ax2.text(2500, 0.85*ymax, r'$z \geq %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
-ax2.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
-ax2.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
-ax2.set_ylim([ymin, ymax])
-ax2.xaxis.set_minor_locator(AutoMinorLocator())
-ax2.yaxis.set_minor_locator(AutoMinorLocator())
-ax2.tick_params(top=True, which='both', labelsize=xytick_size)
-
-#for i in range(nqso):
-#    for xi in xi_noise_unmask_all[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
-#        ax3.plot(vel_mid, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
-
-ax3.fill_between(vel_mid, p5_unmask_all, p95_unmask_all, color='k', alpha=0.2, ec=None)
-
-for xi in xi_unmask_all:
-    ax3.plot(vel_mid, xi * xi_scale, linewidth=1.0) #, alpha=0.7) #c='tab:orange'
-
-ax3.errorbar(vel_mid, xi_mean_unmask_high * xi_scale, yerr=(xi_std_unmask / np.sqrt(nqso)) * xi_scale, lw=2.0, \
-             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20)
-
-ax3.text(2500, 0.85*ymax, r'All $z$', fontsize=xytick_size) #, linespacing=1.8)
-ax3.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
-ax3.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
-ax3.set_ylim([ymin, ymax])
-ax3.xaxis.set_minor_locator(AutoMinorLocator())
-ax3.yaxis.set_minor_locator(AutoMinorLocator())
-ax3.tick_params(top=True, which='both', labelsize=xytick_size)
-
-#plt.savefig(savefig_unmasked)
-plt.show()
-plt.close()
-
 ####### plot masked CF #######
 fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(14, 5), sharey=True)
 fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
@@ -235,5 +166,75 @@ ax3.yaxis.set_minor_locator(AutoMinorLocator())
 ax3.tick_params(top=True, which='both', labelsize=xytick_size)
 
 #plt.savefig(savefig_masked)
+plt.show()
+plt.close()
+
+####### plot un-masked CF #######
+fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(14, 5), sharey=True)
+fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
+
+#for i in range(nqso):
+#    for xi in xi_noise_unmask_low[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
+#        ax1.plot(vel_mid_low, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
+
+ax1.fill_between(vel_mid_low, p5_unmask_low, p95_unmask_low, color='k', alpha=0.2, ec=None)
+
+for xi in xi_unmask_all_low:
+    ax1.plot(vel_mid_low, xi * xi_scale, linewidth=1.0) #, alpha=0.7) # c='tab:orange'
+
+ax1.errorbar(vel_mid_low, xi_mean_unmask_low * xi_scale, yerr=(xi_std_unmask_low / np.sqrt(nqso)) * xi_scale, lw=2.0, \
+             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20)
+
+ax1.text(2500, 0.85*ymax, r'$z < %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
+ax1.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
+ax1.set_ylabel(r'$\xi(\Delta v)$', fontsize=xylabel_fontsize)
+vel_doublet = 768.469
+ax1.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
+ax1.set_ylim([ymin, ymax])
+ax1.xaxis.set_minor_locator(AutoMinorLocator())
+ax1.yaxis.set_minor_locator(AutoMinorLocator())
+ax1.tick_params(top=True, which='both', labelsize=xytick_size)
+
+#for i in range(nqso):
+#    for xi in xi_noise_unmask_high[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
+#        ax2.plot(vel_mid_high, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
+
+ax2.fill_between(vel_mid_high, p5_unmask_high, p95_unmask_high, color='k', alpha=0.2, ec=None)
+
+for xi in xi_unmask_all_high:
+    ax2.plot(vel_mid, xi * xi_scale, linewidth=1.0) #, alpha=0.7) # c='tab:orange'
+
+ax2.errorbar(vel_mid, xi_mean_unmask_high * xi_scale, yerr=(xi_std_unmask_high / np.sqrt(nqso)) * xi_scale, lw=2.0, \
+             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20)
+
+ax2.text(2500, 0.85*ymax, r'$z \geq %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
+ax2.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
+ax2.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
+ax2.set_ylim([ymin, ymax])
+ax2.xaxis.set_minor_locator(AutoMinorLocator())
+ax2.yaxis.set_minor_locator(AutoMinorLocator())
+ax2.tick_params(top=True, which='both', labelsize=xytick_size)
+
+#for i in range(nqso):
+#    for xi in xi_noise_unmask_all[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
+#        ax3.plot(vel_mid, xi * xi_scale, c='k', linewidth=0.3, alpha=0.1)
+
+ax3.fill_between(vel_mid, p5_unmask_all, p95_unmask_all, color='k', alpha=0.2, ec=None)
+
+for xi in xi_unmask_all:
+    ax3.plot(vel_mid, xi * xi_scale, linewidth=1.0) #, alpha=0.7) #c='tab:orange'
+
+ax3.errorbar(vel_mid, xi_mean_unmask_high * xi_scale, yerr=(xi_std_unmask / np.sqrt(nqso)) * xi_scale, lw=2.0, \
+             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20)
+
+ax3.text(2500, 0.85*ymax, r'All $z$', fontsize=xytick_size) #, linespacing=1.8)
+ax3.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
+ax3.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
+ax3.set_ylim([ymin, ymax])
+ax3.xaxis.set_minor_locator(AutoMinorLocator())
+ax3.yaxis.set_minor_locator(AutoMinorLocator())
+ax3.tick_params(top=True, which='both', labelsize=xytick_size)
+
+#plt.savefig(savefig_unmasked)
 plt.show()
 plt.close()

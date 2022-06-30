@@ -402,14 +402,14 @@ def plot_onespec_pdf(iqso, seed=None, title=None):
     plt.tight_layout()
     plt.show()
 
-def plot_allspec_pdf():
+def plot_allspec_pdf(redshift_bin, seed_list=[None, None, None, None]):
 
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
     plt.figure(figsize=(12, 8))
 
     for iqso in range(4):
-        seed = None
-        redshift_bin = 'high'
+        seed = seed_list[iqso]
+        #redshift_bin = 'high'
         raw_out, masked_out, masks_out = init_onespec(iqso, redshift_bin)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_out
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = masks_out
