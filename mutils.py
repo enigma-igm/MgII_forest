@@ -336,7 +336,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_r
         zbin_mask = np.ones_like(wave, dtype=bool)
 
     # master mask for measuring 2PCF
-    master_mask = mask * strong_abs_gpm * redshift_mask * pz_mask * zbin_mask
+    #master_mask = mask * strong_abs_gpm * redshift_mask * pz_mask * zbin_mask
     master_mask = mask * redshift_mask * pz_mask * zbin_mask
 
     # masked arrays

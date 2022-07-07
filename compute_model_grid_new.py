@@ -176,17 +176,19 @@ def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, master_mask, vel_data
     ##### plot subset of mock spectra
     for i in range(ncopy_plot):
         flux_lores_comb = noisy_flux_lores_ncopy[i][nan_pad_mask]
-        plt.plot(vel_data, flux_lores_comb + (i + 1), alpha=0.5, drawstyle='steps-mid')
+        plt.plot(vel_data, flux_lores_comb + (i + 1), alpha=0.5, drawstyle='steps-mid', zorder=20)
 
     plt.plot(vel_data, norm_flux, 'k', drawstyle='steps-mid')
 
     ind_masked = np.where(master_mask == False)[0]
-    for j in range(len(ind_masked)):  # bad way to plot masked pixels
-        plt.axvline(vel_data[ind_masked[j]], color='k', alpha=0.2, lw=2)
+    for j in range(len(ind_masked)):
+        if ind_masked[j]+1 != len(vel_data):
+            plt.axvspan(vel_data[ind_masked[j]], vel_data[ind_masked[j]+1], facecolor = 'black', alpha = 0.4)
 
     plt.ylabel('Flux (+ arbitrary offset)', fontsize=15)
     plt.xlabel('Velocity (km/s)', fontsize=15)
     plt.tight_layout()
+    plt.show()
 
 def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above

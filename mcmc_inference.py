@@ -49,10 +49,13 @@ figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/'
 logZ_guess = -5.0 #-4.50 # -3.70
 xhi_guess  = 0.50 # 0.74
 
-linearZprior = False
-given_bins = compute_cf_data.custom_cf_bin2() # None
+def init(modelfile, redshift_bin, vel_lores, logbin=True):
+    # vel_lores = np.load('vel_lores_nyx.npy')
 
-def init(modelfile, redshift_bin, vel_lores):
+    if not logbin:
+        given_bins = None
+    else:
+        given_bins = compute_cf_data.custom_cf_bin2()
 
     # options for redshift_bin: 'all', 'low', 'high'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
@@ -64,7 +67,7 @@ def init(modelfile, redshift_bin, vel_lores):
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
-    cgm_fit_gpm_all = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/')
+    cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/')
 
     xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
     nqso = 4
@@ -171,7 +174,7 @@ def init_mockdata(modelfile):
 
     return fine_out, coarse_out, data_out
 
-def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalkers=40, savefits_chain=None, actual_data=True):
+def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalkers=40, linearZprior=False, savefits_chain=None, actual_data=True):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -385,7 +388,7 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     plt.close()
     #plt.show()
 
-def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=0.0, vmax=1.0):
+def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=None, plot_covar=False):
     # plotting the correlation matrix (copied from CIV_forest/metal_corrfunc.py)
 
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -401,8 +404,14 @@ def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=0.0, vmax=1.
 
     # correlation matrix; easier to visualize compared to covar matrix
     corr = covar / np.sqrt(np.outer(np.diag(covar), np.diag(covar)))
-    corr = covar
+    if plot_covar:
+        corr = covar
     print(corr.min(), corr.max())
+
+    if vmin == None:
+        vmin = corr.min()
+    if vmax == None:
+        vmax = corr.max()
 
     plt.figure(figsize=(8, 8))
     plt.imshow(corr, origin='lower', interpolation='nearest', extent=[vmin_corr, vmax_corr, vmin_corr, vmax_corr], \

@@ -449,7 +449,7 @@ def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores, given_bins=None):
     vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks_chunk)
     xi_mean_tot = np.mean(xi_tot, axis=0)  # average over nskew_to_match_data
 
-    ###### CF from masking CGM ######x
+    ###### CF from masking CGM ######
     gpm_onespec_chunk = cmg.reshape_data_array(cgm_fit_gpm, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
     all_masks_chunk *= gpm_onespec_chunk
 
