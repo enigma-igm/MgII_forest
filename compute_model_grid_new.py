@@ -214,7 +214,7 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_
 
     delta_f = (reshaped_flux - mean_flux)/mean_flux
 
-    given_bins = ccf.custom_cf_bin2()
+    given_bins = ccf.custom_cf_bin4() # ccf.custom_cf_bin2()
     (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=mask_ncopy)
 
     # reshape xi_mock into the original input shape
@@ -473,7 +473,7 @@ def compute_model(args):
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
     # noiseless quantities
-    given_bins = ccf.custom_cf_bin2()
+    given_bins = ccf.custom_cf_bin4() # ccf.custom_cf_bin2()
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
     (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins)

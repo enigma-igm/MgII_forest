@@ -857,6 +857,47 @@ def custom_cf_bin2():
 
     return v_lo_all, v_hi_all
 
+def custom_cf_bin3():
+
+    # linear around peak and small-scales
+    dv1 = 60
+    v_bins1 = np.arange(10, 1200 + dv1, dv1)
+
+    # increasingly larger dv (=90, 120, 150, 180... 300, 300)
+    dv = np.concatenate((np.arange(90, 360, 30), np.ones(10)*300))
+    v_bins2 = []
+    for i, idv in enumerate(dv):
+        if i == 0:
+            v_bins2.append(v_bins1[-1] + idv)
+        else:
+            if v_bins2[-1] < 3500:
+                v_bins2.append(v_bins2[i-1] + idv)
+
+    v_bins_all = np.concatenate((v_bins1, v_bins2))
+    v_lo = v_bins_all[:-1]
+    v_hi = v_bins_all[1:]
+
+    return v_lo, v_hi
+
+def custom_cf_bin4():
+
+    # linear around peak and small-scales
+    dv1 = 60
+    v_bins1 = np.arange(10, 1200 + dv1, dv1)
+    v_lo1 = v_bins1[:-1]
+    v_hi1 = v_bins1[1:]
+
+    # larger linear bin size
+    dv2 = 210
+    v_bins2 = np.arange(1200, 3600 + dv2, dv2)
+    v_lo2 = v_bins2[:-1]
+    v_hi2 = v_bins2[1:]
+
+    v_lo_all = np.concatenate((v_lo1, v_lo2))
+    v_hi_all = np.concatenate((v_hi1, v_hi2))
+
+    return v_lo_all, v_hi_all
+
 from scipy import interpolate
 def interp_vbin(vel_mid, xi_mean, kind='linear'):
 
@@ -885,22 +926,26 @@ def compare_lin_log_bins(deltaf, vel_lores, given_bins, dv_corr, loglegend, titl
 
     (vel_mid_lin, xi_nless_lin, npix, xi_nless_zero_lag) = reion_utils.compute_xi(deltaf, vel_lores, vmin_corr, vmax_corr, dv_corr)
     xi_mean_lin = np.mean(xi_nless_lin, axis=0)
+    print(len(vel_mid_lin))
+    print(vel_mid_lin)
 
     (vel_mid_log, xi_nless_log, npix, xi_nless_zero_lag) = reion_utils.compute_xi(deltaf, vel_lores, 0, 0, 0, given_bins=given_bins)
     xi_mean_log = np.mean(xi_nless_log, axis=0)
+    print(len(vel_mid_log))
+    print(vel_mid_log)
 
     plt.figure(figsize=(12,5))
     plt.suptitle(title, fontsize=16)
     plt.subplot(121)
-    plt.plot(vel_mid_lin, xi_mean_lin, 'kx-', label='linear with dv=%d' % dv_corr)
-    plt.plot(vel_mid_log, xi_mean_log, 'r.-', label=loglegend)
+    plt.plot(vel_mid_lin, xi_mean_lin, 'k-', label='linear with dv=%d' % dv_corr)
+    plt.plot(vel_mid_log, xi_mean_log, 'ro', label=loglegend)
     plt.xlabel(r'$\Delta v$ [km/s]')
     plt.ylabel(r'$\xi(\Delta v)$')
     plt.legend()
 
     plt.subplot(122)
-    plt.plot(vel_mid_lin, xi_mean_lin, 'kx-', label='linear with dv=%d' % dv_corr)
-    plt.plot(vel_mid_log, xi_mean_log, 'r.-', label=loglegend)
+    plt.plot(vel_mid_lin, xi_mean_lin, 'k-', label='linear with dv=%d' % dv_corr)
+    plt.plot(vel_mid_log, xi_mean_log, 'ro', label=loglegend)
     plt.xlabel(r'$\Delta v$ [km/s]')
     plt.ylabel(r'$\xi(\Delta v)$')
     plt.xscale('log')
