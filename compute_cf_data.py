@@ -880,16 +880,17 @@ def custom_cf_bin3():
     return v_lo, v_hi
 
 def custom_cf_bin4():
+    dv1 = 60
+    v_end = 1500 #1200
 
     # linear around peak and small-scales
-    dv1 = 60
-    v_bins1 = np.arange(10, 1200 + dv1, dv1)
+    v_bins1 = np.arange(10, v_end + dv1, dv1)
     v_lo1 = v_bins1[:-1]
     v_hi1 = v_bins1[1:]
 
     # larger linear bin size
     dv2 = 210
-    v_bins2 = np.arange(1200, 3600 + dv2, dv2)
+    v_bins2 = np.arange(v_end, 3600 + dv2, dv2)
     v_lo2 = v_bins2[:-1]
     v_hi2 = v_bins2[1:]
 
