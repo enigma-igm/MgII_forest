@@ -8,5 +8,6 @@ __pycache__
 *.fits
 *draft*
 *old*
+*.csv
 notes.txt
 paper_plots/

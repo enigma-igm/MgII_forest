@@ -30,12 +30,16 @@ xylabel_fontsize = 20
 legend_fontsize = 12
 black_shaded_alpha = 0.15
 
-savefig_unmasked = 'paper_plots/cf_unmasked_logbin_models.pdf'
+savefig_unmasked = 'paper_plots/cf_masked_models.pdf'
 
 nqso = 4
 median_z = 6.57
 seed_list=[None, None, None, None]
-given_bins = ccf.custom_cf_bin2() #None #if using given_bins, see ccf.custom_cf_bin2() for vmin_corr, vmax_corr, dv_corr
+given_bins = ccf.custom_cf_bin4() #None #if using given_bins, see ccf.custom_cf_bin2() for vmin_corr, vmax_corr, dv_corr
+
+xi_scale = 1e5
+vmin, vmax = 0, 3500
+ymin, ymax = -0.0007 * xi_scale, 0.0012 * xi_scale #-0.0010 * xi_scale, 0.002 * xi_scale
 
 ####### running allspec() and plotting the CFs for low-z bin, high-z bin, and all-z bin
 lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm()
@@ -58,27 +62,15 @@ xi_std_mask = np.std(xi_mask_all, axis=0)
 
 nqso, nreal, nvel = xi_noise_mask_low.shape
 
-#xi_noise_unmask_low = np.reshape(xi_noise_unmask_low, (nqso*nreal, nvel))
-#p5_unmask_low = np.percentile(xi_noise_unmask_low, 5, axis=0)
-#p95_unmask_low = np.percentile(xi_noise_unmask_low, 95, axis=0)
-
-xi_noise_mask_low = np.reshape(xi_noise_mask_low, (nqso*nreal, nvel))
+xi_noise_mask_low = np.reshape(xi_noise_mask_low * xi_scale, (nqso*nreal, nvel))
 p5_mask_low = np.percentile(xi_noise_mask_low, 5, axis=0)
 p95_mask_low = np.percentile(xi_noise_mask_low, 95, axis=0)
 
-#xi_noise_unmask_high = np.reshape(xi_noise_unmask_high, (nqso*nreal, nvel))
-#p5_unmask_high = np.percentile(xi_noise_unmask_high, 5, axis=0)
-#p95_unmask_high = np.percentile(xi_noise_unmask_high, 95, axis=0)
-
-xi_noise_mask_high = np.reshape(xi_noise_mask_high, (nqso*nreal, nvel))
+xi_noise_mask_high = np.reshape(xi_noise_mask_high * xi_scale, (nqso*nreal, nvel))
 p5_mask_high = np.percentile(xi_noise_mask_high, 5, axis=0)
 p95_mask_high = np.percentile(xi_noise_mask_high, 95, axis=0)
 
-#xi_noise_unmask_all = np.reshape(xi_noise_unmask_all, (nqso*nreal, nvel))
-#p5_unmask_all = np.percentile(xi_noise_unmask_all, 5, axis=0)
-#p95_unmask_all = np.percentile(xi_noise_unmask_all, 95, axis=0)
-
-xi_noise_mask_all = np.reshape(xi_noise_mask_all, (nqso*nreal, nvel))
+xi_noise_mask_all = np.reshape(xi_noise_mask_all * xi_scale, (nqso*nreal, nvel))
 p5_mask_all = np.percentile(xi_noise_mask_all, 5, axis=0)
 p95_mask_all = np.percentile(xi_noise_mask_all, 95, axis=0)
 
@@ -94,10 +86,6 @@ a = 1.0 / (1.0 + z)
 rmin = (vmin*u.km/u.s/a/Hz).to('Mpc').value
 rmax = (vmax*u.km/u.s/a/Hz).to('Mpc').value
 """
-
-xi_scale = 1
-vmin, vmax = 0, 3500
-ymin, ymax = -0.0007 * xi_scale, 0.0012 * xi_scale #-0.0010 * xi_scale, 0.002 * xi_scale
 
 ####### plot masked CF #######
 #### models
@@ -139,39 +127,39 @@ ax1.fill_between(vel_mid_low, p5_mask_low, p95_mask_low, color='k', alpha=black_
 #    ax1.plot(vel_mid_low, xi * xi_scale, linewidth=1.0) #, alpha=0.7) #c='tab:orange'
 
 ax1.errorbar(vel_mid_low, xi_mean_mask_low * xi_scale, yerr=(xi_std_mask_low / np.sqrt(nqso)) * xi_scale, lw=2.0, \
-             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20)
+             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20, alpha=0.6)
 
 for ixhi, xhi in enumerate(xhi_models):
     for ilogZ, logZ in enumerate(logZ_models):
-        ax1.plot(vel_mid_log, xi_mean_models[ixhi][ilogZ] * xi_scale, label=r'($x_{\mathrm{HI}}$, [Mg/H]) = (%0.2f, $%0.1f$)' % (xhi, logZ))
+        ax1.plot(vel_mid_log, xi_mean_models[ixhi][ilogZ] * xi_scale, lw=2.0, label=r'($x_{\mathrm{HI}}$, [Mg/H]) = (%0.2f, $%0.1f$)' % (xhi, logZ))
 
 ax1.legend(loc=1, fontsize=legend_fontsize)
-ax1.text(2500, -0.0005, r'$z < %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
+ax1.text(2500, -0.0005*xi_scale, r'$z < %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
 ax1.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
-ax1.set_ylabel(r'$\xi(\Delta v)$', fontsize=xylabel_fontsize)
+ax1.set_ylabel(r'$\xi(\Delta v)\times 10^5$', fontsize=xylabel_fontsize)
 vel_doublet = 768.469
 ax1.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
 ax1.set_ylim([ymin, ymax])
 ax1.xaxis.set_minor_locator(AutoMinorLocator())
-ax1.yaxis.set_minor_locator(AutoMinorLocator())
-ax1.tick_params(top=True, which='both', labelsize=xytick_size)
+#ax1.yaxis.set_minor_locator(AutoMinorLocator())
+ax1.tick_params(which='both', labelsize=xytick_size)
 
 ax2.fill_between(vel_mid_high, p5_mask_high, p95_mask_high, color='k', alpha=black_shaded_alpha)
 
 ax2.errorbar(vel_mid, xi_mean_mask_high * xi_scale, yerr=(xi_std_mask_high / np.sqrt(nqso)) * xi_scale, lw=2.0, \
-             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20)
+             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2, mec='none', zorder=20, alpha=0.6)
 
 for ixhi, xhi in enumerate(xhi_models):
     for ilogZ, logZ in enumerate(logZ_models):
-        ax2.plot(vel_mid_log, xi_mean_models[ixhi][ilogZ] * xi_scale, label=r'($x_{\mathrm{HI}}$, [Mg/H]) = (%0.2f, $%0.1f$)' % (xhi, logZ))
+        ax2.plot(vel_mid_log, xi_mean_models[ixhi][ilogZ] * xi_scale, lw=2.0, label=r'($x_{\mathrm{HI}}$, [Mg/H]) = (%0.2f, $%0.1f$)' % (xhi, logZ))
 
-ax2.text(2500, -0.0005, r'$z \geq %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
-ax2.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
+ax2.text(2500, -0.0005*xi_scale, r'$z \geq %0.2f$' % median_z, fontsize=xytick_size) #, linespacing=1.8)
+ax2.set_xlabel(r'$\xi(\Delta v)\times 10^5$', fontsize=xylabel_fontsize)
 ax2.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
 ax2.set_ylim([ymin, ymax])
 ax2.xaxis.set_minor_locator(AutoMinorLocator())
-ax2.yaxis.set_minor_locator(AutoMinorLocator())
-ax2.tick_params(top=True, which='both', labelsize=xytick_size)
+#ax2.yaxis.set_minor_locator(AutoMinorLocator())
+ax2.tick_params(which='both', labelsize=xytick_size)
 
 #for i in range(nqso):
 #    for xi in xi_noise_mask_all[i]:  # plotting all 500 realizations of the noise 2PCF (not masked)
@@ -180,19 +168,19 @@ ax2.tick_params(top=True, which='both', labelsize=xytick_size)
 ax3.fill_between(vel_mid, p5_mask_all, p95_mask_all, color='k', alpha=black_shaded_alpha)
 
 ax3.errorbar(vel_mid, xi_mean_mask_high * xi_scale, yerr=(xi_std_mask / np.sqrt(nqso)) * xi_scale, lw=2.0, \
-             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20)
+             marker='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, alpha=0.6)
 
 for ixhi, xhi in enumerate(xhi_models):
     for ilogZ, logZ in enumerate(logZ_models):
-        ax3.plot(vel_mid_log, xi_mean_models[ixhi][ilogZ] * xi_scale, label=r'($x_{\mathrm{HI}}$, [Mg/H]) = (%0.2f, $%0.1f$)' % (xhi, logZ))
+        ax3.plot(vel_mid_log, xi_mean_models[ixhi][ilogZ] * xi_scale, lw=2.0, label=r'($x_{\mathrm{HI}}$, [Mg/H]) = (%0.2f, $%0.1f$)' % (xhi, logZ))
 
-ax3.text(2500, -0.0005, r'All $z$', fontsize=xytick_size) #, linespacing=1.8)
-ax3.set_xlabel(r'$\Delta v$ [km/s]', fontsize=xylabel_fontsize)
+ax3.text(2500, -0.0005*xi_scale, r'All $z$', fontsize=xytick_size) #, linespacing=1.8)
+ax3.set_xlabel(r'$\xi(\Delta v)\times 10^5$', fontsize=xylabel_fontsize)
 ax3.axvline(vel_doublet, color='green', linestyle='--', linewidth=2.0)
 ax3.set_ylim([ymin, ymax])
 ax3.xaxis.set_minor_locator(AutoMinorLocator())
-ax3.yaxis.set_minor_locator(AutoMinorLocator())
-ax3.tick_params(top=True, which='both', labelsize=xytick_size)
+#ax3.yaxis.set_minor_locator(AutoMinorLocator())
+ax3.tick_params(which='both', labelsize=xytick_size)
 
 plt.savefig(savefig_unmasked)
 plt.show()

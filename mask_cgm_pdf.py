@@ -33,14 +33,14 @@ mpl.rcParams['xtick.major.width'] = 1.5
 mpl.rcParams['ytick.major.width'] = 1.5
 mpl.rcParams['xtick.minor.width'] = 1.5
 mpl.rcParams['ytick.minor.width'] = 1.5
-mpl.rcParams['xtick.major.size'] = 7
+mpl.rcParams['xtick.major.size'] = 8
 mpl.rcParams['xtick.minor.size'] = 4
-mpl.rcParams['ytick.major.size'] = 7
+mpl.rcParams['ytick.major.size'] = 8
 mpl.rcParams['ytick.minor.size'] = 4
 
 xytick_size = 16
 xylabel_fontsize = 20
-legend_fontsize = 14
+legend_fontsize = 16
 
 ########## global variables ##########
 fwhm = 90
@@ -80,7 +80,6 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
     good_vel_data_all = []
     good_wave_all = []
     noise_all = []
-
 
     for iqso in range(4):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
@@ -301,7 +300,7 @@ def chi_pdf_onespec(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_
 
     return mgii_tot
 
-def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flux_all, norm_good_std_all, iqso, chi_max, savefig=None):
+def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flux_all, norm_good_std_all, iqso, chi_max, savefig=None, saveout=None):
 
     mgii_tot = mgii_tot_all[iqso]
     vel_data = vel_data_all[iqso]
@@ -320,7 +319,10 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     fs_mask_frac = np.sum(fs_mask)/len(fs_mask)
     print(f_mask_frac, s_mask_frac, fs_mask_frac)
 
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
+    if saveout is not None:
+        np.savetxt(saveout, vel_data[fs_mask], delimiter=",")
+
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 10), sharex=True)
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.98, top=0.93, wspace=0, hspace=0.)
     flux_min, flux_max = -0.05, 1.8
     chi_min = -3.0 #, chi_max = -3.0, 8.4
@@ -337,7 +339,7 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     ax1.tick_params(which='both', labelsize=xytick_size)
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    ax1.legend(fontsize=legend_fontsize)
+    ax1.legend(fontsize=legend_fontsize, loc=1)
 
     neg = np.zeros_like(vel_data) - 100
     ax2.plot(vel_data, mgii_tot.signif[0], drawstyle='steps-mid', color='k')
@@ -347,10 +349,10 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     ax2.set_ylabel(r'$\chi$', fontsize=xylabel_fontsize)
     ax2.set_xlim([vel_data.min(), vel_data.max()])
     ax2.set_ylim([chi_min, chi_max])
-    ax2.tick_params(which='both', labelsize=xytick_size)
+    ax2.tick_params(which='both', top=True, labelsize=xytick_size)
     ax2.xaxis.set_minor_locator(AutoMinorLocator())
     ax2.yaxis.set_minor_locator(AutoMinorLocator())
-    ax2.legend(fontsize=legend_fontsize)
+    ax2.legend(fontsize=legend_fontsize, loc=1)
 
     # plot upper axis --- the CORRECT way, since vel and wave transformation is non-linear
     def forward(x):
@@ -360,11 +362,15 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
         return np.interp(x, wave_data, vel_data)
 
     secax = ax1.secondary_xaxis('top', functions=(forward, inverse))
+    if iqso == 0 or iqso == 1:
+        secax.set_xticks(range(20000, 24000, 500))
+    else:
+        secax.set_xticks(range(20000, 22500, 500))
     secax.xaxis.set_minor_locator(AutoMinorLocator())
     secax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize, labelpad=8)
     secax.tick_params(top=True, axis="both", labelsize=xytick_size)
 
-    plt.tight_layout()
+    #plt.tight_layout()
     if savefig != None:
         plt.savefig(savefig)
     #plt.show()

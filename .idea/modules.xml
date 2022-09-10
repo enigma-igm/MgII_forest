@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/MgII_forest.iml" filepath="$PROJECT_DIR$/.idea/MgII_forest.iml" />
-      <module fileurl="file://$USER_HOME$/Codes/enigma/.idea/enigma.iml" filepath="$USER_HOME$/Codes/enigma/.idea/enigma.iml" />
     </modules>
   </component>
 </project>

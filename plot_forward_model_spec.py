@@ -28,12 +28,12 @@ mpl.rcParams['ytick.minor.size'] = 4
 
 xytick_size = 16
 xylabel_fontsize = 20
-legend_fontsize = 12
+legend_fontsize = 16
 black_shaded_alpha = 0.25
 fm_spec_alpha = 0.6
 
 fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(14, 10), sharex=True, sharey=True)
-fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
+fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.0)
 ax_plot = axes.flatten()
 savefig = 'paper_plots/forward_model_specs.pdf'
 
@@ -71,6 +71,8 @@ vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), \
 vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
 (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
+ymin, ymax = 0, 8
+xmin, xmax = -10, 62000
 ###################### forward models #########################
 for iqso, fitsfile in enumerate(fitsfile_list):
     # initialize all qso data
@@ -108,9 +110,12 @@ for iqso, fitsfile in enumerate(fitsfile_list):
         ax.set_xlabel('Velocity (km/s)', fontsize=xylabel_fontsize)
 
     ax.legend(loc=2, fontsize=legend_fontsize)
+    if iqso == 2 or iqso == 3:
+        ax.tick_params(top=True, which='both', labelsize=xytick_size)
+    else:
+        ax.tick_params(which='both', labelsize=xytick_size)
     ax.xaxis.set_minor_locator(AutoMinorLocator())
     ax.yaxis.set_minor_locator(AutoMinorLocator())
-    ax.tick_params(which='both', labelsize=xytick_size)
 
 plt.savefig(savefig)
 plt.show()

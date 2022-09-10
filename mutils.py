@@ -90,7 +90,7 @@ def continuum_normalize_new(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbk
         plt.figure(figsize=(12, 5))
         ax = plt.gca()
         was_fit_and_masked = mask_arr & np.logical_not(outmask)
-        print(np.sum(was_fit_and_masked))
+        print("np.sum(was_fit_and_masked)", np.sum(was_fit_and_masked))
         ax.plot(wave_arr[mask_arr], flux_arr[mask_arr], color='k', marker='o', markersize=0.4, mfc='k', fillstyle='full',
                 linestyle='-', label='Pixels that were fit')
         ax.plot(wave_arr[was_fit_and_masked], flux_arr[was_fit_and_masked], color='red', marker='x', markersize=5.0, mfc='red',

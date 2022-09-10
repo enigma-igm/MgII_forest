@@ -15,6 +15,7 @@ Functions here:
 '''
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import os
 import emcee
@@ -43,19 +44,19 @@ if seed == None:
     print(seed)
 
 rand = np.random.RandomState(seed)
-figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/'
+figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/custom_bin4/'
 
 # for init_mockdata()
 logZ_guess = -5.0 #-4.50 # -3.70
 xhi_guess  = 0.50 # 0.74
 
-def init(modelfile, redshift_bin, vel_lores, logbin=True):
+def init(modelfile, redshift_bin, vel_lores, custombin=True):
     # vel_lores = np.load('vel_lores_nyx.npy')
 
-    if not logbin:
+    if not custombin:
         given_bins = None
     else:
-        given_bins = compute_cf_data.custom_cf_bin2()
+        given_bins = compute_cf_data.custom_cf_bin4()
 
     # options for redshift_bin: 'all', 'low', 'high'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
@@ -96,7 +97,7 @@ def init(modelfile, redshift_bin, vel_lores, logbin=True):
     for ixhi, xhi in enumerate(xhi_coarse):
         for iZ, logZ in enumerate(logZ_coarse):
             lnlike_coarse[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_array[ixhi, iZ, :], lndet_array[ixhi, iZ],
-                                                  icovar_array[ixhi, iZ, :, :])
+                                                  covar_array[ixhi, iZ, :, :])
 
     lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
     xi_model_fine = inference.interp_model(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, xi_model_array)
@@ -158,7 +159,7 @@ def init_mockdata(modelfile):
     for ixhi, xhi in enumerate(xhi_coarse):
         for iZ, logZ in enumerate(logZ_coarse):
             lnlike_coarse[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_array[ixhi, iZ, :], lndet_array[ixhi, iZ],
-                                                  icovar_array[ixhi, iZ, :, :])
+                                                  covar_array[ixhi, iZ, :, :])
 
     lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse)
     xi_model_fine = inference.interp_model(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, xi_model_array)
@@ -174,7 +175,7 @@ def init_mockdata(modelfile):
 
     return fine_out, coarse_out, data_out
 
-def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalkers=40, linearZprior=False, savefits_chain=None, actual_data=True):
+def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin=1000, nwalkers=40, linearZprior=False, savefits_chain=None, actual_data=True):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -221,7 +222,10 @@ def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalker
     truths = [xhi_data, np.power(10.0,logZ_data)] if linearZprior else [xhi_data, logZ_data]
     chain = sampler.get_chain()
 
-    inference.walker_plot(chain, truths, var_label, figpath + 'walkers.pdf')
+    if linearZprior:
+        inference.walker_plot(chain, truths, var_label, figpath + '%sz_walkers_upperlim.pdf' % redshift_bin)
+    else:
+        inference.walker_plot(chain, truths, var_label, figpath + '%sz_walkers.pdf' % redshift_bin)
 
     # Make the corner plot, again use the true values in the chain
     if actual_data:
@@ -233,7 +237,11 @@ def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalker
                             show_titles=True, title_kwargs={"fontsize": 15}, label_kwargs={'fontsize':20},
                             data_kwargs={'ms': 1.0, 'alpha': 0.1})
 
-    cornerfile = figpath + 'corner_plot.pdf' 
+    if linearZprior:
+        cornerfile = figpath + '%sz_corner_plot_upperlim.pdf' % redshift_bin
+    else:
+        cornerfile = figpath + '%sz_corner_plot.pdf' % redshift_bin
+
     for ax in fig.get_axes():
           #ax.tick_params(axis='both', which='major', labelsize=14)
           #ax.tick_params(axis='both', which='minor', labelsize=12)
@@ -248,7 +256,10 @@ def run_mcmc(fine_out, coarse_out, data_out, nsteps=100000, burnin=1000, nwalker
     #labels = param_names
     #ranges = dict(zip(param_names, [[lower[i], upper[i]] for i in range(ndim)]))
     #triangle_plot([samples], param_names, labels, ranges, filename=figpath + 'triangle.pdf', show_plot=True)
-    corrfile = figpath + 'corr_func_data.pdf'
+    if linearZprior:
+        corrfile = figpath + '%sz_corr_func_data_upperlim.pdf' % redshift_bin
+    else:
+        corrfile = figpath + '%sz_corr_func_data.pdf' % redshift_bin
     if actual_data:
         corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
                       corrfile, nrand=300, rand=rand)
@@ -331,12 +342,13 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     param_lower = param - np.percentile(samples, 100*percent_lower, axis=0)
     param_upper = np.percentile(samples, 100*percent_upper, axis=0) - param
 
-    infr_xy = (vmin + 0.1*(vmax-vmin), 0.90*ymax)
-    xhi_xy  = (vmin + 0.05*(vmax-vmin), 0.80*ymax)
-    Z_xy    = (vmin - 0.05*(vmax-vmin), 0.70*ymax)
-    #infr_xy = (vmin + 0.74 * (vmax - vmin), 0.60 * ymax)
-    #xhi_xy = (vmin + 0.685 * (vmax - vmin), 0.52 * ymax)
-    #Z_xy = (vmin + 0.54 * (vmax - vmin), 0.44 * ymax)
+    #infr_xy = (vmin + 0.1*(vmax-vmin), 0.90*ymax)
+    #xhi_xy  = (vmin + 0.05*(vmax-vmin), 0.80*ymax)
+    #Z_xy    = (vmin - 0.05*(vmax-vmin), 0.70*ymax)
+    infr_xy = (1800, (0.55 * ymax))
+    xhi_xy = (1700, (0.42 * ymax))
+    Z_xy = (1355, (0.29 * ymax))
+
     xhi_label  = r'$\langle x_{{\rm HI}}\rangle = {:3.2f}^{{+{:3.2f}}}_{{-{:3.2f}}}$'.format(param[0], param_upper[0], param_lower[0])
     logZ_label = '          ' + r'$[{{\rm Mg\slash H}}]={:5.2f}^{{+{:3.2f}}}_{{-{:3.2f}}}$'.format(param[1], param_upper[1], param_lower[1])
     axis.annotate('Inferred', xy=infr_xy, xytext=infr_xy, textcoords='data', xycoords='data', color='red', annotation_clip=False,fontsize=16, zorder=25)
