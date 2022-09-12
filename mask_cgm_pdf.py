@@ -320,7 +320,9 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     print(f_mask_frac, s_mask_frac, fs_mask_frac)
 
     if saveout is not None:
-        np.savetxt(saveout, vel_data[fs_mask], delimiter=",")
+        i_abs_found = np.argwhere(s_mask == True).squeeze()
+        #np.savetxt(saveout, i_abs_found, delimiter=",")
+        np.savetxt(saveout, np.vstack((i_abs_found, wave_data[i_abs_found], norm_good_flux[i_abs_found], norm_good_std[i_abs_found])).T, delimiter=",")
 
     fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 10), sharex=True)
     fig.subplots_adjust(left=0.1, bottom=0.1, right=0.98, top=0.93, wspace=0, hspace=0.)
