@@ -473,3 +473,28 @@ def init_skewers_compute_model_grid(filename, dv_corr, logZ):
     xi_mean = np.mean(xi_nless, axis=0)
 
     return vel_lores, flux_lores, vel_mid, xi_mean, npix, xi_nless
+
+def lya_spikes(fitsfile, zlow, zhigh):
+    # fitsfile = '/Users/suksientie/Research/highz_absorbers/J0313m1806_fire_mosfire_nires_tellcorr_contfit.fits'
+    # lyb @ 1026
+    data = fits.open(fitsfile)[1].data
+    wave_arr = data['wave_grid_mid'].astype('float64')  # midpoint values of wavelength bin
+    flux_arr = data['flux'].astype('float64')
+    ivar_arr = data['ivar'].astype('float64')
+    mask_arr = data['mask'].astype('bool')
+    std_arr = np.sqrt(putils.inverse(ivar_arr))
+
+    low = (1216 * (1 + zlow)) < wave_arr
+    high = wave_arr < 1216 * (1 + zhigh)
+    lowhigh = low * high
+
+    print(np.mean(flux_arr[lowhigh]))
+
+    plt.plot(wave_arr[lowhigh], flux_arr[lowhigh], 'k', drawstyle='steps-mid')
+    plt.plot(wave_arr[lowhigh], std_arr[lowhigh], 'r', drawstyle='steps-mid')
+    plt.plot(wave_arr[lowhigh], 5*std_arr[lowhigh], 'b', alpha=0.5, drawstyle='steps-mid')
+    plt.ylabel('Normalized flux')
+    plt.xlabel('Observed wavelength')
+    plt.grid()
+    plt.show()
+
