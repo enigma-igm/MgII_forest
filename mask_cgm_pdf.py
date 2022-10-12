@@ -57,6 +57,7 @@ qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1] # precise redshifts from Yang+2021
 everyn_break_list = [20, 20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> 600 km/s
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
+nqso_to_use = 5
 
 # chi PDF
 signif_thresh = 2.0 # 4.0
@@ -81,7 +82,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
     good_wave_all = []
     noise_all = []
 
-    for iqso in range(4):
+    for iqso in range(nqso_to_use):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
