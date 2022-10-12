@@ -300,6 +300,7 @@ def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_
     good_z = good_wave / 2800 - 1
     dz_pathlength = good_z.max() - good_z.min()
     print(qso_name, np.min(good_z), np.max(good_z), np.median(good_z), dz_pathlength)
+    print("percent pixels excluded", 100*np.sum(np.invert(master_mask))/len(wave))
 
     return good_z
 
