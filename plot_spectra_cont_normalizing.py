@@ -27,17 +27,18 @@ xylabel_fontsize = 20
 legend_fontsize = 14
 
 ### Some controls
-plot_normalized = True
+plot_normalized = False
 redshift_bin = 'all'
 
-qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527'] #, 'J0038-0653']
-qso_zlist = [7.642, 7.541, 7.001, 7.034] #, 7.0]
-nqso = 4 #5
+nqso_to_plot = 4
+qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
+qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1]
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
+everyn_break_list = [20, 20, 20, 20, 20]
 
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(nqso, figsize=(16, 11), sharex=True, sharey=True)
+fig, plot_ax_all = plt.subplots(nqso_to_plot, figsize=(16, 11), sharex=True, sharey=True)
 fig.subplots_adjust(left=0.1, bottom=0.07, right=0.96, top=0.93, wspace=0, hspace=0.)
-color_ls = ['k', 'k', 'k', 'k'] # ['r', 'g', 'b', 'orange']
+color_ls = ['k', 'k', 'k', 'k', 'k']
 
 if plot_normalized:
     ymin, ymax = -0.05, 1.9
@@ -46,9 +47,8 @@ else:
 
 wave_min, wave_max = 19500, 24100
 zmin, zmax = wave_min / 2800 - 1, wave_max / 2800 - 1
-everyn_break_list = [20, 20, 20, 20]
 
-for i in range(nqso):
+for i in range(nqso_to_plot):
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin)
 
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -60,10 +60,11 @@ for i in range(nqso):
     median_snr = np.nanmedian((flux / std)[all_masks])
     print("median snr", median_snr)
 
-    if i == 0: plot_ax = ax1
-    elif i == 1: plot_ax = ax2
-    elif i == 2: plot_ax = ax3
-    elif i == 3: plot_ax = ax4
+    #if i == 0: plot_ax = ax1
+    #elif i == 1: plot_ax = ax2
+    #elif i == 2: plot_ax = ax3
+    #elif i == 3: plot_ax = ax4
+    plot_ax = plot_ax_all[i]
 
     if plot_normalized:
         plot_ax.plot(wave, flux/fluxfit, c=color_ls[i], drawstyle='steps-mid', label=qso_namelist[i] + ' (z=%0.2f)' % qso_zlist[i])
@@ -92,7 +93,7 @@ for i in range(nqso):
     if i == 3:
         plot_ax.set_xlabel(r'obs wavelength ($\mathrm{{\AA}}$)', fontsize=xylabel_fontsize)
 
-atwin = ax1.twiny()
+atwin = plot_ax_all[0].twiny()
 atwin.set_xlabel('redshift', fontsize=xylabel_fontsize)
 atwin.axis([zmin, zmax, ymin, ymax])
 atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
