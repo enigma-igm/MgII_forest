@@ -33,7 +33,7 @@ vmax_corr = 3500
 dv_corr = 90  # 5/23/2022; to ensure npix_corr behaving correctly (smoothly)
 #corr_all = [0.689, 0.640, 0.616, 0.583] # old values used by compute_model_grid_new.py
 corr_all = [0.758, 0.753, 0.701, 0.724, 0.759] # determined from mutils.plot_allspec_pdf for redshift_bin='all'
-median_z = 6.57 # value used in mutils.init_onespec
+median_z = 6.554 # value used in mutils.init_onespec
 
 def init_cgm_fit_gpm():
     lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all = mask_cgm.do_allqso_allzbin()
