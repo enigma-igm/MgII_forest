@@ -38,10 +38,10 @@ args = parser.parse_args()
 redshift_bin = args.zbin
 savefig = 'paper_plots/cf_%sz.pdf' % redshift_bin
 
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-nqso = 4
-median_z = 6.57
-seed_list=[None, None, None, None]
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'unpublished \n new QSO']
+nqso = 5
+median_z = 6.554
+seed_list=[None, None, None, None, None]
 given_bins = ccf.custom_cf_bin4()
 
 #######
@@ -58,16 +58,18 @@ xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1)
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
 #######
-modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000_all_newbin2.fits'
-params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
-vel_corr = params['vel_mid'].flatten()
+#modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000_all_newbin2.fits'
+#params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
+#vel_corr = params['vel_mid'].flatten()
+
+vel_corr = vel_mid
 
 vmin, vmax = 0.4*vel_corr.min(), 1.02*vel_corr.max()
 factor = 1e5
 ymin = factor*(-0.001)
 ymax = factor*(0.002)
 
-fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(12, 5), sharex=True, sharey=True)
+fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(12, 6), sharex=True, sharey=True)
 fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
 
 #######
