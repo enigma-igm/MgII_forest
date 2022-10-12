@@ -277,8 +277,8 @@ def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_
     wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, 20, qso_name)
     redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_z, exclude_rest)
 
+    # only using data and PZ masks
     if type(cgm_gpm) == type(None):
-        # only using data and PZ masks
         master_mask = mask * redshift_mask * pz_mask
         good_wave = wave[master_mask]
 
@@ -286,6 +286,7 @@ def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_
         # In[96]: np.median(gz_all), np.min(gz_all), np.max(gz_all)
         # Out[96]: (6.572035934151384, 5.983190982278802, 7.545849071317116)
 
+    # including CGM masks (negligible effect because not many pixels are masked by CGM maks)
     else:
         #master_mask = mask * redshift_mask * pz_mask
         #good_wave = wave[master_mask][cgm_gpm]
@@ -317,7 +318,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_r
                      datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
-    qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.0]
+    qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1]
     everyn_break_list = [20, 20, 20, 20, 20]
     exclude_restwave = 1216 - 1185
     median_z = 6.573  # median pixel redshift of measurement (excluding proximity zones)
