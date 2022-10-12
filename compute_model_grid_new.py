@@ -30,15 +30,17 @@ datapath = '/Users/suksientie/Research/data_redux/'
 fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits']
+                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits', \
+                datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.642, 7.541, 7.001, 7.034] # precise redshifts from Yang+2021
-everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
+# updated for J0038-0653 (Oct 12)
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
+qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1] # precise redshifts from Yang+2021
+everyn_break_list = [20, 20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> dvel_breakpoint = 600 km/s
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
-median_z = 6.57 # median redshift of measurement after excluding proximity zones; 4/20/2022
-corr_all = [0.758, 0.753, 0.701, 0.724] # 4/20/2022 (determined from mutils.plot_allspec_pdf)
+median_z = 6.554 # median redshift of measurement after excluding proximity zones; 4/20/2022
+corr_all = [0.758, 0.753, 0.701, 0.724, 0.763] # 4/20/2022 (determined from mutils.plot_allspec_pdf)
 
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):

@@ -404,12 +404,12 @@ def plot_onespec_pdf(iqso, seed=None, title=None):
     plt.tight_layout()
     plt.show()
 
-def plot_allspec_pdf(redshift_bin, seed_list=[None, None, None, None]):
+def plot_allspec_pdf(redshift_bin, seed_list=[None, None, None, None, None]):
 
-    qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
+    qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
     plt.figure(figsize=(12, 8))
 
-    for iqso in range(4):
+    for iqso in range(len(qso_namelist)):
         seed = seed_list[iqso]
         #redshift_bin = 'high'
         raw_out, masked_out, masks_out = init_onespec(iqso, redshift_bin)
@@ -429,7 +429,7 @@ def plot_allspec_pdf(redshift_bin, seed_list=[None, None, None, None]):
         rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
         gaussian_data = rand.normal(np.median(norm_flux), norm_std * corr_factor)
 
-        plt.subplot(2,2,iqso+1)
+        plt.subplot(3, 2,iqso+1)
         plt.title(qso_namelist[iqso])
         nbins, oneminf_min, oneminf_max = 71, 1e-5, 1.0
         flux_bins, flux_pdf_data = utils.pdf_calc(1.0 - norm_flux, oneminf_min, oneminf_max, nbins)
