@@ -31,7 +31,7 @@ fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits', \
-                datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
+                 datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
 # updated for J0038-0653 (Oct 12)
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
