@@ -31,11 +31,15 @@ xylabel_fontsize = 20
 legend_fontsize = 16
 black_shaded_alpha = 0.25
 fm_spec_alpha = 0.6
+nqso_to_plot = 5
 
-fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(14, 10), sharex=True, sharey=True)
+if nqso_to_plot == 4:
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(14, 10), sharex=True, sharey=True)
+else:
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(14, 15), sharex=True, sharey=True)
 fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.0)
 ax_plot = axes.flatten()
-savefig = 'paper_plots/forward_model_specs.pdf'
+savefig = 'paper_plots/forward_model_specs_newqso.pdf'
 
 ###################### data variables ######################
 datapath = '/Users/suksientie/Research/data_redux/'
@@ -43,18 +47,19 @@ datapath = '/Users/suksientie/Research/data_redux/'
 fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  datapath + 'wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
-                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits']
+                 datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits', \
+                 datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527']
-qso_zlist = [7.642, 7.541, 7.001, 7.034] # precise redshifts from Yang+2021
-everyn_break_list = [20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
+qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
+qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1] # precise redshifts from Yang+2021
+everyn_break_list = [20, 20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
                                      # this results in dwave_breakpoint ~ 40 A --> dvel_breakpoint = 600 km/s
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
-median_z = 6.57 # median redshift of measurement after excluding proximity zones; 4/20/2022
-corr_all = [0.758, 0.753, 0.701, 0.724] # 4/20/2022 (determined from mutils.plot_allspec_pdf)
+median_z = 6.554 # median redshift of measurement after excluding proximity zones; 4/20/2022
+corr_all = [0.758, 0.753, 0.701, 0.724, 0.763] # 4/20/2022 (determined from mutils.plot_allspec_pdf)
 
 redshift_bin = 'all'
-qso_seed_list = [77221056, 77221057, 77221058, 77221059]
+qso_seed_list = [77221056, 77221057, 77221058, 77221059, 77221060]
 ncopy_plot = 5
 ncopy = 1000
 
@@ -74,8 +79,10 @@ vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
 ymin, ymax = 0, 8
 xmin, xmax = -10, 62000
 ###################### forward models #########################
-for iqso, fitsfile in enumerate(fitsfile_list):
+#for iqso, fitsfile in enumerate(fitsfile_list[0:nqso_to_plot]):
+for iqso in range(nqso_to_plot):
     # initialize all qso data
+    fitsfile = fitsfile_list[iqso]
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
