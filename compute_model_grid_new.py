@@ -24,6 +24,8 @@ import pdb
 import compute_cf_data as ccf
 
 ###################### global variables ######################
+nqso_to_use = 5
+
 datapath = '/Users/suksientie/Research/data_redux/'
 #datapath = '/mnt/quasar/sstie/MgII_forest/z75/' # on IGM
 
@@ -228,7 +230,7 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_
 def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
 
     master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
-    qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
+    qso_seed_list = master_rand.randint(0, 1000000000, nqso_to_use)  # 4 for 4 qsos, hardwired for now
 
     xi_mock_qso_all = []
 
@@ -284,7 +286,7 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
 def mock_mean_covar_debug(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
 
     master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
-    qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
+    qso_seed_list = master_rand.randint(0, 1000000000, nqso_to_use)  # 4 for 4 qsos, hardwired for now
 
     xi_mock_qso_all = []
     npix_xi_all = []
@@ -347,7 +349,7 @@ def mock_mean_covar_debug(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax
 def mock_mean_covar_debug2(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
 
     master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
-    qso_seed_list = master_rand.randint(0, 1000000000, 4)  # 4 for 4 qsos, hardwired for now
+    qso_seed_list = master_rand.randint(0, 1000000000, nqso_to_use)  # 4 for 4 qsos, hardwired for now
 
     xi_mock_qso_all = []
     npix_xi_all = []
