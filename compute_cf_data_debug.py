@@ -19,6 +19,7 @@ from enigma.reion_forest import utils as reion_utils
 #from scripts import rdx_utils
 import mutils
 import mask_cgm_pdf as mask_cgm
+import compute_model_grid_new as cmg
 
 everyn_break = 20
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
@@ -36,8 +37,9 @@ corr_all = [0.758, 0.753, 0.701, 0.724, 0.759] # determined from mutils.plot_all
 median_z = 6.57 # value used in mutils.init_onespec
 
 def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores, given_bins=None):
-    dv_corr = 100
     # cgm_fit_gpm = output from cmg.init_cgm_masking
+
+    #dv_corr = 100
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
@@ -241,7 +243,6 @@ def onespec_sigma(iqso, redshift_bin, vmin_corr, vmax_corr, dv_corr, fit_gpm):
 
     return vel_mid_nm, xi_tot_nm, npix_tot_nm, vel_mid_am, xi_tot_am, npix_tot_am, vel_mid_cgm, xi_tot_cgm, npix_tot_cgm
 
-import compute_model_grid_new as cmg
 def onespec_sigma_chunk(iqso, redshift_bin, vmin_corr, vmax_corr, dv_corr, vel_lores):
 
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)

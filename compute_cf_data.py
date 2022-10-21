@@ -104,6 +104,69 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     fnoise = []
     fnoise_masked = []
     n_real = 50
+
+    xi_noise = None
+    xi_noise_masked = None
+    #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
+    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked#, npix_tot, npix_tot_chimask
+
+def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None):
+    # compute the CF for one QSO spectrum
+    # updated 4/14/2022
+    # options for redshift_bin are 'low', 'high', 'all'
+    # cgm_fit_gpm are gpm from MgiiFinder.py
+
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+    # v_lo_all, v_hi_all = custom_cf_bin()
+    # given_bins = (v_lo_all, v_hi_all)
+
+    ###### CF from not masking CGM ######
+    all_masks = mask * redshift_mask * pz_mask * zbin_mask
+
+    norm_good_flux = (flux / fluxfit)[all_masks]
+    # norm_good_std = (std / fluxfit)[all_masks]
+    # good_wave = wave[all_masks]
+    # vel = mutils.obswave_to_vel_2(wave)
+    # vel = vel[all_masks]
+    # meanflux_tot = np.mean(norm_good_flux)
+    # deltaf_tot = (norm_good_flux - meanflux_tot) / meanflux_tot
+    # vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr)
+    # xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
+
+    norm_flux = flux / fluxfit
+    vel = mutils.obswave_to_vel_2(wave)
+    meanflux_tot = np.mean(norm_good_flux)
+    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
+    # return vel, np.zeros(norm_flux.shape)
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr,
+                                                          given_bins=given_bins, gpm=all_masks)
+    xi_mean_tot = np.mean(xi_tot,
+                          axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
+
+    ###### CF from masking CGM ######
+    norm_good_flux_cgm = norm_good_flux[cgm_fit_gpm]
+    meanflux_tot_mask = np.mean(norm_good_flux_cgm)
+    # deltaf_tot_mask = (norm_good_flux_cgm - meanflux_tot_mask) / meanflux_tot_mask
+    # vel_cgm = vel[all_masks][cgm_fit_gpm]
+    deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
+    vel_cgm = vel[all_masks]
+    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr,
+                                                                       dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
+    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0)  # again not really averaging here since we only have 1 spectrum
+
+    print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
+
+    ###### CF from pure noise (no CGM masking) ######
+    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+    norm_std = std / fluxfit
+    fnoise = []
+    fnoise_masked = []
+    n_real = 50
+
     for i in range(n_real): # generate n_real of the noise vector
         r = rand.normal(0, std_corr*norm_std)
         r_masked = r[all_masks]
@@ -161,16 +224,17 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
         plt.tight_layout()
         plt.show()
 
-    #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
-    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked#, npix_tot, npix_tot_chimask
+    # return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
+    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked  # , npix_tot, npix_tot_chimask
 
-def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None):
+def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None, weights=None):
     # running onespec() for all the 4 QSOs
 
     xi_unmask_all = []
     xi_mask_all = []
     xi_noise_unmask_all = []
     xi_noise_mask_all = []
+    #w = mutils.reweight_factors(nqso, redshift_bin)
 
     for iqso in range(nqso):
         std_corr = corr_all[iqso]
@@ -186,7 +250,9 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
     ### un-masked quantities
     # data and noise
     xi_unmask_all = np.array(xi_unmask_all)
-    xi_mean_unmask = np.mean(xi_unmask_all, axis=0)
+    xi_mean_unmask = np.average(xi_unmask_all, axis=0, weights=weights)
+    #xi_mean_unmask = np.mean(xi_unmask_all, axis=0)
+
     xi_std_unmask = np.std(xi_unmask_all, axis=0)
     xi_noise_unmask_all = np.array(xi_noise_unmask_all) # = (nqso, n_real, n_velmid)
     #xi_mean_noise_unmask = np.mean(xi_noise_unmask_all, axis=0)
@@ -194,7 +260,8 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
     ### masked quantities
     # data and noise
     xi_mask_all = np.array(xi_mask_all)
-    xi_mean_mask = np.mean(xi_mask_all, axis=0)
+    #xi_mean_mask = np.mean(xi_mask_all, axis=0)
+    xi_mean_mask = np.average(xi_mask_all, axis=0, weights=weights)
     xi_std_mask = np.std(xi_mask_all, axis=0)
     xi_noise_mask_all = np.array(xi_noise_mask_all)
     #xi_mean_noise_mask = np.mean(xi_noise_mask_all, axis=0)
@@ -528,7 +595,7 @@ def custom_cf_bin3():
 
 def custom_cf_bin4():
     # this is the binning used for the paper
-    dv1 = 60
+    dv1 = 60 # need to be multiples of 30 to ensure correct behavior
     v_end = 1500
 
     # linear around peak and small-scales
@@ -537,7 +604,7 @@ def custom_cf_bin4():
     v_hi1 = v_bins1[1:]
 
     # larger linear bin size
-    dv2 = 210
+    dv2 = 210 # need to be multiples of 30 to ensure correct behavior
     v_bins2 = np.arange(v_end, 3600 + dv2, dv2)
     v_lo2 = v_bins2[:-1]
     v_hi2 = v_bins2[1:]
@@ -602,3 +669,67 @@ def compare_lin_log_bins(deltaf, vel_lores, given_bins, dv_corr, loglegend, titl
     plt.show()
 
     return vel_mid_log, xi_mean_log, vel_mid_lin, xi_mean_lin
+
+####################
+import compute_model_grid_new as cmg
+
+def onespec_chunk(iqso, redshift_bin, cgm_fit_gpm, vel_lores, given_bins=None):
+    # cgm_fit_gpm = output from cmg.init_cgm_masking (only CGM mask, other masks added below)
+
+    #dv_corr = 100
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+    nskew_to_match_data, npix_sim_skew = 10, 220
+
+    ###### CF from not masking CGM ######
+    all_masks = mask * redshift_mask * pz_mask * zbin_mask
+
+    norm_good_flux = (flux / fluxfit)[all_masks]
+    norm_flux = flux / fluxfit
+    vel = mutils.obswave_to_vel_2(wave)
+    meanflux_tot = np.mean(norm_good_flux)
+    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
+
+    deltaf_chunk = cmg.reshape_data_array(deltaf_tot, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+    all_masks_chunk = cmg.reshape_data_array(all_masks, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
+
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks_chunk)
+    xi_mean_tot = np.mean(xi_tot, axis=0)  # average over nskew_to_match_data
+
+    ###### CF from masking CGM ######
+    gpm_onespec_chunk = cmg.reshape_data_array(cgm_fit_gpm, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
+    all_masks_chunk *= gpm_onespec_chunk
+
+    norm_flux_chunk = cmg.reshape_data_array(norm_flux, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+    meanflux_tot_mask = np.mean(norm_flux_chunk[all_masks_chunk])
+
+    deltaf_mask_chunk = (norm_flux_chunk - meanflux_tot_mask)/meanflux_tot_mask
+
+    vel_mid, xi_tot_mask, npix_tot_mask, _ = reion_utils.compute_xi(deltaf_mask_chunk, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks_chunk)
+    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0)  # average over nskew_to_match_data
+
+    return vel_mid, xi_mean_tot, xi_mean_tot_mask
+
+def allspec_chunk(nqso, gpm_allspec, redshift_bin, vel_lores, given_bins=None):
+
+    #dv_corr = 100
+    #vel_lores, _, _, _, _, _ = mutils.init_skewers_compute_model_grid(dv_corr)
+
+    xi_unmask_all = []
+    xi_mask_all = []
+
+    for iqso in range(nqso):
+        vel_mid, xi_mean_tot, xi_mean_tot_mask = \
+            onespec_chunk(iqso, redshift_bin, gpm_allspec[iqso], vel_lores, given_bins=given_bins)
+        xi_unmask_all.append(xi_mean_tot)
+        xi_mask_all.append(xi_mean_tot_mask)
+
+    xi_unmask_all = np.array(xi_unmask_all)
+    xi_mean_unmask = np.mean(xi_unmask_all, axis=0)
+
+    xi_mask_all = np.array(xi_mask_all)
+    xi_mean_mask = np.mean(xi_mask_all, axis=0)
+
+    return vel_mid, xi_mean_unmask, xi_mean_mask

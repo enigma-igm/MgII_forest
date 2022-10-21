@@ -37,6 +37,7 @@ from astropy.modeling.models import Gaussian1D
 from enigma.reion_forest import utils
 import compute_cf_data as ccf
 import pdb
+from astropy.cosmology import FlatLambdaCDM
 
 def obswave_to_vel_2(wave_arr):
     # converts wavelength array from Angstrom to km/s using the following relation
@@ -66,7 +67,13 @@ def extract_data(fitsfile):
     ivar_arr = data['ivar'].astype('float64')
     mask_arr = data['mask'].astype('bool')
     std_arr = np.sqrt(putils.inverse(ivar_arr))
-    tell_arr = data['telluric'].astype('float64')
+
+    try:
+        tell_arr = data['telluric'].astype('float64')
+    except KeyError:
+        tell_arr = None
+
+    #tell_arr = data['telluric'].astype('float64')
 
     return wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, tell_arr
 
@@ -266,7 +273,9 @@ def qso_exclude_proximity_zone(fitsfile, qso_z, qso_name, exclude_rest=1216-1185
 
 def qso_redshift_and_pz_mask(wave, qso_z, exclude_rest=1216-1185):
 
-    redshift_mask = wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
+    mg2forest_wavemin, mg2forest_wavemax = 19500, 24000
+    redshift_mask = (wave <= (2800 * (1 + qso_z))) * (wave >= mg2forest_wavemin)
+    #redshift_mask = wave <= (2800 * (1 + qso_z))  # removing spectral region beyond qso redshift
     obs_wave_max = (2800 - exclude_rest) * (1 + qso_z)
     pz_mask = wave < obs_wave_max
 
@@ -318,6 +327,11 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_r
                      datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
+    """
+    fitsfile_list[1] = '/Users/suksientie/Research/data_redux/combined_xshooter/J1342+0928_mosfire_xshooter_coadd_tellcorr_dv30_Kband.fits'
+    fitsfile_list[2] = '/Users/suksientie/Research/data_redux/combined_xshooter/J0252-0503_mosfire_xshooter_coadd_tellcorr_dv30_Kband.fits'
+    fitsfile_list[3] = '/Users/suksientie/Research/data_redux/combined_xshooter/J0038-1527_mosfire_xshooter_coadd_tellcorr_dv30_Kband.fits'
+    """
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
     qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1]
     everyn_break_list = [20, 20, 20, 20, 20]
@@ -494,9 +508,37 @@ def lya_spikes(fitsfile, zlow, zhigh):
 
     plt.plot(wave_arr[lowhigh], flux_arr[lowhigh], 'k', drawstyle='steps-mid')
     plt.plot(wave_arr[lowhigh], std_arr[lowhigh], 'r', drawstyle='steps-mid')
-    plt.plot(wave_arr[lowhigh], 5*std_arr[lowhigh], 'b', alpha=0.5, drawstyle='steps-mid')
+    #plt.plot(wave_arr[lowhigh], 5*std_arr[lowhigh], 'b', alpha=0.5, drawstyle='steps-mid')
     plt.ylabel('Normalized flux')
     plt.xlabel('Observed wavelength')
     plt.grid()
     plt.show()
 
+def abspath(z1, z2, cosmo=None):
+    """
+    calculate pathlength between z1 and z2.
+    """
+    if cosmo is None:
+        f = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
+        par = Table.read(f, hdu=1)
+        lit_h, m0, b0, l0 = par['lit_h'][0], par['Om0'][0], par['Ob0'][0], par['Ode0'][0]
+        cosmo = FlatLambdaCDM(H0=lit_h*100, Om0=m0, Ob0=b0, Tcmb0=2.725)
+
+    return cosmo.absorption_distance(z1)-cosmo.absorption_distance(z2)
+
+def reweight_factors(nqso, redshift_bin):
+
+    dx_all = []
+
+    for iqso in range(nqso):
+        raw_data_out, _, all_masks_out = init_onespec(iqso, redshift_bin)
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+        good_zpix = wave[master_mask] / 2800 - 1
+        zlow, zhigh = good_zpix.min(), good_zpix.max()
+        dx = abspath(zhigh, zlow)
+        dx_all.append(dx)
+
+    weight = dx_all / np.sum(dx_all)
+    return weight

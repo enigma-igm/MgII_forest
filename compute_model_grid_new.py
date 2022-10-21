@@ -120,7 +120,7 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
 
 def init_cgm_masking(redshift_bin, datapath):
 
-    # retaining the shape of the cgm masks to be the same as data shape, so not applying mask before running CGM masking
+    # not applying any mask before CGM masking step, in order for cgm mask to have same shape as data shape
     good_vel_data_all, good_wave_data_all, norm_good_flux_all, norm_good_std_all, good_ivar_all, noise_all = \
         mask_cgm.init(redshift_bin, datapath, do_not_apply_any_mask=True)
 
@@ -271,11 +271,20 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
 
     ncorr = xi_mean.shape[0]
     covar = np.zeros((ncorr, ncorr))
-
     for icopy in range(ncopy):
         covar += np.outer(delta_xi[icopy], delta_xi[icopy])  # off-diagonal elements
 
     xi_mock_keep = xi_mock_mean # xi_mock_mean[:nmock]
+
+    """
+    xi_mock_keep = np.zeros((ncopy, ncorr))
+    for imock in range(ncopy):
+        xi_mock_avg_nskew = np.mean(xi_mock_qso_all[:, imock, :, :], axis=2)  # average over nskew_to_match_data
+        xi_mock = np.mean(xi_mock_avg_nskew, axis=0)  # average over nqso
+        delta_xi = xi_mock - xi_mean
+        covar += np.outer(delta_xi, delta_xi)
+        xi_mock_keep[imock, :] = xi_mock
+    """
 
     # Divid by ncovar since we estimated the mean from "independent" data
     covar /= ncopy

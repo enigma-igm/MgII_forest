@@ -38,13 +38,14 @@ from astropy.io import fits
 import compute_cf_data
 import compute_model_grid_new as cmg
 
-seed = None #434519 #1097212 #988765 #2213142
+seed = 42419 #None #434519 #1097212 #988765 #2213142
 if seed == None:
     seed = np.random.randint(0, 1000000)
     print(seed)
 
 rand = np.random.RandomState(seed)
-figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/custom_bin4/'
+nqso = 5
+figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/custom_bin4_5qso/long_data/'
 
 # for init_mockdata()
 logZ_guess = -5.0 #-4.50 # -3.70
@@ -68,12 +69,23 @@ def init(modelfile, redshift_bin, vel_lores, custombin=True):
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
-    cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/')
-
     xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
-    nqso = 4
-    #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None])
-    vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(cgm_fit_gpm_all, redshift_bin, vel_lores, given_bins=given_bins)
+    seed_list = [None] * nqso
+
+    # using the chunked data for the MCMC...
+    #cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/') # only CGM masks, other masks added later in ccf.onespec_chunk
+    #vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(nqso, cgm_fit_gpm_all, redshift_bin, vel_lores, given_bins=given_bins)
+
+    # using the data in its original format for MCMC
+    lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm()
+    if redshift_bin == 'low':
+        cgm_fit_gpm_all = lowz_cgm_fit_gpm
+    elif redshift_bin == 'high':
+        cgm_fit_gpm_all = highz_cgm_fit_gpm
+    elif redshift_bin == 'all':
+        cgm_fit_gpm_all = allz_cgm_fit_gpm
+    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins)
+
     xi_data = xi_mean_mask
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
 
@@ -175,7 +187,8 @@ def init_mockdata(modelfile):
 
     return fine_out, coarse_out, data_out
 
-def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin=1000, nwalkers=40, linearZprior=False, savefits_chain=None, actual_data=True):
+def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin=1000, nwalkers=40, \
+             linearZprior=False, savefits_chain=None, actual_data=True, save_xi_err=False):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -260,9 +273,10 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin
         corrfile = figpath + '%sz_corr_func_data_upperlim.pdf' % redshift_bin
     else:
         corrfile = figpath + '%sz_corr_func_data.pdf' % redshift_bin
+
     if actual_data:
         corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
-                      corrfile, nrand=300, rand=rand)
+                      corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err)
     else:
         inference.corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse,
                                 logZ_coarse, covar_array, xhi_data, logZ_data, corrfile, rand=rand)
@@ -285,7 +299,7 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin
 
 ################################## plotting ##################################
 def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
-                  corrfile, nrand=50, rand=None):
+                  corrfile, nrand=50, rand=None, save_xi_err=False):
 
     # adapted from enigma.reion_forest.inference.corrfunc_plot
     if rand is None:
@@ -309,6 +323,9 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     # Average the diagonal instead?
     covar_mean = inference.covar_model(theta_mean, xhi_coarse, logZ_coarse, covar_array)
     xi_err = np.sqrt(np.diag(covar_mean))
+
+    if save_xi_err:
+        np.save(figpath + 'xi_err_%dqso.npy' % nqso, xi_err)
 
     # Grab some realizations
     imock = rand.choice(np.arange(samples.shape[0]), size=nrand)

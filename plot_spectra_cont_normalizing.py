@@ -27,10 +27,10 @@ xylabel_fontsize = 20
 legend_fontsize = 14
 
 ### Some controls
-plot_normalized = False
+plot_normalized = True
 redshift_bin = 'all'
 
-nqso_to_plot = 4
+nqso_to_plot = 5
 qso_namelist =['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
 qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1]
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
@@ -90,7 +90,7 @@ for i in range(nqso_to_plot):
 
     plot_ax.set_ylim([ymin, ymax])
     plot_ax.legend(fontsize=legend_fontsize, loc='upper center')
-    if i == 3:
+    if i == (nqso_to_plot - 1):
         plot_ax.set_xlabel(r'obs wavelength ($\mathrm{{\AA}}$)', fontsize=xylabel_fontsize)
 
 atwin = plot_ax_all[0].twiny()

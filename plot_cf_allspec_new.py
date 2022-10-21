@@ -10,7 +10,7 @@ from astropy.table import Table
 import compute_cf_data as ccf
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
-from enigma.reion_forest import utils as reion_utils
+from enigma.reion_forest import utils as reion_utilsf
 from enigma.reion_forest.compute_model_grid import read_model_grid
 import argparse
 
@@ -33,13 +33,15 @@ legend_fontsize = 14
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--zbin', type=str, help="options: all, high, low")
+parser.add_argument('--nqso', type=int, help="if 4, then exclude J0038-0653")
 args = parser.parse_args()
 
 redshift_bin = args.zbin
-savefig = 'paper_plots/cf_%sz.pdf' % redshift_bin
+nqso = args.nqso
+savefig = 'paper_plots/cf_%sz_%dqso.pdf' % (redshift_bin, nqso)
+savefig = None
 
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'unpublished \n new QSO']
-nqso = 5
 median_z = 6.554
 seed_list=[None, None, None, None, None]
 given_bins = ccf.custom_cf_bin4()
@@ -54,7 +56,7 @@ elif redshift_bin == 'all': cgm_fit_gpm = allz_cgm_fit_gpm
 vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask = \
     ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, seed_list=seed_list, given_bins=given_bins)
 
-xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1)
+xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized to N-1
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
 #######
@@ -73,6 +75,7 @@ fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(12, 6), sharex=True, s
 fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
 
 #######
+"""
 nqso, nreal, nvel = xi_noise_mask.shape
 
 xi_noise_unmask = np.reshape(xi_noise_unmask, (nqso*nreal, nvel))
@@ -86,7 +89,7 @@ xi_noise_mask_mean = np.mean(xi_noise_mask, axis=0)
 xi_noise_mask_std = np.std(xi_noise_mask, axis=0)
 #p16_mask = np.percentile(xi_noise_mask*factor, 16, axis=0) # 1-sigma
 #p84_mask = np.percentile(xi_noise_mask*factor, 84, axis=0)
-
+"""
 #######
 #ax1.fill_between(vel_mid, p16_unmask, p84_unmask, color='k', alpha=0.2, ec=None)
 #ax1.fill_between(vel_mid, (xi_noise_unmask_mean-xi_noise_unmask_std)*factor, (xi_noise_unmask_mean+xi_noise_unmask_std)*factor, color='k', alpha=0.2, ec=None)
@@ -94,10 +97,11 @@ xi_noise_mask_std = np.std(xi_noise_mask, axis=0)
 for iqso, xi in enumerate(xi_unmask):
     ax1.plot(vel_mid, xi * factor, linewidth=1.0, label=qso_namelist[iqso])
 
-#yerr = (xi_std_unmask / np.sqrt(nqso)) * factor
-yerr = xi_noise_unmask_std * factor
-ax1.errorbar(vel_mid, xi_mean_unmask * factor, yerr=yerr, lw=2.0, \
-             fmt='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+yerr = (xi_std_unmask / np.sqrt(nqso)) * factor
+#yerr = xi_noise_unmask_std * factor
+#ax1.errorbar(vel_mid, xi_mean_unmask * factor, yerr=yerr, lw=2.0, \
+#             fmt='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+ax1.plot(vel_mid, xi_mean_unmask * factor, 'ko', zorder=20, label='all QSOs')
 
 #ax1.set_xticks(range(500, 4000, 500))
 ax1.set_yticks(range(int(ymin), int(ymax) + 50, 50))
@@ -126,10 +130,11 @@ ax1.annotate('before masking CGM', xy=(1900, -75), xytext=(2000, -75), textcoord
 for iqso, xi in enumerate(xi_mask):
     ax2.plot(vel_mid, xi * factor, linewidth=1.0, label=qso_namelist[iqso])
 
-#yerr = (xi_std_mask / np.sqrt(nqso)) * factor
-yerr = xi_noise_mask_std * factor
-ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
-             fmt='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+yerr = (xi_std_mask / np.sqrt(nqso)) * factor
+#yerr = xi_noise_mask_std * factor
+#ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
+#             fmt='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+ax2.plot(vel_mid, xi_mean_mask * factor, 'ko', zorder=20, label='all QSOs')
 
 #ax2.set_xticks(range(500, 4000, 500))
 ax2.set_xlabel(r'$\Delta v$ (km/s)', fontsize=xylabel_fontsize)
@@ -150,8 +155,8 @@ ax2.annotate('', xy=(780, 0.88 * ymax), xytext=(1010, 0.88* ymax),
 bbox = dict(boxstyle="round", fc="0.9") # fc is shading of the box, sth like alpha
 ax2.annotate('after masking CGM', xy=(1900, -75), xytext=(2000, -75), textcoords='data', xycoords='data', annotation_clip=False, fontsize=legend_fontsize, bbox=bbox)
 
-
-plt.savefig(savefig)
+if savefig != None:
+    plt.savefig(savefig)
 plt.show()
 plt.close()
 
