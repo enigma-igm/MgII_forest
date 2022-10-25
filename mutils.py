@@ -38,6 +38,7 @@ from enigma.reion_forest import utils
 import compute_cf_data as ccf
 import pdb
 from astropy.cosmology import FlatLambdaCDM
+from pypeit.core.arc import detect_peaks
 
 def obswave_to_vel_2(wave_arr):
     # converts wavelength array from Angstrom to km/s using the following relation
@@ -328,11 +329,6 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_r
                      datapath + 'wavegrid_vel/J0038-1527/vel1_tellcorr.fits', \
                      datapath + 'wavegrid_vel/J0038-0653/vel1_tellcorr.fits']
 
-    """
-    fitsfile_list[1] = '/Users/suksientie/Research/data_redux/combined_xshooter/J1342+0928_mosfire_xshooter_coadd_tellcorr_dv30_Kband.fits'
-    fitsfile_list[2] = '/Users/suksientie/Research/data_redux/combined_xshooter/J0252-0503_mosfire_xshooter_coadd_tellcorr_dv30_Kband.fits'
-    fitsfile_list[3] = '/Users/suksientie/Research/data_redux/combined_xshooter/J0038-1527_mosfire_xshooter_coadd_tellcorr_dv30_Kband.fits'
-    """
     qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
     qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1]
     everyn_break_list = [20, 20, 20, 20, 20]
@@ -543,3 +539,7 @@ def reweight_factors(nqso, redshift_bin):
 
     weight = dx_all / np.sum(dx_all)
     return weight
+
+def mask_telluric_lines(tell):
+    # fit a line, subtract best fit and then peak find
+    pix = detect_peaks(tell, mph=1000, mpd=5, valley=True, show=True)
