@@ -106,6 +106,7 @@ def continuum_normalize_new(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbk
         ax.plot(sset.breakpoints[goodbk], yfit_bkpt, color='lawngreen', marker='o', markersize=4.0, mfc='lawngreen',
                 fillstyle='full', linestyle='None', label='Good B-spline breakpoints')
         #ax.set_ylim((0.99 * cont_fit.min(), 1.01 * cont_fit.max()))
+        ax.set_ylim((0.8 * cont_fit.min(), 1.2 * cont_fit.max()))
         plt.ylabel('Flux')
         plt.xlabel('Wave (Ang)')
         plt.legend()
