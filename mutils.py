@@ -129,7 +129,7 @@ def custom_mask_J0313(fitsfile, plot=False):
     wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
 
     mask_wave1 = [19815, 19825]
-    mask_wave2 = [19865, 19870]
+    mask_wave2 = [19863, 19875] #[19865, 19870]
     mask_wave3 = [23303, 23325]
     mask_wave4 = [23370, 23387]
 
@@ -160,7 +160,7 @@ def custom_mask_J1342(fitsfile, plot=False):
 
     # visually-identified strong absorbers
     mask_wave1 = [21920, 21940]
-    mask_wave2 = [21972, 22000]
+    mask_wave2 = [21974, 22000] #[21972, 22000] # updated with rebinned spec
     mask_wave3 = [20320, 20335]
     mask_wave4 = [20375, 20400]
 
@@ -204,10 +204,36 @@ def custom_mask_J0038(fitsfile, plot=False):
 
     wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
     # visually-identified strong absorbers
-    mask_wave1 = [19777, 19796]
+    mask_wave1 = [19777, 19804] # [19777, 19796]
     mask_wave2 = [19828, 19855]
 
     all_mask_wave = [mask_wave1, mask_wave2]
+    strong_abs_gpm = np.ones(wave.shape, dtype=bool)
+    for mask_wave_i in all_mask_wave:
+        a = mask_wave_i[0] < wave
+        b = wave < mask_wave_i[1]
+        gpm = np.invert(a * b)
+        strong_abs_gpm *= gpm
+
+    if plot:
+        alpha = 0.3
+        plt.plot(wave, flux, c='b', drawstyle='steps-mid')
+        plt.plot(wave, std, c='k', drawstyle='steps-mid')
+        plt.axvspan(mask_wave1[0], mask_wave1[1], facecolor='r', alpha=alpha)
+        plt.axvspan(mask_wave2[0], mask_wave2[1], facecolor='r', alpha=alpha)
+        plt.show()
+
+    return strong_abs_gpm
+
+def custom_mask_J0410(fitsfile, plot=False):
+
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
+    # visually-identified strong absorbers
+    mask_wave1 = [20638, 20653]
+    mask_wave2 = [20688, 20705]
+    mask_wave3 = [20742, 20755]
+
+    all_mask_wave = [mask_wave1, mask_wave2, mask_wave3]
     strong_abs_gpm = np.ones(wave.shape, dtype=bool)
     for mask_wave_i in all_mask_wave:
         a = mask_wave_i[0] < wave
@@ -246,6 +272,10 @@ def extract_and_norm(fitsfile, everyn_bkpt, qso_name, plot=False):
     elif qso_name == 'J0038-1527':
         print('using custom mask for %s' % qso_name)
         strong_abs_gpm = custom_mask_J0038(fitsfile)
+
+    elif qso_name == 'J0410-0139':
+        print('using custom mask for %s' % qso_name)
+        strong_abs_gpm = custom_mask_J0410(fitsfile)
 
     else:
         print('using custom mask for %s' % qso_name)

@@ -184,6 +184,8 @@ def continuum_normalize_all():
         plt.plot(wave, flux, c='k', drawstyle='steps-mid')
         plt.plot(wave, fluxfit, c='r', drawstyle='steps-mid', label='continuum fit')
         plt.plot(wave, std, c='b', alpha=0.5, drawstyle='steps-mid', label='sigma')
+        plt.plot(wave[np.invert(strong_abs_gpm)], flux[np.invert(strong_abs_gpm)], 'r+', ms=10)
+
         plt.legend()
         plt.xlim([19500, 24100])
         plt.ylim([-0.05, 0.7])
