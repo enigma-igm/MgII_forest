@@ -40,6 +40,10 @@ for i in range(len(arr)):
     wave_rebin, snr_new, final_mask_new = new_all[i][0], new_all[i][1], new_all[i][2]
 
     new_median_snr.append(np.median(snr_new[final_mask_new]))
+    #print(qsoid, qsoz, np.median(snr_new[final_mask_new]))
+    if np.median(snr_new[final_mask_new]) >= 3:
+        print(qsoid, qsoz, np.median(snr_new[final_mask_new]))
+
     plt.plot(wave_rebin[final_mask_new], snr_new[final_mask_new], drawstyle='steps-mid', \
              label=qsoid + ' z=%0.2f' % qsoz + ' (%s)' % instr)
     plt.xlabel('obs wave (dv=40 km/s)')
@@ -54,6 +58,7 @@ for i in range(len(arr)):
     plt.annotate(qsoid, (x-0.5, y+0.1))
     plt.ylabel('median snr (dv=40 km/s)')
 
+plt.grid(True)
 plt.show()
 
 

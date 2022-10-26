@@ -63,7 +63,8 @@ def extract_data(fitsfile):
     # 'fitsfile' = name of fitsfile containing Pypeit 1d spectrum
 
     data = fits.open(fitsfile)[1].data
-    wave_arr = data['wave_grid_mid'].astype('float64') # midpoint values of wavelength bin
+    #wave_arr = data['wave_grid_mid'].astype('float64') # midpoint values of wavelength bin
+    wave_arr = data['wave'].astype('float64')  # midpoint values of wavelength bin
     flux_arr = data['flux'].astype('float64')
     ivar_arr = data['ivar'].astype('float64')
     mask_arr = data['mask'].astype('bool')
@@ -74,7 +75,13 @@ def extract_data(fitsfile):
     except KeyError:
         tell_arr = None
 
-    #tell_arr = data['telluric'].astype('float64')
+    wave_arr = wave_arr.squeeze()
+    flux_arr = flux_arr.squeeze()
+    ivar_arr = ivar_arr.squeeze()
+    mask_arr = mask_arr.squeeze()
+    std_arr = std_arr.squeeze()
+    if tell_arr is not None:
+        tell_arr = tell_arr.squeeze()
 
     return wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, tell_arr
 
@@ -540,6 +547,20 @@ def reweight_factors(nqso, redshift_bin):
     weight = dx_all / np.sum(dx_all)
     return weight
 
-def mask_telluric_lines(tell):
+def mask_telluric_lines(tell, mph=None, mpd=1, threshold=0, show=False):
     # fit a line, subtract best fit and then peak find
-    pix = detect_peaks(tell, mph=1000, mpd=5, valley=True, show=True)
+    pix = detect_peaks(tell, mph=mph, mpd=mpd, threshold=threshold, valley=True, show=show)
+
+    """
+    newpix = [42, 80, 84, 87, 96, 125, 128, 161, 177, 391, 425, 641, 685, 708, 717, 722, 760, 770, 802, 830, 845, 883, \
+              956, 991, 1000, 1011, 1027, 1035, 1054, 1062, 1070, 1080, 1084, 1103, 1110, 1125, 1136, 1155, 1171, \
+              1180, 1189, 1201, 1253, 1276, 1299, 1301, 1321, 1324, 1343, 1349, 1360, 1365, 1377, 1391, 1421, 1434, \
+              1456, 1469, 1486, 1494, 1503, 1517, 1539, 1549, 1553, 1559, 1579, 1590, 1604, 1616, 1624, 1639, 1642, \
+              1656, 1697, 1718, 1733, 1746, 1760, 1796, 1830, 1841, 1848, 1863, 1875, 1887, 1897, 1912, 1918, 1925, \
+              1928, 1951, 1957, 1966, 1979, 1981, 1990, 1999, 2006, 2013, 2020, 2025]
+
+    tell_gpm = np.ones(len(tell), dtype='bool')
+    tell_gpm[newpix] = False
+
+    return newpix, tell_gpm
+    """

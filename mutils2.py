@@ -48,7 +48,7 @@ def mosfire_qso():
     qsoid = []
     for file in fitsfiles:
         qsoid.append(file.split('/wavegrid_vel/')[-1].split('/')[0])
-    qso_z = [7.642, 7.541, 7.001, 7.034, 7.1]
+    qso_z = [7.1, 7.642, 7.034, 7.001, 7.541]
     texp = [180 * 32, 180 * 22 * 2 + 180 * 60 + 180 * 4 + 180 * 36, 180 * 40, 180 * 40 + 180 * 36, 180 * 8 + 180 * 12 + 180 * 52]
 
     return fitsfiles, qsoid, qso_z, texp
@@ -114,7 +114,93 @@ def run_sql_all():
 
     con.close()
 
+def add_col_qso(new_col, new_col_type):
+    query = """
+    ALTER TABLE qso
+    ADD %s %s; 
+    """ % (new_col, new_col_type)
+
+    return query
+
 ###############
+def final_qso_list(sqldb='highzqso.sqlite'):
+
+    final_qso_id = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0252-0503', 'J0038-1527', 'J0038-0653', 'J1342+0928', 'J0313-1806']
+    con = create_connection(sqldb)
+    df = pd.read_sql_query("select id, redshift, instrument from qso where id in " + str(tuple(final_qso_id)), con)
+    arr = df.to_numpy()
+    con.close()
+
+    final_qso_id = arr[:,0]
+    final_qso_z = arr[:,1]
+    final_qso_instr = arr[:,2]
+    final_qso_fitsfile_rebin = []
+
+    rebin_path = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+
+    for qso in final_qso_id:
+        f = glob.glob(rebin_path + qso + '*')[0]
+        final_qso_fitsfile_rebin.append(f)
+
+    return final_qso_id, final_qso_z, final_qso_instr, final_qso_fitsfile_rebin
+
+def average_telluric(final_qso_id):
+    rebin_spec = glob.glob('/Users/suksientie/Research/MgII_forest/rebinned_spectra/*fits')
+
+    wave_all = []
+    tell_all = []
+    for spec in rebin_spec:
+        if spec.split('/')[-1].split('_')[0] in final_qso_id:
+            data = fits.open(spec)[1].data
+            wave = data['wave'].astype('float64')
+            telluric = data['telluric'].astype('float64')
+
+            mask = wave >= 19500
+            wave_all.append(wave[mask])
+            tell_all.append(telluric[mask])
+            plt.plot(wave.squeeze(), telluric.squeeze(), drawstyle='steps-mid')
+
+    return wave_all, tell_all
+
+###############
+def continuum_normalize_all():
+
+    final_qso_id, final_qso_z, final_qso_instr, final_qso_fitsfile_rebin = final_qso_list()
+
+    everyn_break_list = 20
+    exclude_restwave = 1216 - 1185
+
+    for i in range(len(final_qso_id)):
+        fitsfile = final_qso_fitsfile_rebin[i]
+        qsoid = final_qso_id[i]
+        qsoz = final_qso_z[i]
+
+        wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = mutils.extract_and_norm(fitsfile, everyn_break_list, qsoid)
+        redshift_mask, pz_mask, obs_wave_max = mutils.qso_redshift_and_pz_mask(wave, qsoz, exclude_restwave)
+
+        plt.figure(figsize=(14, 8))
+        plt.suptitle("%s (z=%0.2f)" % (qsoid, qsoz))
+        plt.subplot(211)
+        plt.plot(wave, flux, c='k', drawstyle='steps-mid')
+        plt.plot(wave, fluxfit, c='r', drawstyle='steps-mid', label='continuum fit')
+        plt.plot(wave, std, c='b', alpha=0.5, drawstyle='steps-mid', label='sigma')
+        plt.legend()
+        plt.xlim([19500, 24100])
+        plt.ylim([-0.05, 0.7])
+        plt.xlabel('Obs wave')
+        plt.ylabel('Flux')
+
+        plt.subplot(212)
+        plt.plot(wave, flux / fluxfit, c='k', drawstyle='steps-mid')
+        plt.plot(wave, std / fluxfit, c='b', alpha=0.5, drawstyle='steps-mid')
+        plt.xlim([19500, 24100])
+        plt.ylim([-0.05, 2.3])
+        plt.xlabel('Obs wave')
+        plt.ylabel('Normalized flux')
+
+    plt.show()
+
+
 def continuum_normalize_nires(sqldb='highzqso.sqlite'):
     con = create_connection(sqldb)
     df = pd.read_sql_query("select id, redshift, path from qso where instrument in ('nires') order by redshift", con)
