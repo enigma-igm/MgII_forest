@@ -16,7 +16,7 @@ arr = df.to_numpy()
 
 wave_method = 'velocity'
 dv = 40
-mg2forest_wavemin = None #19500
+mg2forest_wavemin = 19500
 plot = False
 saveout = True
 savepath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'

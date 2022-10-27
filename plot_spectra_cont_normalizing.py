@@ -80,6 +80,9 @@ for i in range(nqso_to_plot):
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     #good_wave, good_flux, good_ivar, good_std, good_vel_data, norm_good_flux, norm_good_std = masked_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+
+    pix, tell_gpm = mutils.mask_telluric_lines(tell)
+    #all_masks = mask * redshift_mask * pz_mask * zbin_mask * tell_gpm
     all_masks = mask * redshift_mask * pz_mask * zbin_mask
     print("masked fraction", 1 - np.sum(all_masks) / len(all_masks))
 

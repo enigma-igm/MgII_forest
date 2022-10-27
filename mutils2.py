@@ -1,22 +1,7 @@
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
 import numpy as np
-from astropy.cosmology import FlatLambdaCDM
 from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoMinorLocator
-from astropy.io import fits
-from pypeit.core.fitting import iterfit, robust_fit
-from pypeit import utils as putils
-from pypeit import bspline
-import scipy.interpolate as interpolate
-from astropy import constants as const
-from astropy.table import Table
-from astropy.stats import sigma_clip, mad_std
-from astropy.modeling.models import Gaussian1D
-from enigma.reion_forest import utils
-import compute_cf_data as ccf
-import pdb
-from astropy.cosmology import FlatLambdaCDM
 import mutils
 import glob
 import sqlite3
@@ -123,7 +108,7 @@ def add_col_qso(new_col, new_col_type):
     return query
 
 ###############
-def final_qso_list(sqldb='highzqso.sqlite'):
+def final_qso_list(sqldb='highzqso.sqlite', rebin_path='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
 
     final_qso_id = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0252-0503', 'J0038-1527', 'J0038-0653', 'J1342+0928', 'J0313-1806']
     con = create_connection(sqldb)
@@ -136,19 +121,23 @@ def final_qso_list(sqldb='highzqso.sqlite'):
     final_qso_instr = arr[:,2]
     final_qso_fitsfile_rebin = []
 
-    rebin_path = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-
     for qso in final_qso_id:
         f = glob.glob(rebin_path + qso + '*')[0]
         final_qso_fitsfile_rebin.append(f)
 
     return final_qso_id, final_qso_z, final_qso_instr, final_qso_fitsfile_rebin
 
+def telluric_each_instr_final_qso():
+    nires_fitsfile = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/J0411-0907_dv40_coadd_tellcorr.fits'
+    mosfire_fitsfile = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/J0038-0653_dv40_coadd_tellcorr.fits'
+
+"""
 def average_telluric(final_qso_id):
     rebin_spec = glob.glob('/Users/suksientie/Research/MgII_forest/rebinned_spectra/*fits')
 
     wave_all = []
     tell_all = []
+
     for spec in rebin_spec:
         if spec.split('/')[-1].split('_')[0] in final_qso_id:
             data = fits.open(spec)[1].data
@@ -158,12 +147,13 @@ def average_telluric(final_qso_id):
             mask = wave >= 19500
             wave_all.append(wave[mask])
             tell_all.append(telluric[mask])
-            plt.plot(wave.squeeze(), telluric.squeeze(), drawstyle='steps-mid')
+            plt.plot(wave[mask].squeeze(), telluric[mask].squeeze(), drawstyle='steps-mid')
+            #plt.plot(telluric[mask].squeeze(), drawstyle='steps-mid')
 
     return wave_all, tell_all
-
+"""
 ###############
-def continuum_normalize_all():
+def continuum_normalize_all(plot=False):
 
     final_qso_id, final_qso_z, final_qso_instr, final_qso_fitsfile_rebin = final_qso_list()
 
@@ -177,31 +167,37 @@ def continuum_normalize_all():
 
         wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = mutils.extract_and_norm(fitsfile, everyn_break_list, qsoid)
         redshift_mask, pz_mask, obs_wave_max = mutils.qso_redshift_and_pz_mask(wave, qsoz, exclude_restwave)
+        telluric_gpm = mutils.telluric_mask(wave)
+        all_masks = mask * redshift_mask * pz_mask * telluric_gpm
 
-        plt.figure(figsize=(14, 8))
-        plt.suptitle("%s (z=%0.2f)" % (qsoid, qsoz))
-        plt.subplot(211)
-        plt.plot(wave, flux, c='k', drawstyle='steps-mid')
-        plt.plot(wave, fluxfit, c='r', drawstyle='steps-mid', label='continuum fit')
-        plt.plot(wave, std, c='b', alpha=0.5, drawstyle='steps-mid', label='sigma')
-        plt.plot(wave[np.invert(strong_abs_gpm)], flux[np.invert(strong_abs_gpm)], 'r+', ms=10)
+        if plot:
+            plt.figure(figsize=(14, 8))
+            plt.suptitle("%s (z=%0.2f)" % (qsoid, qsoz))
+            plt.subplot(211)
+            plt.plot(wave, flux, c='k', drawstyle='steps-mid')
+            plt.plot(wave, fluxfit, c='r', drawstyle='steps-mid', label='continuum fit')
+            plt.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid', label='sigma')
+            plt.plot(wave, tell * 0.6, alpha=0.5, drawstyle='steps-mid')  # telluric
+            plt.plot(wave[np.invert(strong_abs_gpm)], flux[np.invert(strong_abs_gpm)], 'rx', ms=8, markeredgewidth = 2.5, alpha=0.5)
 
-        plt.legend()
-        plt.xlim([19500, 24100])
-        plt.ylim([-0.05, 0.7])
-        plt.xlabel('Obs wave')
-        plt.ylabel('Flux')
+            plt.legend()
+            #plt.xlim([19500, 24100])
+            plt.ylim([-0.05, 0.7])
+            plt.xlabel('Obs wave')
+            plt.ylabel('Flux')
 
-        plt.subplot(212)
-        plt.plot(wave, flux / fluxfit, c='k', drawstyle='steps-mid')
-        plt.plot(wave, std / fluxfit, c='b', alpha=0.5, drawstyle='steps-mid')
-        plt.xlim([19500, 24100])
-        plt.ylim([-0.05, 2.3])
-        plt.xlabel('Obs wave')
-        plt.ylabel('Normalized flux')
+            plt.subplot(212)
+            plt.plot(wave, flux / fluxfit, c='k', drawstyle='steps-mid')
+            plt.plot(wave, std / fluxfit, c='k', alpha=0.5, drawstyle='steps-mid')
+            plt.plot(wave, tell * 1.5, alpha=0.5, drawstyle='steps-mid')  # telluric
+            plt.plot(wave[np.invert(telluric_gpm)], (flux / fluxfit)[np.invert(telluric_gpm)], 'cx', ms=8, markeredgewidth = 2.5, alpha=0.5)
+            #plt.xlim([19500, 24100])
+            plt.ylim([-0.05, 2.3])
+            plt.xlabel('Obs wave')
+            plt.ylabel('Normalized flux')
 
-    plt.show()
-
+    if plot:
+        plt.show()
 
 def continuum_normalize_nires(sqldb='highzqso.sqlite'):
     con = create_connection(sqldb)
