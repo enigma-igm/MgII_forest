@@ -320,6 +320,25 @@ def qso_redshift_and_pz_mask(wave, qso_z, exclude_rest=1216-1185):
 
     return redshift_mask, pz_mask, obs_wave_max
 
+def telluric_mask(wave):
+    #wave_bad_start = [21628, 21778, 22153, 22307, 22745, 22799, 23156, 23394, 23553]
+    #wave_bad_end = [21640, 21788, 22169, 22326, 22764, 22815, 23185, 23409, 23566]
+
+    #wave_bad_start = [19791, 19864, 20000, 21628, 22153, 22307, 22745, 22799, 23156, 23394, 23553]
+    #wave_bad_end = [19808, 19874, 20060, 21640, 22169, 22326, 22764, 22815, 23185, 23409, 23566]
+
+    wave_bad_start = [20000, 20556, 21489]
+    wave_bad_end = [20060, 20571, 21512]
+
+    telluric_gpm = np.ones(wave.shape, dtype=bool)
+    for i in range(len(wave_bad_start)):
+        bpm_a = wave_bad_start[i] < wave
+        bpm_b = wave < wave_bad_end[i]
+        bpm = bpm_a * bpm_b
+        telluric_gpm *= np.invert(bpm)
+
+    return telluric_gpm
+
 def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_gpm=None):
 
     wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, 20, qso_name)
@@ -352,7 +371,58 @@ def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_
 
     return good_z
 
-def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_redux/'):
+def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
+
+    fitsfile_list = [datapath + 'J0411-0907_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0319-1008_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0410-0139_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0038-0653_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0313-1806_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0038-1527_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0252-0503_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits']
+
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+    qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+    everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
+    exclude_restwave = 1216 - 1185
+    median_z = 6.554 # TBD for final set
+
+    fitsfile = fitsfile_list[iqso]
+    wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
+    redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_zlist[iqso], exclude_restwave)
+    telluric_gpm = telluric_mask(wave)
+
+    if redshift_bin == 'low':
+        zbin_mask = wave < (2800 * (1 + median_z))
+
+    elif redshift_bin == 'high':
+        zbin_mask = wave >= (2800 * (1 + median_z))
+
+    elif redshift_bin == 'all':
+        zbin_mask = np.ones_like(wave, dtype=bool)
+
+    # master mask for measuring 2PCF
+    master_mask = mask * redshift_mask * pz_mask * zbin_mask * telluric_gpm
+
+    # masked arrays
+    good_wave = wave[master_mask]
+    good_flux = flux[master_mask]
+    good_ivar = ivar[master_mask]
+    good_std = std[master_mask]
+    good_vel_data = obswave_to_vel_2(good_wave)
+    vel_data = obswave_to_vel_2(wave)
+
+    norm_good_flux = good_flux / fluxfit[master_mask]
+    norm_good_std = good_std / fluxfit[master_mask]
+
+    raw_data_out = wave, flux, ivar, mask, std, tell, fluxfit
+    masked_data_out = good_wave, good_flux, good_ivar, good_std, good_vel_data, norm_good_flux, norm_good_std
+    all_masks_out = strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_gpm, master_mask
+
+    return raw_data_out, masked_data_out, all_masks_out
+
+def init_onespec_old(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_redux/'):
     # initialize all needed quantities for one qso, included all masks, for all subsequent analyses
     # important to make sure fits files and global variables are up to dates
 

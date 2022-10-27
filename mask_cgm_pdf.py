@@ -43,6 +43,7 @@ xylabel_fontsize = 20
 legend_fontsize = 16
 
 ########## global variables ##########
+"""
 fwhm = 90
 sampling = 3
 seed = None #4101877 # seed for generating random realizations of qso noise
@@ -73,6 +74,37 @@ dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
 # flux PDF
 nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 color_ls = ['r', 'g', 'c', 'orange', 'm']
+"""
+
+fwhm = 40
+sampling = 3
+seed = None
+
+if seed != None:
+    rand = np.random.RandomState(seed)
+else:
+    rand = np.random.RandomState()
+
+#qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
+exclude_restwave = 1216 - 1185
+nqso_to_use = len(qso_namelist)
+
+# chi PDF
+signif_thresh = 2.0 # 4.0
+signif_mask_dv = 300.0 # value used in Hennawi+2021
+signif_mask_nsigma = 3 #10 #8 # chi threshold
+one_minF_thresh = 0.3 # flux threshold
+nbins_chi = 101 #81
+sig_min = 1e-3 # 1e-2
+sig_max = 100.0
+dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
+
+# flux PDF
+nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
+color_ls = ['r', 'g', 'c', 'orange', 'm', 'gray', 'deeppink', 'lime']
 
 def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', do_not_apply_any_mask=False):
     norm_good_flux_all = []
@@ -85,15 +117,15 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
     for iqso in range(nqso_to_use):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
-        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
         vel_data = mutils.obswave_to_vel_2(wave)
 
         if do_not_apply_any_mask:
             masks_for_cgm_masking = np.ones_like(wave, dtype=bool)
         else:
-            masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask # using all masks except the strong absorber masks
+            masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask  * telluric_mask
 
-        print(np.sum(masks_for_cgm_masking), len(wave))
+        print(np.sum(masks_for_cgm_masking), len(wave), np.sum(masks_for_cgm_masking)/len(wave))
 
         # masks quantities
         norm_good_flux = (flux/fluxfit)[masks_for_cgm_masking]
@@ -110,7 +142,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
 
         chi = (1 - norm_good_flux) / norm_good_std
         corr_factor = mad_std(chi)
-        print(corr_factor)
+        print("correction factor", corr_factor)
         gaussian_noise = np.random.normal(0, norm_good_std * corr_factor)
         noise_all.append(gaussian_noise)
 
@@ -122,7 +154,8 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     all_noise = []
     nqso = len(norm_good_flux_all)
 
-    fig = plt.figure(figsize=(9, 7.5))
+    #fig = plt.figure(figsize=(9, 7.5))
+    fig = plt.figure(figsize=(12, 9))
     fig.subplots_adjust(left=0.12, bottom=0.1, right=0.97, top=0.88)
 
     if plot_ispec != None:
@@ -198,7 +231,8 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
     nqso = len(norm_good_flux_all)
 
     if plot:
-        fig = plt.figure(figsize=(9, 6.7))
+        #fig = plt.figure(figsize=(9, 6.7))
+        fig = plt.figure(figsize=(12, 9))
         fig.subplots_adjust(left=0.12, bottom=0.1, right=0.97, top=0.88)
 
     # PDF for each qso
@@ -330,7 +364,7 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     flux_min, flux_max = -0.05, 1.8
     chi_min = -3.0 #, chi_max = -3.0, 8.4
 
-    #ax1.set_title(qso_name + ' (z = %0.2f)' % qso_z + '\n', fontsize=18)
+    ax1.annotate(qso_name + '\n', xy=(vel_data.min()+500, flux_max-0.3), fontsize=18)
     ax1.plot(vel_data, norm_good_flux, drawstyle='steps-mid', color='k', linewidth=1.5, zorder=1)
     ax1.plot(vel_data, norm_good_std, drawstyle='steps-mid', color='k', linewidth=1.0, alpha=0.5)
     ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=2, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))
@@ -365,8 +399,10 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
         return np.interp(x, wave_data, vel_data)
 
     secax = ax1.secondary_xaxis('top', functions=(forward, inverse))
-    if iqso == 0 or iqso == 1:
+    if qso_name in ['J0313-1806', 'J1342+0928']:
         secax.set_xticks(range(20000, 24000, 500))
+    elif qso_name in ['J0319-1008', 'J0411-0907']:
+        secax.set_xticks(range(20000, 22000, 500))
     else:
         secax.set_xticks(range(20000, 22500, 500))
     secax.xaxis.set_minor_locator(AutoMinorLocator())
