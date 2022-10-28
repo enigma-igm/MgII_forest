@@ -28,21 +28,35 @@ for i in range(len(arr)):
     mask_rebin = data['mask'].astype('bool')
 
     redshift_mask_new, pz_mask_new, obs_wave_max_new = mutils.qso_redshift_and_pz_mask(wave_rebin, qsoz)
-    final_mask_new = mask_rebin * redshift_mask_new * pz_mask_new
+    telluric_gpm = mutils.telluric_mask(wave_rebin)
+
+    final_mask_new = mask_rebin * redshift_mask_new * pz_mask_new * telluric_gpm
 
     snr_new = flux_rebin * np.sqrt(ivar_rebin)
     new_all.append([wave_rebin, snr_new, final_mask_new])
 
+
 new_median_snr = []
+goodzpix_all = []
+median_snr_all = []
+dx_all = []
+
 plt.figure(figsize=(14,6))
+
 for i in range(len(arr)):
     qsoid, qsoz, fitsfile, instr = arr[i][0], arr[i][1], arr[i][2], arr[i][3]
     wave_rebin, snr_new, final_mask_new = new_all[i][0], new_all[i][1], new_all[i][2]
 
     new_median_snr.append(np.median(snr_new[final_mask_new]))
     #print(qsoid, qsoz, np.median(snr_new[final_mask_new]))
+
     if np.median(snr_new[final_mask_new]) >= 3:
-        print(qsoid, qsoz, np.median(snr_new[final_mask_new]))
+        good_zpix = wave_rebin[final_mask_new] / 2800 - 1
+        goodzpix_all.extend(good_zpix)
+        zlow, zhigh = good_zpix.min(), good_zpix.max()
+        dx = mutils.abspath(zhigh, zlow)
+        dx_all.append(dx)
+        print(qsoid, qsoz, np.median(snr_new[final_mask_new]), dx)
 
     plt.plot(wave_rebin[final_mask_new], snr_new[final_mask_new], drawstyle='steps-mid', \
              label=qsoid + ' z=%0.2f' % qsoz + ' (%s)' % instr)
@@ -50,12 +64,17 @@ for i in range(len(arr)):
     plt.ylabel('snr')
     plt.legend()
 
+print("good zpix = median:%0.3f" %  np.median(goodzpix_all))
+print("good zpix = min:%0.3f" %  np.min(goodzpix_all))
+print("good zpix = max:%0.3f" %  np.max(goodzpix_all))
+print("dx total", np.sum(dx_all))
+
 plt.figure(figsize=(12,8))
 for i in range(len(arr)):
-    qsoid, qsoz, fitsfile = arr[i][0], arr[i][1], arr[i][2]
+    qsoid, qsoz, fitsfile, instr  = arr[i][0], arr[i][1], arr[i][2], arr[i][3]
     x, y = i, new_median_snr[i]
     plt.scatter(x, y)
-    plt.annotate(qsoid, (x-0.5, y+0.1))
+    plt.annotate(qsoid + '\n' + 'z=%0.2f' % qsoz + ' (%s)' % instr, (x-0.5, y+0.5))
     plt.ylabel('median snr (dv=40 km/s)')
 
 plt.grid(True)

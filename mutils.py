@@ -386,7 +386,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
     qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
     everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
     exclude_restwave = 1216 - 1185
-    median_z = 6.554 # TBD for final set
+    median_z = 6.500 # see allqso_pathlength_snr.py
 
     fitsfile = fitsfile_list[iqso]
     wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
