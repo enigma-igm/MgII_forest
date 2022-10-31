@@ -20,6 +20,7 @@ from enigma.reion_forest import utils as reion_utils
 import mutils
 import mask_cgm_pdf as mask_cgm
 
+"""
 everyn_break = 20
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 
@@ -33,9 +34,22 @@ vmax_corr = 3500
 dv_corr = 90  # 5/23/2022; to ensure npix_corr behaving correctly (smoothly)
 corr_all = [0.758, 0.753, 0.701, 0.724, 0.763] # (updated corr for J0038-0653); determined from mutils.plot_allspec_pdf for redshift_bin='all'
 median_z = 6.554 # value used in mutils.init_onespec
+"""
 
-def init_cgm_fit_gpm():
-    lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all = mask_cgm.do_allqso_allzbin()
+fwhm = 40
+sampling = 3
+
+qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
+exclude_restwave = 1216 - 1185
+median_z = 6.50
+corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
+
+vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
+
+def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
+    lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all = mask_cgm.do_allqso_allzbin(datapath)
 
     lowz_fit_gpm = []
     for i in range(len(lowz_mgii_tot_all)):
@@ -59,13 +73,10 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
 
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
-    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
-
-    #v_lo_all, v_hi_all = custom_cf_bin()
-    # given_bins = (v_lo_all, v_hi_all)
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
     ###### CF from not masking CGM ######
-    all_masks = mask * redshift_mask * pz_mask * zbin_mask
+    all_masks = master_mask
 
     norm_good_flux = (flux / fluxfit)[all_masks]
     #norm_good_std = (std / fluxfit)[all_masks]
@@ -593,9 +604,12 @@ def custom_cf_bin3():
 
     return v_lo, v_hi
 
-def custom_cf_bin4():
+def custom_cf_bin4(dv1=40):
     # this is the binning used for the paper
-    dv1 = 60 # need to be multiples of 30 to ensure correct behavior
+    #dv1 = 60 # need to be multiples of 30 to ensure correct behavior
+    #v_end = 1500
+
+    #dv1 = 80  # since spectra rebinned to 40 km/s
     v_end = 1500
 
     # linear around peak and small-scales
@@ -604,8 +618,11 @@ def custom_cf_bin4():
     v_hi1 = v_bins1[1:]
 
     # larger linear bin size
-    dv2 = 210 # need to be multiples of 30 to ensure correct behavior
-    v_bins2 = np.arange(v_end, 3600 + dv2, dv2)
+    #dv2 = 210 # need to be multiples of 30 to ensure correct behavior
+    #v_bins2 = np.arange(v_end, 3600 + dv2, dv2)
+    dv2 = 200
+    v_end2 = 3500
+    v_bins2 = np.arange(v_bins1[-1] + dv2, v_end2 + dv2, dv2)
     v_lo2 = v_bins2[:-1]
     v_hi2 = v_bins2[1:]
 
