@@ -43,6 +43,7 @@ fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspa
 ax_plot = axes.flatten()
 
 savefig = 'paper_plots/8qso/forward_model_specs.pdf'
+savefig = None
 
 ###################### data variables ######################
 datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
@@ -128,7 +129,6 @@ for iqso in range(len(qso_namelist)):
 
         ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
         nan_pad_mask = ~np.isnan(noisy_flux_lores_ncopy[0])
-
         # plot subset of mock spectra
         ax = ax_plot[iplot]
         for i in range(ncopy_plot):

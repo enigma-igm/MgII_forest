@@ -24,6 +24,17 @@ import pdb
 import compute_cf_data as ccf
 
 ###################### global variables ######################
+datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
+exclude_restwave = 1216 - 1185
+median_z = 6.50
+corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
+nqso_to_use = len(qso_namelist)
+
+"""
 nqso_to_use = 5
 
 datapath = '/Users/suksientie/Research/data_redux/'
@@ -43,7 +54,7 @@ everyn_break_list = [20, 20, 20, 20, 20] # placing a breakpoint at every 20-th a
 exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
 median_z = 6.554 # median redshift of measurement after excluding proximity zones; 4/20/2022
 corr_all = [0.758, 0.753, 0.701, 0.724, 0.763] # 4/20/2022 (determined from mutils.plot_allspec_pdf)
-
+"""
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):
     """
@@ -146,6 +157,9 @@ def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy,
     else:
         rand = np.random.RandomState()
 
+    # get rid of negative errors
+    norm_std[norm_std < 0] = 100
+
     # reshape data sigma array
     norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
 
@@ -155,6 +169,8 @@ def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy,
         for iskew in range(nskew_to_match_data):
             onecopy.append(rand.normal(0, std_corr * np.array(norm_std_chunk[iskew])))
         rand_noise_ncopy[icopy] = np.array(onecopy)
+
+    #rand_noise_ncopy = np.broadcast_to(std_corr * norm_std_chunk, (ncopy, nskew_to_match_data, npix_sim_skew))
 
     return ranindx, rand_noise_ncopy, nskew_to_match_data, npix_sim_skew
 
@@ -233,12 +249,14 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
     qso_seed_list = master_rand.randint(0, 1000000000, nqso_to_use)  # 4 for 4 qsos, hardwired for now
 
     xi_mock_qso_all = []
+    xi_mock_avg_nskew = []
+    weights = mutils.reweight_factors(nqso_to_use, redshift_bin)
 
-    for iqso, fitsfile in enumerate(fitsfile_list):
+    for iqso in range(nqso_to_use):
         # initialize all qso data
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
-        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = all_masks_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_gpm, master_mask = all_masks_out
 
         norm_flux = flux / fluxfit
         norm_std = std / fluxfit
@@ -247,7 +265,8 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
         # generate mock data spectrum
         _, _, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=qso_seed_list[iqso], std_corr=corr_all[iqso])
 
-        usable_data_mask = mask * redshift_mask * pz_mask * zbin_mask
+        #usable_data_mask = mask * redshift_mask * pz_mask * zbin_mask
+        usable_data_mask = master_mask
         usable_data_mask_chunk = reshape_data_array(usable_data_mask, nskew_to_match_data, npix_sim_skew, True)
 
         # deal with CGM mask if argued before computing the 2PCF
@@ -259,14 +278,21 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
 
         # compute the 2PCF
         vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=all_mask_chunk)
-        xi_mock_qso_all.append(xi_mock)
+        #xi_mock_qso_all.append(xi_mock)
+        xi_mock_avg_nskew.append(np.mean(xi_mock, axis=1)) # average over nskew for each qso
 
     vel_mid = np.array(vel_mid)
+
+    """
     xi_mock_qso_all = np.array(xi_mock_qso_all)
     nqso, ncopy, nskew, npix = xi_mock_qso_all.shape
-
     xi_mock_avg_nskew = np.mean(xi_mock_qso_all, axis=2) # average over nskew_to_match_data
     xi_mock_mean = np.mean(xi_mock_avg_nskew, axis=0) # average over nqso
+    """
+
+    xi_mock_avg_nskew = np.array(xi_mock_avg_nskew)
+    nqso, ncopy, npix = xi_mock_avg_nskew.shape
+    xi_mock_mean = np.average(xi_mock_avg_nskew, axis=0, weights=weights)
     delta_xi = xi_mock_mean - xi_mean # delta_xi.shape = (ncopy, ncorr)
 
     ncorr = xi_mean.shape[0]
@@ -301,8 +327,8 @@ def mock_mean_covar_debug(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax
     npix_xi_all = []
     all_mask_chunk_all = []
 
-    for iqso, fitsfile in enumerate(fitsfile_list):
-    #for iqso in range(0, 1):
+    #for iqso, fitsfile in enumerate(fitsfile_list):
+    for iqso in range(nqso_to_use):
         # initialize all qso data
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -364,8 +390,8 @@ def mock_mean_covar_debug2(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vma
     npix_xi_all = []
     all_mask_chunk_all = []
 
-    for iqso, fitsfile in enumerate(fitsfile_list):
-    #for iqso in range(0, 1):
+    #for iqso, fitsfile in enumerate(fitsfile_list):
+    for iqso in range(nqso_to_use):
         # initialize all qso data
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -506,7 +532,7 @@ def test_compute_model():
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
-    fwhm = 90
+    fwhm = 120
     sampling = 3
     vmin_corr = 10
     vmax_corr = 3500
