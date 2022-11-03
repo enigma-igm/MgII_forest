@@ -118,6 +118,33 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
 
     xi_noise = None
     xi_noise_masked = None
+
+    if plot:
+        # plot with no masking
+        plt.figure(figsize=(12, 5))
+        plt.suptitle('%s, %s-z bin' % (qso_namelist[iqso], redshift_bin))
+        plt.subplot(121)
+        plt.plot(vel_mid, xi_mean_tot, linewidth=1.5, label='data unmasked')
+        plt.axhline(0, color='k', ls='--')
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        # plot with masking
+        plt.subplot(122)
+        plt.plot(vel_mid, xi_mean_tot_mask, linewidth=1.5, label='data masked')
+        plt.axhline(0, color='k', ls='--')
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        plt.tight_layout()
+        plt.show()
+
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked#, npix_tot, npix_tot_chimask
 
@@ -238,16 +265,21 @@ def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=No
     # return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked  # , npix_tot, npix_tot_chimask
 
-def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None, weights=None):
+def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None, \
+            weights=None, iqso_to_use=None):
     # running onespec() for all the 4 QSOs
 
     xi_unmask_all = []
     xi_mask_all = []
     xi_noise_unmask_all = []
     xi_noise_mask_all = []
-    #w = mutils.reweight_factors(nqso, redshift_bin)
 
-    for iqso in range(nqso):
+    if iqso_to_use is None:
+        iqso_to_use = np.arange(0, nqso)
+    print(iqso_to_use)
+
+    #for iqso in range(nqso):
+    for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
         vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
                                                                          plot=False, std_corr=std_corr, seed=None, given_bins=given_bins)
@@ -604,7 +636,27 @@ def custom_cf_bin3():
 
     return v_lo, v_hi
 
-def custom_cf_bin4(dv1=40):
+def custom_cf_bin4(dv1=40, check=False):
+
+    v_end = 1500
+    v_end2 = 3500
+    dv2 = 200
+
+    v_bins1 = np.arange(10, v_end + dv1, dv1)
+    v_bins2 = np.arange(v_bins1[-1] + dv2, v_end2 + dv2, dv2)
+    v_bins = np.concatenate((v_bins1, v_bins2))
+    v_lo = v_bins[:-1]
+    v_hi = v_bins[1:]
+
+    if check:
+        v_mid = (v_hi + v_lo)/2
+        print(np.diff(v_mid))
+        for i in range(len(v_lo)):
+            print(i, v_lo[i], v_hi[i], v_hi[i] - v_lo[i], v_mid[i])
+
+    return v_lo, v_hi
+
+    """
     # this is the binning used for the paper
     #dv1 = 60 # need to be multiples of 30 to ensure correct behavior
     #v_end = 1500
@@ -620,7 +672,7 @@ def custom_cf_bin4(dv1=40):
     # larger linear bin size
     #dv2 = 210 # need to be multiples of 30 to ensure correct behavior
     #v_bins2 = np.arange(v_end, 3600 + dv2, dv2)
-    dv2 = 200
+    dv2 = 200#
     v_end2 = 3500
     v_bins2 = np.arange(v_bins1[-1] + dv2, v_end2 + dv2, dv2)
     v_lo2 = v_bins2[:-1]
@@ -630,6 +682,7 @@ def custom_cf_bin4(dv1=40):
     v_hi_all = np.concatenate((v_hi1, v_hi2))
 
     return v_lo_all, v_hi_all
+    """
 
 from scipy import interpolate
 def interp_vbin(vel_mid, xi_mean, kind='linear'):
