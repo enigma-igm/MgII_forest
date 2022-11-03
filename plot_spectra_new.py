@@ -47,7 +47,7 @@ ymin = -0.05
 ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.35, 0.6, 0.5, 0.5]
 ymin_norm, ymax_norm = -0.05, 2.3
 
-savefig = True
+savefig = False #True
 
 for i in range(nqso_to_plot):
 #for i in range(1):

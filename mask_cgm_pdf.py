@@ -106,6 +106,7 @@ dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
 nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 color_ls = ['r', 'g', 'c', 'orange', 'm', 'gray', 'deeppink', 'lime']
 
+import pdb
 def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', do_not_apply_any_mask=False):
     norm_good_flux_all = []
     norm_good_std_all = []
@@ -123,7 +124,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
         if do_not_apply_any_mask:
             masks_for_cgm_masking = np.ones_like(wave, dtype=bool)
         else:
-            masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask  * telluric_mask
+            masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask * telluric_mask
 
         print(np.sum(masks_for_cgm_masking), len(wave), np.sum(masks_for_cgm_masking)/len(wave))
 
@@ -140,11 +141,14 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', 
         good_vel_data_all.append(good_vel_data)
         good_wave_all.append(good_wave)
 
-        chi = (1 - norm_good_flux) / norm_good_std
-        corr_factor = mad_std(chi)
-        print("correction factor", corr_factor)
-        gaussian_noise = np.random.normal(0, norm_good_std * corr_factor)
-        noise_all.append(gaussian_noise)
+        if do_not_apply_any_mask:
+            noise_all.append(np.ones(len(norm_good_std)) * 100)
+        else:
+            chi = (1 - norm_good_flux) / norm_good_std
+            corr_factor = mad_std(chi)
+            print("-----correction factor", corr_factor)
+            gaussian_noise = np.random.normal(0, norm_good_std * corr_factor)
+            noise_all.append(gaussian_noise)
 
     return good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all
 
@@ -414,19 +418,24 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
         plt.savefig(savefig)
     #plt.show()
 
-def do_allqso_allzbin():
+def do_allqso_allzbin(datapath):
     # get mgii_tot_all for all qso and for all redshift bins
 
+    do_not_apply_any_mask = False
+
     redshift_bin = 'low'
-    lowz_good_vel_data_all, lowz_good_wave_data_all, lowz_norm_good_flux_all, lowz_norm_good_std_all, lowz_good_ivar_all, lowz_noise_all = init(redshift_bin)
+    lowz_good_vel_data_all, lowz_good_wave_data_all, lowz_norm_good_flux_all, lowz_norm_good_std_all, lowz_good_ivar_all, lowz_noise_all = \
+        init(redshift_bin, datapath=datapath, do_not_apply_any_mask=do_not_apply_any_mask)
     lowz_mgii_tot_all = chi_pdf(lowz_good_vel_data_all, lowz_norm_good_flux_all, lowz_good_ivar_all, lowz_noise_all, plot=False)
 
     redshift_bin = 'high'
-    highz_good_vel_data_all, highz_good_wave_data_all, highz_norm_good_flux_all, highz_norm_good_std_all, highz_good_ivar_all, highz_noise_all = init(redshift_bin)
+    highz_good_vel_data_all, highz_good_wave_data_all, highz_norm_good_flux_all, highz_norm_good_std_all, highz_good_ivar_all, highz_noise_all = \
+        init(redshift_bin, datapath=datapath, do_not_apply_any_mask=do_not_apply_any_mask)
     highz_mgii_tot_all = chi_pdf(highz_good_vel_data_all, highz_norm_good_flux_all, highz_good_ivar_all, highz_noise_all, plot=False)
 
     redshift_bin = 'all'
-    allz_good_vel_data_all, allz_good_wave_data_all, allz_norm_good_flux_all, allz_norm_good_std_all, allz_good_ivar_all, allz_noise_all = init(redshift_bin)
+    allz_good_vel_data_all, allz_good_wave_data_all, allz_norm_good_flux_all, allz_norm_good_std_all, allz_good_ivar_all, allz_noise_all = \
+        init(redshift_bin, datapath=datapath, do_not_apply_any_mask=do_not_apply_any_mask)
     allz_mgii_tot_all = chi_pdf(allz_good_vel_data_all, allz_norm_good_flux_all, allz_good_ivar_all, allz_noise_all, plot=False)
 
     return lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all
