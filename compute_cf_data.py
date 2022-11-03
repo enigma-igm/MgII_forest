@@ -109,6 +109,9 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
     print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
 
+    #print("npix_tot", npix_tot_chimask)
+    #print("sum(npix_tot)", np.sum(npix_tot_chimask))
+
     ###### CF from pure noise (no CGM masking) ######
     rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
     norm_std = std / fluxfit
@@ -146,7 +149,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
         plt.show()
 
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
-    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked#, npix_tot, npix_tot_chimask
+    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, npix_tot, npix_tot_chimask
 
 def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None):
     # compute the CF for one QSO spectrum
@@ -265,8 +268,8 @@ def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=No
     # return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked  # , npix_tot, npix_tot_chimask
 
-def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None, \
-            weights=None, iqso_to_use=None):
+import pdb
+def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None, iqso_to_use=None):
     # running onespec() for all the 4 QSOs
 
     xi_unmask_all = []
@@ -278,10 +281,12 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
         iqso_to_use = np.arange(0, nqso)
     print(iqso_to_use)
 
+    weights_unmasked = []
+    weights_masked = []
     #for iqso in range(nqso):
     for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
-        vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
+        vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, npix_tot, npix_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
                                                                          plot=False, std_corr=std_corr, seed=None, given_bins=given_bins)
         xi_unmask_all.append(xi_unmask[0])
         xi_mask_all.append(xi_mask[0])
@@ -289,11 +294,18 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
         #xi_noise_mask_all.append(xi_noise_masked[0])
         xi_noise_unmask_all.append(xi_noise)
         xi_noise_mask_all.append(xi_noise_masked)
+        weights_unmasked.append(npix_tot.squeeze())
+        weights_masked.append(npix_tot_chimask.squeeze())
+
+    weights_masked = np.array(weights_masked)
+    weights_unmasked = np.array(weights_unmasked)
+    weights_masked = weights_masked/np.sum(weights_masked, axis=0) # pixel weights
+    weights_unmasked = weights_unmasked/np.sum(weights_unmasked, axis=0)
 
     ### un-masked quantities
     # data and noise
     xi_unmask_all = np.array(xi_unmask_all)
-    xi_mean_unmask = np.average(xi_unmask_all, axis=0, weights=weights)
+    xi_mean_unmask = np.average(xi_unmask_all, axis=0, weights=weights_unmasked)
     #xi_mean_unmask = np.mean(xi_unmask_all, axis=0)
 
     xi_std_unmask = np.std(xi_unmask_all, axis=0)
@@ -304,7 +316,7 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
     # data and noise
     xi_mask_all = np.array(xi_mask_all)
     #xi_mean_mask = np.mean(xi_mask_all, axis=0)
-    xi_mean_mask = np.average(xi_mask_all, axis=0, weights=weights)
+    xi_mean_mask = np.average(xi_mask_all, axis=0, weights=weights_masked)
     xi_std_mask = np.std(xi_mask_all, axis=0)
     xi_noise_mask_all = np.array(xi_noise_mask_all)
     #xi_mean_noise_mask = np.mean(xi_noise_mask_all, axis=0)

@@ -234,7 +234,7 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_
 
     delta_f = (reshaped_flux - mean_flux)/mean_flux
 
-    given_bins = ccf.custom_cf_bin4() # ccf.custom_cf_bin2()
+    given_bins = ccf.custom_cf_bin4(dv1=80) # ccf.custom_cf_bin2()
     (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=mask_ncopy)
 
     # reshape xi_mock into the original input shape
@@ -250,7 +250,8 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
 
     xi_mock_qso_all = []
     xi_mock_avg_nskew = []
-    weights = mutils.reweight_factors(nqso_to_use, redshift_bin)
+    npix_xi_all = []
+    #weights = mutils.reweight_factors(nqso_to_use, redshift_bin)
 
     for iqso in range(nqso_to_use):
         # initialize all qso data
@@ -281,7 +282,13 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
         #xi_mock_qso_all.append(xi_mock)
         xi_mock_avg_nskew.append(np.mean(xi_mock, axis=1)) # average over nskew for each qso
 
+        # npix_xi = ncopy, nskew, ncorr
+        # npix_xi_all = nqso, ncopy, ncorr
+        npix_xi_all.append(np.sum(npix_xi, axis=1))
+
+
     vel_mid = np.array(vel_mid)
+    npix_xi_all = np.array(npix_xi_all)
 
     """
     xi_mock_qso_all = np.array(xi_mock_qso_all)
@@ -290,11 +297,13 @@ def mock_mean_covar(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr,
     xi_mock_mean = np.mean(xi_mock_avg_nskew, axis=0) # average over nqso
     """
 
+    weights = npix_xi_all/np.sum(npix_xi_all, axis=0) # weights = nqso, ncopy, ncorr
+
     xi_mock_avg_nskew = np.array(xi_mock_avg_nskew)
     nqso, ncopy, npix = xi_mock_avg_nskew.shape
     xi_mock_mean = np.average(xi_mock_avg_nskew, axis=0, weights=weights)
-    delta_xi = xi_mock_mean - xi_mean # delta_xi.shape = (ncopy, ncorr)
 
+    delta_xi = xi_mock_mean - xi_mean # delta_xi.shape = (ncopy, ncorr)
     ncorr = xi_mean.shape[0]
     covar = np.zeros((ncorr, ncorr))
     for icopy in range(ncopy):
@@ -512,7 +521,7 @@ def compute_model(args):
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
 
     # noiseless quantities
-    given_bins = ccf.custom_cf_bin4() # ccf.custom_cf_bin2()
+    given_bins = ccf.custom_cf_bin4(dv1=80) # ccf.custom_cf_bin2()
     mean_flux_nless = np.mean(flux_lores)
     delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
     (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins)
