@@ -36,9 +36,6 @@ corr_all = [0.758, 0.753, 0.701, 0.724, 0.763] # (updated corr for J0038-0653); 
 median_z = 6.554 # value used in mutils.init_onespec
 """
 
-fwhm = 40
-sampling = 3
-
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
 everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')

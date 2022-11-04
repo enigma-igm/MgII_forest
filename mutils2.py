@@ -127,31 +127,6 @@ def final_qso_list(sqldb='highzqso.sqlite', rebin_path='/Users/suksientie/Resear
 
     return final_qso_id, final_qso_z, final_qso_instr, final_qso_fitsfile_rebin
 
-def telluric_each_instr_final_qso():
-    nires_fitsfile = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/J0411-0907_dv40_coadd_tellcorr.fits'
-    mosfire_fitsfile = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/J0038-0653_dv40_coadd_tellcorr.fits'
-
-"""
-def average_telluric(final_qso_id):
-    rebin_spec = glob.glob('/Users/suksientie/Research/MgII_forest/rebinned_spectra/*fits')
-
-    wave_all = []
-    tell_all = []
-
-    for spec in rebin_spec:
-        if spec.split('/')[-1].split('_')[0] in final_qso_id:
-            data = fits.open(spec)[1].data
-            wave = data['wave'].astype('float64')
-            telluric = data['telluric'].astype('float64')
-
-            mask = wave >= 19500
-            wave_all.append(wave[mask])
-            tell_all.append(telluric[mask])
-            plt.plot(wave[mask].squeeze(), telluric[mask].squeeze(), drawstyle='steps-mid')
-            #plt.plot(telluric[mask].squeeze(), drawstyle='steps-mid')
-
-    return wave_all, tell_all
-"""
 ###############
 def continuum_normalize_all(plot=False):
 
@@ -199,6 +174,7 @@ def continuum_normalize_all(plot=False):
     if plot:
         plt.show()
 
+"""
 def continuum_normalize_nires(sqldb='highzqso.sqlite'):
     con = create_connection(sqldb)
     df = pd.read_sql_query("select id, redshift, path from qso where instrument in ('nires') order by redshift", con)
@@ -269,3 +245,4 @@ def continuum_normalize_xshooter(sqldb='highzqso.sqlite'):
         plt.xlabel('Obs wave')
         plt.ylabel('Normalized flux')
     plt.show()
+"""
