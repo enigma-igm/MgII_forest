@@ -91,7 +91,6 @@ def draw_random_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews=10000, se
 
     indx_flux_lores = np.arange(tot_nyx_skews)
     ranindx = rand.choice(indx_flux_lores, replace=False, size=nskew_to_match_data)  # grab a set of random skewers
-    print(ranindx)
     return ranindx, nskew_to_match_data
 
 def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is_mask): # 10, 220
@@ -130,6 +129,7 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
     # adding noise to flux lores
     norm_std[norm_std < 0] = 100 # get rid of negative errors
     noise = rand.normal(0, std_corr * norm_std)
+ 
     noise_chunk = reshape_data_array(noise, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
     flux_lores_noise = flux_lores[ranindx] + noise_chunk
 
@@ -234,7 +234,7 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
 
             # generate mock data spectrum
             vel_lores, flux_lores_noise_onespec, flux_lores_noiseless_onespec, master_mask_chunk, nskew_to_match_data, npix_sim_skew = \
-                forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, seed=None, std_corr=std_corr)
+                forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, seed=rand, std_corr=std_corr)
 
             # compute CF for this one qso
             vel_mid, xi_onespec, npix_xi = compute_cf_onespec_chunk(vel_lores, flux_lores_noise_onespec, given_bins, mask_chunk=master_mask_chunk)
@@ -281,7 +281,7 @@ def compute_model(args):
     vel_hires_nires, (flux_hires_nires, flux_hires_igm_nires, flux_hires_cgm_nires, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, nires_fwhm, sampling=nires_sampling)
     end = time.process_time()
-    print("NIRES mocks done in .... ", (end - start) / 60, " min")
+    print("      NIRES mocks done in .... ", (end - start) / 60, " min")
 
     # MOSFIRE fwhm and sampling
     start = time.time()
@@ -289,10 +289,10 @@ def compute_model(args):
     vel_hires_mosfire, (flux_hires_mosfire, flux_hires_igm_mosfire, flux_hires_cgm_mosfire, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, mosfire_fwhm, sampling=mosfire_sampling)
     end = time.time()
-    print("MOSFIRE mocks done in .... ", (end - start) / 60, " min")
+    print("      MOSFIRE mocks done in .... ", (end - start) / 60, " min")
 
     # interpolate flux lores to dv=40 (nyx)
-    start = time.time()
+    start = time.process_time()
     dv_coarse = 40
     coarse_grid_all = np.arange(len(vel_lores_nires)+1) * dv_coarse
     vel_lores_nires_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
@@ -303,18 +303,18 @@ def compute_model(args):
     vel_lores_mosfire_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
     flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic',
                                                        bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
-    end = time.time()
-    print("interpolating both mocks done in .... ", (end - start) / 60, " min")
+    end = time.process_time()
+    print("      interpolating both mocks done in .... ", (end - start) / 60, " min")
 
     # calls mock_mean_covar
-    start = time.time()
+    start = time.process_time()
     xi_mock_keep, covar, vel_mid, xi_mean = mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp,
                     flux_lores_mosfire_interp, given_bins, seed=rand)
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
-    end = time.time()
-    print("mock_mean_covar done in .... ", (end - start) / 60, " min")
+    end = time.process_time()
+    print("      mock_mean_covar done in .... ", (end - start) / 60, " min")
 
     return ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet
 
