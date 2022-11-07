@@ -51,6 +51,8 @@ signif_mask_dv = 300.0 # value used in Hennawi+2021
 signif_mask_nsigma = 3
 one_minF_thresh = 0.3 # flux threshold
 
+# 3 random seeds (cpu seeds, seeds for drawing mock spectra, seeds for drawing noise)
+
 ###################### helper functions ######################
 def imap_unordered_bar(func, args, nproc):
     """
@@ -79,13 +81,17 @@ def draw_random_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews=10000, se
     tot_vel_sim = vel_lores.max() - vel_lores.min()
     nskew_to_match_data = int(np.ceil(tot_vel_data / tot_vel_sim))  # assuming tot_vel_data > tot_vel_sim (true here)
 
+    """
     if seed != None:
         rand = np.random.RandomState(seed)
     else:
         rand = np.random.RandomState()
+    """
+    rand = np.random.RandomState(seed) if seed is None else seed
 
     indx_flux_lores = np.arange(tot_nyx_skews)
     ranindx = rand.choice(indx_flux_lores, replace=False, size=nskew_to_match_data)  # grab a set of random skewers
+    print(ranindx)
     return ranindx, nskew_to_match_data
 
 def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is_mask): # 10, 220
@@ -115,7 +121,8 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
 
 def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, seed=None, std_corr=1.0):
 
-    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+    #rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+    rand = np.random.RandomState(seed) if seed is None else seed
 
     npix_sim_skew = len(vel_lores)
     ranindx, nskew_to_match_data = draw_random_skews_to_match_data(vel_lores, vel_data, seed=seed)
@@ -269,11 +276,11 @@ def compute_model(args):
     rand = np.random.RandomState(master_seed)
 
     # NIRES fwhm and sampling
-    start = time.time()
+    start = time.process_time()
     vel_lores_nires, (flux_lores_nires, flux_lores_igm_nires, flux_lores_cgm_nires, _, _), \
     vel_hires_nires, (flux_hires_nires, flux_hires_igm_nires, flux_hires_cgm_nires, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, nires_fwhm, sampling=nires_sampling)
-    end = time.time()
+    end = time.process_time()
     print("NIRES mocks done in .... ", (end - start) / 60, " min")
 
     # MOSFIRE fwhm and sampling
