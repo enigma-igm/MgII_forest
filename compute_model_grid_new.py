@@ -15,7 +15,6 @@ from astropy.table import Table, hstack, vstack
 from IPython import embed
 sys.path.append('/Users/suksientie/codes/enigma') # comment out this line if running on IGM cluster
 from enigma.reion_forest import utils
-from enigma.reion_forest.mgii_find import MgiiFinder
 from multiprocessing import Pool
 from tqdm import tqdm
 import mutils
@@ -33,6 +32,14 @@ exclude_restwave = 1216 - 1185
 median_z = 6.50
 corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
 nqso_to_use = len(qso_namelist)
+
+nires_fwhm = 41.12
+mosfire_fwhm = 29.87
+nires_sampling = 2.7
+mosfire_sampling = 2.78
+
+qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm]
+qso_sampling = [nires_sampling, nires_sampling, nires_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling]
 
 """
 nqso_to_use = 5

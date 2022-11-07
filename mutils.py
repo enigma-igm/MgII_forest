@@ -53,10 +53,15 @@ def obswave_to_vel_2(wave_arr):
     diff_log10_wave = np.diff(log10_wave) # d(log10_lambda)
     diff_log10_wave = np.append(diff_log10_wave, diff_log10_wave[-1]) # appending the last value twice to make array same size as wave_arr
     dv = c_kms * np.log(10) * diff_log10_wave
-    #vel = np.zeros(len(wave_arr))
-    #vel[1:] = np.cumsum(dv)
-    vel = np.cumsum(dv) #  first pixel is dv; vel = [dv, 2*dv, 3*dv, ....]
 
+    vel = np.cumsum(dv) #  first pixel is dv; vel = [dv, 2*dv, 3*dv, ....]
+    """
+    dv_all = np.arange(len(wave_arr) + 1) * dv[0]
+    vlo = dv_all[0:-1]
+    vhi  = dv_all[1:]
+    v_mid = (vlo + vhi)/2
+    return v_mid
+    """
     return vel
 
 def extract_data(fitsfile):
@@ -647,3 +652,36 @@ def reweight_factors(nqso, redshift_bin):
 
     weight = dx_all / np.sum(dx_all)
     return weight
+
+def mosfire_nires_fwhm():
+    c_kms = const.c.to('km/s').value
+
+    nires_mean_res = 2700
+    nires_sampling = 2.7
+    nires_fwhm = c_kms/nires_mean_res
+    nires_fwhm = np.round(nires_fwhm, 2)
+
+    mosfire_Kband_res = 3610
+    mosfire_sampling = 2.78
+    mosfire_fwhm = c_kms/mosfire_Kband_res
+    mosfire_fwhm = np.round(mosfire_fwhm, 2)
+
+    return nires_fwhm, mosfire_fwhm
+
+from pypeit.core import coadd
+from pypeit.core.wavecal import wvutils
+def coarse_vel_grid():
+
+    wave_method = 'velocity'
+    dv = 40
+    wave_grid_min = 19500
+    fitsfile = '/Users/suksientie/Research/data_redux/silvia/J1917+5003_NIRES_coadd_tellcorr.fits'
+    data = fits.open(fitsfile)[1].data
+    wave_coadd = data['wave'].astype('float64')
+    new_wavegrid, new_wavegrid_mid, dsamp = wvutils.get_wave_grid(wave_coadd, masks=None, wave_method=wave_method,
+                                                                  dv=dv, wave_grid_min=wave_grid_min)
+
+    vel_coadd = obswave_to_vel_2(wave_coadd)
+    new_velgrid = obswave_to_vel_2(new_wavegrid)
+
+    return vel_coadd, new_velgrid
