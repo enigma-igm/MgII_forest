@@ -332,8 +332,8 @@ def telluric_mask(wave):
     #wave_bad_start = [19791, 19864, 20000, 21628, 22153, 22307, 22745, 22799, 23156, 23394, 23553]
     #wave_bad_end = [19808, 19874, 20060, 21640, 22169, 22326, 22764, 22815, 23185, 23409, 23566]
 
-    wave_bad_start = [20000, 20556, 21489]
-    wave_bad_end = [20060, 20571, 21512]
+    wave_bad_start = [20000] #, 20556, 21489]
+    wave_bad_end = [20060]#, 20571, 21512]
 
     telluric_gpm = np.ones(wave.shape, dtype=bool)
     for i in range(len(wave_bad_start)):

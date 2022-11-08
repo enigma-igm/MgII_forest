@@ -50,7 +50,7 @@ ymin_norm, ymax_norm = -0.05, 2.3
 savefig = False #True
 
 for i in range(nqso_to_plot):
-#for i in range(1):
+#for i in [2,3]:
 
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -77,7 +77,7 @@ for i in range(nqso_to_plot):
     ax1.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid')#, label='sigma')
     ind_masked = np.where(mask * strong_abs_gpm == False)[0]
     for j in range(len(ind_masked)):  # bad way to plot masked pixels
-        ax1.axvline(wave[ind_masked[j]], color='k', alpha=0.1, lw=2)
+        ax1.axvline(wave[ind_masked[j]], color='r', alpha=0.1, lw=2)
 
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
@@ -91,10 +91,19 @@ for i in range(nqso_to_plot):
     ax2.plot(wave, flux / fluxfit, c='k', drawstyle='steps-mid')
     ax2.plot(wave, std / fluxfit, c='k', alpha=0.5, drawstyle='steps-mid')
     ax2.plot(wave, tell * 2, alpha=0.5, drawstyle='steps-mid')  # telluric
+
+    plot_masks = [mask, pz_mask, telluric_mask, fs_mask]
+    plot_masks_color = ['g', 'k', 'b', 'r']
+    for i in range(len(plot_masks)):
+        ind_masked = np.where(plot_masks[i] == False)[0]
+        for j in range(len(ind_masked)):  # bad way to plot masked pixels
+            ax2.axvline(wave[ind_masked[j]], c=plot_masks_color[i], alpha=0.1, lw=2)
+
+    """
     ind_masked = np.where(all_masks == False)[0]
     for j in range(len(ind_masked)):  # bad way to plot masked pixels
         ax2.axvline(wave[ind_masked[j]], color='k', alpha=0.1, lw=2)
-
+    """
     ax2.xaxis.set_minor_locator(AutoMinorLocator())
     ax2.yaxis.set_minor_locator(AutoMinorLocator())
     ax2.tick_params(top=True, right=True, which='both', labelsize=xytick_size)
