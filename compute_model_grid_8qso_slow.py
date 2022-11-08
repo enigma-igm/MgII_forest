@@ -129,7 +129,7 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
     # adding noise to flux lores
     norm_std[norm_std < 0] = 100 # get rid of negative errors
     noise = rand.normal(0, std_corr * norm_std)
- 
+
     noise_chunk = reshape_data_array(noise, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
     flux_lores_noise = flux_lores[ranindx] + noise_chunk
 
@@ -281,6 +281,8 @@ def compute_model(args):
     vel_hires_nires, (flux_hires_nires, flux_hires_igm_nires, flux_hires_cgm_nires, _, _), \
     (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, nires_fwhm, sampling=nires_sampling)
     end = time.process_time()
+
+
     print("      NIRES mocks done in .... ", (end - start) / 60, " min")
 
     # MOSFIRE fwhm and sampling

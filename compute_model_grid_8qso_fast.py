@@ -25,8 +25,8 @@ import compute_cf_data as ccf
 import scipy
 
 ###################### global variables ######################
-#datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-datapath = '/mnt/quasar/sstie/MgII_forest/z75/rebinned_spectra/'
+datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+#datapath = '/mnt/quasar/sstie/MgII_forest/z75/rebinned_spectra/'
 
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
@@ -90,10 +90,13 @@ def rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None):
     tot_vel_sim = vel_lores.max() - vel_lores.min()
     nskew_to_match_data = int(np.ceil(tot_vel_data / tot_vel_sim))  # assuming tot_vel_data > tot_vel_sim (true here)
 
+    """
     if seed != None:
         rand = np.random.RandomState(seed)
     else:
         rand = np.random.RandomState()
+    """
+    rand = np.random.RandomState(seed) if seed is None else seed
 
     indx_flux_lores = np.arange(tot_nyx_skews)
     ranindx = rand.choice(indx_flux_lores, replace=False, size=nskew_to_match_data)  # grab a set of random skewers
@@ -126,12 +129,14 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
 
 def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, ncovar, seed=None, std_corr=1.0):
 
-    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+    #rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+    rand = np.random.RandomState(seed) if seed is None else seed
 
     npix_sim_skew = len(vel_lores)
     tot_nyx_skews = len(flux_lores)
 
-    ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=seed)
+    # first run to get nskew in order to initialize arrays
+    ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None)
 
     flux_noise_ncopy = np.zeros((ncovar, nskew_to_match_data, npix_sim_skew))
     flux_noiseless_ncopy = np.zeros((ncovar, nskew_to_match_data, npix_sim_skew))
@@ -149,74 +154,6 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
         flux_noiseless_ncopy[icopy] = flux_lores[ranindx]
 
     return vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew
-
-"""
-def sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=None, std_corr=1.0):
-
-    # return "ncopy" of simulated noise from data
-
-    npix_sim_skew = len(vel_lores)
-    tot_nyx_skews = len(flux_lores)
-    ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=seed)
-
-    if seed != None:
-        rand = np.random.RandomState(seed)
-    else:
-        rand = np.random.RandomState()
-
-    # get rid of negative errors
-    norm_std[norm_std < 0] = 100
-
-    # reshape data sigma array
-    norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
-
-    rand_noise_ncopy = np.zeros((ncopy, nskew_to_match_data, npix_sim_skew))
-    for icopy in range(ncopy):
-        onecopy = []
-        for iskew in range(nskew_to_match_data):
-            onecopy.append(rand.normal(0, std_corr * np.array(norm_std_chunk[iskew])))
-        rand_noise_ncopy[icopy] = np.array(onecopy)
-
-    #rand_noise_ncopy = np.broadcast_to(std_corr * norm_std_chunk, (ncopy, nskew_to_match_data, npix_sim_skew))
-
-    return ranindx, rand_noise_ncopy, nskew_to_match_data, npix_sim_skew
-
-def forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=None, std_corr=1.0):
-    # wrapper to sample_noise_onespec_chunk
-
-    ranindx, rand_noise_ncopy, nskew_to_match_data, npix_sim_skew = sample_noise_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=seed, std_corr=std_corr)
-    rand_flux_lores = flux_lores[ranindx]
-    #rand_flux_lores_ncopy = np.tile(rand_flux_lores, (ncopy,1,1))
-    noisy_flux_lores_ncopy = rand_flux_lores + rand_noise_ncopy # rand_flux_lores automatically broadcasted across the ncopy-axis
-
-    return ranindx, rand_flux_lores, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew
-
-def plot_forward_model_onespec_new(noisy_flux_lores_ncopy, master_mask, vel_data, norm_flux, ncopy_plot, title=None):
-
-    ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
-
-    plt.figure(figsize=(12, 8))
-    if title != None:
-        plt.title(title, fontsize=18)
-
-    nan_pad_mask = ~np.isnan(noisy_flux_lores_ncopy[0])
-    ##### plot subset of mock spectra
-    for i in range(ncopy_plot):
-        flux_lores_comb = noisy_flux_lores_ncopy[i][nan_pad_mask]
-        plt.plot(vel_data, flux_lores_comb + (i + 1), alpha=0.5, drawstyle='steps-mid', zorder=20)
-
-    plt.plot(vel_data, norm_flux, 'k', drawstyle='steps-mid')
-
-    ind_masked = np.where(master_mask == False)[0]
-    for j in range(len(ind_masked)):
-        if ind_masked[j]+1 != len(vel_data):
-            plt.axvspan(vel_data[ind_masked[j]], vel_data[ind_masked[j]+1], facecolor = 'black', alpha = 0.4)
-
-    plt.ylabel('Flux (+ arbitrary offset)', fontsize=15)
-    plt.xlabel('Velocity (km/s)', fontsize=15)
-    plt.tight_layout()
-    plt.show()
-"""
 
 def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, given_bins, mask_chunk=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
@@ -294,101 +231,15 @@ def init_dataset(nqso, redshift_bin, datapath):
 
     return vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
 
-def mock_mean_covar_old(xi_mean, ncopy, vel_lores, flux_lores, vmin_corr, vmax_corr, dv_corr, redshift_bin, master_seed=None, cgm_gpm_allspec=None):
-
-    master_rand = np.random.RandomState() if master_seed is None else np.random.RandomState(master_seed)
-    qso_seed_list = master_rand.randint(0, 1000000000, nqso_to_use)  # 4 for 4 qsos, hardwired for now
-
-    xi_mock_qso_all = []
-    xi_mock_avg_nskew = []
-    npix_xi_all = []
-
-    for iqso in range(nqso_to_use):
-        vel_data = vel_data_allqso[iqso]
-        norm_std = norm_std_allqso[iqso]
-        master_mask = master_mask_allqso[iqso]
-        std_corr = corr_all[iqso]
-        instr = instr_allqso[iqso]
-
-        if instr == 'nires':
-            vel_lores = vel_lores_nires_interp
-            flux_lores = flux_lores_nires_interp
-        elif instr == 'mosfire':
-            vel_lores = vel_lores_mosfire_interp
-            flux_lores = flux_lores_mosfire_interp
-
-        # generate mock data spectrum
-        vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew = \
-            forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, ncopy, seed=None,
-                                        std_corr=std_corr)
-
-        # compute the 2PCF
-        vel_mid, xi_mock_ncopy, npix_xi = compute_cf_onespec_chunk(vel_lores, flux_noise_ncopy, vmin_corr, vmax_corr,
-                                                             dv_corr, mask=master_mask_chunk, given_bins=given_bins)
-        # xi_mock_qso_all.append(xi_mock)
-        xi_mock_avg_nskew.append(np.mean(xi_mock_ncopy, axis=1))  # average over nskew for each qso
-
-
-        """
-        _, _, rand_noise_ncopy, noisy_flux_lores_ncopy, nskew_to_match_data, npix_sim_skew = forward_model_onespec_chunk(vel_data, norm_std, vel_lores, flux_lores, ncopy, seed=qso_seed_list[iqso], std_corr=corr_all[iqso])
-
-        #usable_data_mask = mask * redshift_mask * pz_mask * zbin_mask
-        usable_data_mask = master_mask
-        usable_data_mask_chunk = reshape_data_array(usable_data_mask, nskew_to_match_data, npix_sim_skew, True)
-
-        # deal with CGM mask if argued before computing the 2PCF
-        if type(cgm_gpm_allspec) == type(None):
-            all_mask_chunk = usable_data_mask_chunk
-        else:
-            gpm_onespec_chunk = reshape_data_array(cgm_gpm_allspec[iqso], nskew_to_match_data, npix_sim_skew, True) # reshaping GPM from cgm masking
-            all_mask_chunk = usable_data_mask_chunk * gpm_onespec_chunk
-
-        # compute the 2PCF
-        vel_mid, xi_mock, npix_xi = compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, vmin_corr, vmax_corr, dv_corr, mask=all_mask_chunk, given_bins=given_bins)
-        #xi_mock_qso_all.append(xi_mock)
-        xi_mock_avg_nskew.append(np.mean(xi_mock, axis=1)) # average over nskew for each qso
-        
-        # npix_xi = ncopy, nskew, ncorr
-        # npix_xi_all = nqso, ncopy, ncorr
-        npix_xi_all.append(np.sum(npix_xi, axis=1))
-        """
-
-    vel_mid = np.array(vel_mid)
-    npix_xi_all = np.array(npix_xi_all)
-
-    """
-    xi_mock_qso_all = np.array(xi_mock_qso_all)
-    nqso, ncopy, nskew, npix = xi_mock_qso_all.shape
-    xi_mock_avg_nskew = np.mean(xi_mock_qso_all, axis=2) # average over nskew_to_match_data
-    xi_mock_mean = np.mean(xi_mock_avg_nskew, axis=0) # average over nqso
-    """
-
-    weights = npix_xi_all/np.sum(npix_xi_all, axis=0) # weights = nqso, ncopy, ncorr
-
-    xi_mock_avg_nskew = np.array(xi_mock_avg_nskew)
-    nqso, ncopy, npix = xi_mock_avg_nskew.shape
-    xi_mock_mean = np.average(xi_mock_avg_nskew, axis=0, weights=weights)
-
-    delta_xi = xi_mock_mean - xi_mean # delta_xi.shape = (ncopy, ncorr)
-    ncorr = xi_mean.shape[0]
-    covar = np.zeros((ncorr, ncorr))
-    for icopy in range(ncopy):
-        covar += np.outer(delta_xi[icopy], delta_xi[icopy])  # off-diagonal elements
-
-    xi_mock_keep = xi_mock_mean # xi_mock_mean[:nmock]
-
-    # Divid by ncovar since we estimated the mean from "independent" data
-    covar /= ncopy
-
-    return xi_mock_keep, covar
-
 def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
-                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, given_bins, seed=None):
+                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
+                    given_bins, seed=None):
 
-    master_rand = np.random.RandomState() if seed is None else np.random.RandomState(seed)
+    rand = np.random.RandomState(seed) if seed is None else seed
 
     xi_mock_ncopy = []
     xi_mock_ncopy_noiseless = []
+    npix_mock_ncopy = []
 
     for iqso in range(nqso_to_use):
         vel_data = vel_data_allqso[iqso]
@@ -406,49 +257,48 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
 
         # generate mock data spectrum
         vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew = \
-            forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, ncovar, seed=None,
+            forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, ncovar, seed=rand,
                                         std_corr=std_corr)
 
-        # compute the 2PCF (with noise)
-        # xi_mock_ncopy = ncopy, nskew, ncorr
-        # xi_mock_avg_nskew = nqso, ncopy, ncorr
-        # npix_xi = ncopy, nskew, ncorr
-        # npix_xi_all = nqso, ncopy, ncorr
-
+        # compute the 2PCF
+        # xi_onespec_ncopy = ncopy, nskew, ncorr
         vel_mid, xi_onespec_ncopy, npix_xi = compute_cf_onespec_chunk(vel_lores, flux_noise_ncopy, given_bins, mask_chunk=master_mask_chunk)
         vel_mid, xi_onespec_ncopy_noiseless, npix_xi = compute_cf_onespec_chunk(vel_lores, flux_noiseless_ncopy, given_bins, mask_chunk=master_mask_chunk)
 
-        xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1)
+        xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1) # averaging over nskew to get CF of onespec
         xi_mock_onespec_noiseless_ncopy = np.mean(xi_onespec_ncopy_noiseless, axis=1)
 
         xi_mock_ncopy.append(xi_mock_onespec_ncopy)
         xi_mock_ncopy_noiseless.append(xi_mock_onespec_noiseless_ncopy)
+        npix_mock_ncopy.append(np.sum(npix_xi, axis=1)) # sum npix_xi over nskew axis
 
     # cast all into np arrays
     vel_mid = np.array(vel_mid)
-    xi_mock_ncopy = np.array(xi_mock_ncopy)
+    xi_mock_ncopy = np.array(xi_mock_ncopy) # (nqso, ncopy, ncorr)
     xi_mock_ncopy_noiseless = np.array(xi_mock_ncopy_noiseless)
+    npix_mock_ncopy = np.array(npix_mock_ncopy) # (nqso, ncopy, ncorr)
+    weights_ncopy = npix_mock_ncopy / np.sum(npix_mock_ncopy, axis=0)  # weights = nqso, ncopy, ncorr
 
-    xi_mean_ncopy = np.mean(xi_mock_ncopy_noiseless, axis=0) # average over nqso
+    # average over nqso to get mean CF for a dataset
+    xi_mock_mean_ncopy = np.average(xi_mock_ncopy, axis=0, weights=weights_ncopy)
+
+    # average over nqso with noiseless CF; (ncopy, ncorr)
+    xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=weights_ncopy)
     xi_mean = np.mean(xi_mean_ncopy, axis=0) # average over ncopy
-    xi_mock_mean = np.mean(xi_mock_ncopy, axis=0)
 
-    #delta_xi = xi_mock_mean - xi_mean  # delta_xi.shape = (ncopy, ncorr)
     ncorr = xi_mean.shape[0]
     covar = np.zeros((ncorr, ncorr))
     xi_mock_keep = np.zeros((nmock_to_save, ncorr))
 
     for imock in range(ncovar):
-        delta_xi = xi_mock_mean[imock] - xi_mean
+        delta_xi = xi_mock_mean_ncopy[imock] - xi_mean
         covar += np.outer(delta_xi, delta_xi)  # off-diagonal elements
-
         if imock < nmock_to_save:
-            xi_mock_keep[imock, :] = xi_mock_mean[imock]
+            xi_mock_keep[imock, :] = xi_mock_mean_ncopy[imock]
 
     # Divid by ncovar since we estimated the mean from "independent" data
     covar /= ncovar
 
-    #return xi_mock_keep, covar
     return xi_mock_keep, covar, vel_mid, xi_mean
 
 ########################## running the grid #############################
@@ -464,20 +314,29 @@ def compute_model(args):
     params = Table.read(rantaufile, hdu=1)
     skewers = Table.read(rantaufile, hdu=2)
 
+    rand = np.random.RandomState(master_seed)
+
+    start = time.process_time()
     # Generate 10,000 Nyx skewers. This takes 5.36s.
     # NIRES fwhm and sampling
     #vel_lores_nires, (flux_lores_nires, flux_lores_igm_nires, flux_lores_cgm_nires, _, _), \
     #vel_hires_nires, (flux_hires_nires, flux_hires_igm_nires, flux_hires_cgm_nires, _, _), \
     #(oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, nires_fwhm, sampling=nires_sampling)
     vel_lores_nires, flux_lores_nires = utils.create_mgii_forest(params, skewers, logZ, nires_fwhm, sampling=nires_sampling, mockcalc=True)
+    end = time.process_time()
+    print("      NIRES mocks done in .... ", (end - start) / 60, " min")
 
+    start = time.process_time()
     # MOSFIRE fwhm and sampling
     #vel_lores_mosfire, (flux_lores_mosfire, flux_lores_igm_mosfire, flux_lores_cgm_mosfire, _, _), \
     #vel_hires_mosfire, (flux_hires_mosfire, flux_hires_igm_mosfire, flux_hires_cgm_mosfire, _, _), \
     #(oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, mosfire_fwhm, sampling=mosfire_sampling)
     vel_lores_mosfire, flux_lores_mosfire = utils.create_mgii_forest(params, skewers, logZ, mosfire_fwhm, sampling=mosfire_sampling, mockcalc=True)
+    end = time.process_time()
+    print("      MOSFIRE mocks done in .... ", (end - start) / 60, " min")
 
     # interpolate flux lores to dv=40 (nyx)
+    start = time.process_time()
     dv_coarse = 40
     coarse_grid_all = np.arange(len(vel_lores_nires)+1) * dv_coarse
     vel_lores_nires_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
@@ -488,7 +347,10 @@ def compute_model(args):
     vel_lores_mosfire_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
     flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic',
                                                        bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
+    end = time.process_time()
+    print("      interpolating both mocks done in .... ", (end - start) / 60, " min")
 
+    # delete arrays to save ram
     del skewers
     del vel_lores_nires
     del vel_lores_mosfire
@@ -497,7 +359,7 @@ def compute_model(args):
 
     start = time.process_time()
     xi_mock_keep, covar, vel_mid, xi_mean = mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
-                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, given_bins, seed=None)
+                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, given_bins, seed=rand)
 
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
@@ -506,7 +368,7 @@ def compute_model(args):
 
     return ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet
 
-"""
+
 def test_compute_model():
 
     ihi, iZ = 0, 0 # dummy variables since they are simply returned
@@ -514,31 +376,19 @@ def test_compute_model():
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
-    fwhm = 120
-    sampling = 3
-    vmin_corr = 10
-    vmax_corr = 3500
-    dv_corr = 100
-    ncopy = 5
-    #ncovar = 10
-    #nmock = 10
-    master_seed = 9999 # results in seed list [315203670 242427133 938891646 135124015]
+    ncovar = 3
+    nmock = 3
+    master_seed = 9999
     logZ = -3.5
-    cgm_masking = True
-    redshift_bin = 'all' # 'low', 'high', 'all'
+    redshift_bin = 'all'
 
-    if cgm_masking:
-        cgm_masking_gpm, _ = init_cgm_masking(redshift_bin, datapath)
-    else:
-        cgm_masking_gpm = None
-
-    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm
-
+    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso = init_dataset(8, redshift_bin, datapath)
+    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
     output = compute_model(args)
-    ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = output
+    ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet = output
 
     return output
-"""
+
 ###################### main() ######################
 def parser():
     import argparse
@@ -560,7 +410,7 @@ def main():
 
     args = parser()
     nproc = args.nproc
-    ncovar = args.ncopy
+    ncovar = args.ncovar
     nmock = args.nmock
     seed = args.seed
 
