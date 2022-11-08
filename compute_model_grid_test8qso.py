@@ -25,7 +25,8 @@ import compute_cf_data as ccf
 import scipy
 
 ###################### global variables ######################
-datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+#datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+datapath = '/mnt/quasar/sstie/MgII_forest/z75/rebinned_spectra/'
 
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
