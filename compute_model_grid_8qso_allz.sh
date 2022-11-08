@@ -2,8 +2,8 @@
 now=`date`
 echo "Start: $now"
 
-python /home/sstie/MgII_forest/compute_model_grid_8qso.py \
---nproc 10 --ncovar 10000 --nmock 1000 --seed 429581 \
+python /home/sstie/MgII_forest/compute_model_grid_8qso_fast.py \
+--nproc 10 --ncovar 1000 --nmock 1000 --seed 429581 \
 --logZmin -6.0 --logZmax -2.0 --nlogZ 201 \
 --allz_bin
 
