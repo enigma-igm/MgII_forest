@@ -24,6 +24,7 @@ from matplotlib.ticker import AutoMinorLocator
 from linetools.lists.linelist import LineList
 from astropy import units as u
 from astropy import constants as const
+import pdb
 
 ### Figure settings
 font = {'family' : 'serif', 'weight' : 'normal'}#, 'size': 11}
@@ -76,8 +77,8 @@ nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 color_ls = ['r', 'g', 'c', 'orange', 'm']
 """
 
-fwhm = 40
-sampling = 3
+#fwhm = 40
+#sampling = 3
 seed = None
 
 if seed != None:
@@ -91,6 +92,14 @@ qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
 everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
 exclude_restwave = 1216 - 1185
 nqso_to_use = len(qso_namelist)
+
+nires_fwhm = 111.03
+mosfire_fwhm = 83.05
+nires_sampling = 2.7
+mosfire_sampling = 2.78
+
+qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm]
+qso_sampling = [nires_sampling, nires_sampling, nires_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling]
 
 # chi PDF
 signif_thresh = 2.0 # 4.0
@@ -106,7 +115,6 @@ dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
 nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 color_ls = ['r', 'g', 'c', 'orange', 'm', 'gray', 'deeppink', 'lime']
 
-import pdb
 def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', do_not_apply_any_mask=False):
     norm_good_flux_all = []
     norm_good_std_all = []
@@ -208,7 +216,9 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
 
     strong_lines = LineList('Strong', verbose=False)
     wave_blue = strong_lines['MgII 2796']['wrest']
-    Wfactor = ((fwhm / sampling) * u.km / u.s / const.c).decompose() * wave_blue.value
+    fwhm_avg = np.mean(qso_fwhm)
+    sampling_avg = np.mean(qso_sampling)
+    Wfactor = ((fwhm_avg / sampling_avg) * u.km / u.s / const.c).decompose() * wave_blue.value
     print("Wfactor", Wfactor) # 0.28 A
 
     Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
@@ -250,6 +260,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
         norm_good_ivar = norm_good_ivar.reshape((1, len(norm_good_ivar)))
         noise = noise.reshape((1, len(noise)))
+        fwhm = qso_fwhm[i]
 
         mgii_tot = MgiiFinder(vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                               signif_mask_nsigma=signif_mask_nsigma,
@@ -310,6 +321,7 @@ def chi_pdf_onespec(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_
     norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
     norm_good_ivar = norm_good_ivar.reshape((1, len(norm_good_ivar)))
     noise = noise.reshape((1, len(noise)))
+    fwhm = qso_fwhm[i]
 
     mgii_tot = MgiiFinder(vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                           signif_mask_nsigma=signif_mask_nsigma,

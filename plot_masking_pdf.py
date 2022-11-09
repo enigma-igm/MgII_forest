@@ -20,7 +20,7 @@ mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_
 chi_max = [4.3, 4.3, 6.3, 4.3, 6.7, 8.4, 4.3, 8.4] # for plotting only
 
 for iqso in range(len(qso_namelist)):
-    savefig = 'paper_plots/8qso/masked%d.pdf' % iqso
+    savefig = 'paper_plots/8qso/masked%d_%s.pdf' % (iqso, qso_namelist[iqso])
     saveout = None #'/Users/suksientie/Research/highz_absorbers/masked_abs_%s.csv' % qso_namelist[iqso]
     mask_cgm_pdf.plot_masked_onespec(mgii_tot_all, good_wave_all, good_vel_data_all, norm_good_flux_all, norm_good_std_all, iqso, \
                                      chi_max[iqso], savefig=savefig, saveout=saveout)
