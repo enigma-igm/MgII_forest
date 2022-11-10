@@ -37,35 +37,38 @@ from astropy import units as u
 from astropy.io import fits
 import compute_cf_data
 import compute_model_grid_new as cmg
+import argparse
 
-seed = 42419 #None #434519 #1097212 #988765 #2213142
+parser = argparse.ArgumentParser()
+parser.add_argument('--seed', type=int, default=None)
+parser.add_argument('--modelfile', type=str)
+args = parser.parse_args()
+
+
+seed = args.seed
 if seed == None:
     seed = np.random.randint(0, 1000000)
     print(seed)
 
 rand = np.random.RandomState(seed)
-nqso = 5
-figpath = '/Users/suksientie/Research/MgII_forest/plots/mcmc_out/custom_bin4_5qso/long_data/'
+nqso = 8
+#figpath = '/Users/suksientie/Research/MgII_forest/paper_plots/8qso/mcmc/'
 
 # for init_mockdata()
 logZ_guess = -5.0 #-4.50 # -3.70
 xhi_guess  = 0.50 # 0.74
+given_bins = compute_cf_data.custom_cf_bin4(dv1=80)
 
-def init(modelfile, redshift_bin, vel_lores, custombin=True):
+def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
     # vel_lores = np.load('vel_lores_nyx.npy')
-
-    if not custombin:
-        given_bins = None
-    else:
-        given_bins = compute_cf_data.custom_cf_bin4()
 
     # options for redshift_bin: 'all', 'low', 'high'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
     logZ_coarse = params['logZ'].flatten()
     xhi_coarse = params['xhi'].flatten()
     vel_corr = params['vel_mid'].flatten()
-    vel_min = params['vmin_corr'][0]
-    vel_max = params['vmax_corr'][0]
+    #vel_min = params['vmin_corr'][0]
+    #vel_max = params['vmax_corr'][0]
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
@@ -187,8 +190,8 @@ def init_mockdata(modelfile):
 
     return fine_out, coarse_out, data_out
 
-def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin=1000, nwalkers=40, \
-             linearZprior=False, savefits_chain=None, actual_data=True, save_xi_err=False):
+def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=100000, burnin=1000, nwalkers=40, \
+             linearZprior=False, savefits_chain=None, actual_data=True, save_xi_err=None):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -299,7 +302,7 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, nsteps=100000, burnin
 
 ################################## plotting ##################################
 def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
-                  corrfile, nrand=50, rand=None, save_xi_err=False):
+                  corrfile, nrand=50, rand=None, save_xi_err=None):
 
     # adapted from enigma.reion_forest.inference.corrfunc_plot
     if rand is None:
@@ -311,8 +314,8 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     rect = [0.12, 0.12, 0.84, 0.75]
     axis = fx.add_axes(rect)
     vel_corr = params['vel_mid'].flatten()
-    vel_min = params['vmin_corr']
-    vel_max = params['vmax_corr']
+    #vel_min = params['vmin_corr']
+    #vel_max = params['vmax_corr']
 
     vmin, vmax = 0.4*vel_corr.min(), 1.02*vel_corr.max()
     # Compute the mean model from the samples
@@ -324,8 +327,8 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     covar_mean = inference.covar_model(theta_mean, xhi_coarse, logZ_coarse, covar_array)
     xi_err = np.sqrt(np.diag(covar_mean))
 
-    if save_xi_err:
-        np.save(figpath + 'xi_err_%dqso.npy' % nqso, xi_err)
+    if save_xi_err is not None:
+        np.save(save_xi_err, xi_err)
 
     # Grab some realizations
     imock = rand.choice(np.arange(samples.shape[0]), size=nrand)
