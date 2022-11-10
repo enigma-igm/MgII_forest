@@ -167,7 +167,7 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     nqso = len(norm_good_flux_all)
 
     #fig = plt.figure(figsize=(9, 7.5))
-    fig = plt.figure(figsize=(12, 9))
+    fig = plt.figure(figsize=(12, 9.8))
     fig.subplots_adjust(left=0.12, bottom=0.1, right=0.97, top=0.88)
 
     if plot_ispec != None:
@@ -380,7 +380,8 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
     flux_min, flux_max = -0.05, 1.8
     chi_min = -3.0 #, chi_max = -3.0, 8.4
 
-    ax1.annotate(qso_name + '\n', xy=(vel_data.min()+500, flux_max-0.3), fontsize=18)
+    #ax1.annotate(qso_name + '\n', xy=(vel_data.min()+500, flux_max-0.3), fontsize=18)
+    ax1.annotate(qso_name, xy=(vel_data.min() + 500, flux_max * 0.88), bbox=dict(boxstyle='round', ec="k", fc="white"), fontsize=18)
     ax1.plot(vel_data, norm_good_flux, drawstyle='steps-mid', color='k', linewidth=1.5, zorder=1)
     ax1.plot(vel_data, norm_good_std, drawstyle='steps-mid', color='k', linewidth=1.0, alpha=0.5)
     ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=2, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))

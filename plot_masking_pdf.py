@@ -24,3 +24,4 @@ for iqso in range(len(qso_namelist)):
     saveout = None #'/Users/suksientie/Research/highz_absorbers/masked_abs_%s.csv' % qso_namelist[iqso]
     mask_cgm_pdf.plot_masked_onespec(mgii_tot_all, good_wave_all, good_vel_data_all, norm_good_flux_all, norm_good_std_all, iqso, \
                                      chi_max[iqso], savefig=savefig, saveout=saveout)
+
