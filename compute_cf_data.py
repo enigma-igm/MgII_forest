@@ -4,6 +4,12 @@ Functions here:
     - onespec
     - allspec
     - plot_allspec
+    - custom_cf_bin
+    - custom_cf_bin2
+    - custom_cf_bin3
+    - custom_cf_bin4
+    - interp_vbin
+    - compare_lin_log_bins
 '''
 
 from astropy.io import fits
@@ -19,6 +25,8 @@ from enigma.reion_forest import utils as reion_utils
 #from scripts import rdx_utils
 import mutils
 import mask_cgm_pdf as mask_cgm
+from scipy import interpolate
+import pdb
 
 """
 everyn_break = 20
@@ -62,7 +70,7 @@ def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_s
 
     return lowz_fit_gpm, highz_fit_gpm, allz_fit_gpm
 
-def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None):
+def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None, ivar_weights=False):
     # compute the CF for one QSO spectrum
     # updated 4/14/2022
     # options for redshift_bin are 'low', 'high', 'all'
@@ -72,10 +80,12 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
+    #ivar = np.ones(ivar.shape)
     ###### CF from not masking CGM ######
     all_masks = master_mask
 
     norm_good_flux = (flux / fluxfit)[all_masks]
+    ivar_good = ivar[all_masks]
     #norm_good_std = (std / fluxfit)[all_masks]
     #good_wave = wave[all_masks]
     #vel = mutils.obswave_to_vel_2(wave)
@@ -89,8 +99,16 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     vel = mutils.obswave_to_vel_2(wave)
     meanflux_tot = np.mean(norm_good_flux)
     deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
-    #return vel, np.zeros(norm_flux.shape)
-    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
+
+    #df = (norm_good_flux - np.mean(norm_good_flux)) / np.mean(norm_good_flux)
+    #deltaf_tot -= np.mean(df)
+
+    if ivar_weights:
+        print("use ivar as weights in CF")
+        vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi_ivar(deltaf_tot, ivar, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
+    else:
+        vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
+
     xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
 
     ###### CF from masking CGM ######
@@ -100,14 +118,21 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     #vel_cgm = vel[all_masks][cgm_fit_gpm]
     deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
     vel_cgm = vel[all_masks]
-    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
+
+    #df = (norm_good_flux_cgm - np.mean(norm_good_flux_cgm)) / np.mean(norm_good_flux_cgm)
+    #deltaf_tot_mask -= np.mean(df)
+
+    if ivar_weights:
+        print("use ivar as weights in CF")
+        vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi_ivar(deltaf_tot_mask, ivar_good, vel_cgm, vmin_corr,
+                                                                           vmax_corr, dv_corr, given_bins=given_bins,
+                                                                           gpm=cgm_fit_gpm)
+    else:
+        vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
     xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0) # again not really averaging here since we only have 1 spectrum
 
     print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
     print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
-
-    #print("npix_tot", npix_tot_chimask)
-    #print("sum(npix_tot)", np.sum(npix_tot_chimask))
 
     ###### CF from pure noise (no CGM masking) ######
     rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
@@ -265,8 +290,7 @@ def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=No
     # return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked  # , npix_tot, npix_tot_chimask
 
-import pdb
-def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, None, None, None], given_bins=None, iqso_to_use=None):
+def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iqso_to_use=None, ivar_weights=False):
     # running onespec() for all the 4 QSOs
 
     xi_unmask_all = []
@@ -280,11 +304,12 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
 
     weights_unmasked = []
     weights_masked = []
+
     #for iqso in range(nqso):
     for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
         vel_mid, xi_unmask, xi_mask, xi_noise, xi_noise_masked, npix_tot, npix_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
-                                                                         plot=False, std_corr=std_corr, seed=None, given_bins=given_bins)
+                                                                         plot=False, std_corr=std_corr, seed=None, given_bins=given_bins, ivar_weights=ivar_weights)
         xi_unmask_all.append(xi_unmask[0])
         xi_mask_all.append(xi_mask[0])
         #xi_noise_unmask_all.append(xi_noise[0])
@@ -299,6 +324,8 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=[None, No
     weights_masked = weights_masked/np.sum(weights_masked, axis=0) # pixel weights
     weights_unmasked = weights_unmasked/np.sum(weights_unmasked, axis=0)
 
+    #weights_masked = np.ones(weights_masked.shape)
+    #weights_unmasked = np.ones(weights_unmasked.shape)
     ### un-masked quantities
     # data and noise
     xi_unmask_all = np.array(xi_unmask_all)
@@ -693,7 +720,6 @@ def custom_cf_bin4(dv1=40, check=False):
     return v_lo_all, v_hi_all
     """
 
-from scipy import interpolate
 def interp_vbin(vel_mid, xi_mean, kind='linear'):
 
     f = interpolate.interp1d(vel_mid, xi_mean, kind=kind)

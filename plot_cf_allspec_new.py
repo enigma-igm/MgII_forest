@@ -35,11 +35,9 @@ qso_alpha = 0.6
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--zbin', type=str, help="options: all, high, low")
-#parser.add_argument('--nqso', type=int, help="if 4, then exclude J0038-0653")
+parser.add_argument('--ivarweights', action='store_true', default=False)
 args = parser.parse_args()
 redshift_bin = args.zbin
-#nqso = args.nqso
-
 
 """
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'unpublished \n new QSO']
@@ -51,11 +49,15 @@ given_bins = ccf.custom_cf_bin4()
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 nqso = len(qso_namelist)
 median_z = 6.50
-seed_list = [None] * nqso
+#seed_list = [None] * nqso
 given_bins = ccf.custom_cf_bin4(dv1=80)
 savefig = 'paper_plots/8qso/cf_%sz_%dqso.pdf' % (redshift_bin, nqso)
 savefig = None
-iqso_to_use = None #np.array([0,1,4,5,6,7])
+iqso_to_use = None #np.array([0])
+ivar_weights = args.ivarweights
+
+if iqso_to_use is None:
+    iqso_to_use = np.arange(0, nqso)
 
 #######
 lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm()
@@ -75,16 +77,12 @@ print(weights)
 """
 
 vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask = \
-    ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, seed_list=seed_list, given_bins=given_bins, iqso_to_use=iqso_to_use)
+    ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=ivar_weights)
 
 xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized to N-1
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
 #######
-#modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000_all_newbin2.fits'
-#params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
-#vel_corr = params['vel_mid'].flatten()
-
 vel_corr = vel_mid
 
 vmin, vmax = 0.4*vel_corr.min(), 1.02*vel_corr.max()
@@ -114,9 +112,6 @@ xi_noise_mask_std = np.std(xi_noise_mask, axis=0)
 #######
 #ax1.fill_between(vel_mid, p16_unmask, p84_unmask, color='k', alpha=0.2, ec=None)
 #ax1.fill_between(vel_mid, (xi_noise_unmask_mean-xi_noise_unmask_std)*factor, (xi_noise_unmask_mean+xi_noise_unmask_std)*factor, color='k', alpha=0.2, ec=None)
-
-if iqso_to_use is None:
-    iqso_to_use = np.arange(0, nqso)
 
 #for iqso, xi in enumerate(xi_unmask):
 #    ax1.plot(vel_mid, xi * factor, alpha=qso_alpha, linewidth=1.0, label=qso_namelist[iqso])
@@ -160,9 +155,12 @@ for i in range(len(xi_mask)):
     ax2.plot(vel_mid, xi * factor, alpha=qso_alpha, linewidth=1.0, label=qso_namelist[iqso_to_use[i]])
 
 yerr = (xi_std_mask / np.sqrt(nqso)) * factor
-#yerr = xi_noise_mask_std * factor
+#yerr_cov = np.load('mcmc/8qso/xi_err.npy') * factor
 ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
              fmt='o-', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+#ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr_cov, lw=2.0, \
+#             fmt='o-', c='black', ecolor='red', capthick=2.0, capsize=2,  mec='none', zorder=20)
+#np.save('plot_cf_allspec_new_xi_std_mask.npy', xi_std_mask)
 
 ax2.set_xlabel(r'$\Delta v$ (km/s)', fontsize=xylabel_fontsize)
 ax2.tick_params(which="both", right=True, labelsize=xytick_size)
