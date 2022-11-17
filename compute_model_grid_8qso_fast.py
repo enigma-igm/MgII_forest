@@ -495,7 +495,7 @@ def main():
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
     outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/8qso/'
-    outfilename = 'corr_func_models_{:s}'.format(redshift_bin) + '.fits'
+    outfilename = 'corr_func_models_{:s}'.format(redshift_bin) + '_ivarweights.fits'
     outfile = os.path.join(outpath, outfilename)
 
     xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'
