@@ -70,106 +70,6 @@ def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_s
 
     return lowz_fit_gpm, highz_fit_gpm, allz_fit_gpm
 
-def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None, ivar_weights=False):
-    # compute the CF for one QSO spectrum
-    # updated 4/14/2022
-    # options for redshift_bin are 'low', 'high', 'all'
-    # cgm_fit_gpm are gpm from MgiiFinder.py
-
-    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
-    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
-    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
-
-    #ivar = ivar * 1/(std_corr**2) # np.ones(ivar.shape)
-
-    ###### CF from not masking CGM ######
-    all_masks = master_mask
-
-    norm_good_flux = (flux / fluxfit)[all_masks]
-    ivar_good = ivar[all_masks]
-    #norm_good_std = (std / fluxfit)[all_masks]
-    #good_wave = wave[all_masks]
-    #vel = mutils.obswave_to_vel_2(wave)
-    #vel = vel[all_masks]
-    #meanflux_tot = np.mean(norm_good_flux)
-    #deltaf_tot = (norm_good_flux - meanflux_tot) / meanflux_tot
-    #vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr)
-    #xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
-
-    norm_flux = flux/fluxfit
-    vel = mutils.obswave_to_vel_2(wave)
-    meanflux_tot = np.mean(norm_good_flux)
-    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
-
-    if ivar_weights:
-        print("use ivar as weights in CF")
-        vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi_ivar(deltaf_tot, ivar, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
-    else:
-        vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
-
-    xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
-
-    ###### CF from masking CGM ######
-    norm_good_flux_cgm = norm_good_flux[cgm_fit_gpm]
-    meanflux_tot_mask = np.mean(norm_good_flux_cgm)
-    #deltaf_tot_mask = (norm_good_flux_cgm - meanflux_tot_mask) / meanflux_tot_mask
-    #vel_cgm = vel[all_masks][cgm_fit_gpm]
-    deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
-    vel_cgm = vel[all_masks]
-
-    #df = (norm_good_flux_cgm - np.mean(norm_good_flux_cgm)) / np.mean(norm_good_flux_cgm)
-    #deltaf_tot_mask -= np.mean(df)
-
-    if ivar_weights:
-        print("use ivar as weights in CF")
-        vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi_ivar(deltaf_tot_mask, ivar_good, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
-    else:
-        vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
-
-    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0) # again not really averaging here since we only have 1 spectrum
-
-    print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
-    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
-
-    ###### CF from pure noise (no CGM masking) ######
-    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
-    norm_std = std / fluxfit
-    fnoise = []
-    fnoise_masked = []
-    n_real = 50
-
-    xi_noise = None
-    xi_noise_masked = None
-
-    if plot:
-        # plot with no masking
-        plt.figure(figsize=(12, 5))
-        plt.suptitle('%s, %s-z bin' % (qso_namelist[iqso], redshift_bin))
-        plt.subplot(121)
-        plt.plot(vel_mid, xi_mean_tot, linewidth=1.5, label='data unmasked')
-        plt.axhline(0, color='k', ls='--')
-        plt.legend(fontsize=15)
-        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
-        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
-        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
-        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
-
-        # plot with masking
-        plt.subplot(122)
-        plt.plot(vel_mid, xi_mean_tot_mask, linewidth=1.5, label='data masked')
-        plt.axhline(0, color='k', ls='--')
-        plt.legend(fontsize=15)
-        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
-        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
-        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
-        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
-
-        plt.tight_layout()
-        plt.show()
-
-    #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
-    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, npix_tot, npix_tot_chimask
-
 def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None):
     # compute the CF for one QSO spectrum
     # updated 4/14/2022
@@ -286,6 +186,154 @@ def onespec_o(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=No
 
     # return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked  # , npix_tot, npix_tot_chimask
+
+def check_onespec(iqso, redshift_bin, given_bins):
+
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
+
+    # ivar = ivar * 1/(std_corr**2) # np.ones(ivar.shape)
+
+    ###### CF from not masking CGM ######
+    all_masks = master_mask
+
+    norm_good_flux = (flux / fluxfit)[all_masks]
+    ivar_good = ivar[all_masks]
+
+    norm_flux = flux / fluxfit
+    vel = mutils.obswave_to_vel_2(wave)
+    meanflux_tot = np.mean(norm_good_flux)
+    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
+
+    # checking between these 2 using ivar weights
+    vel_mid, xi_tot1, w_tot1, _ = reion_utils.compute_xi_weights(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr,
+                                                          given_bins=given_bins, gpm=all_masks, weights_in=ivar)
+
+    vel_mid, xi_tot2, w_tot2, _ = reion_utils.compute_xi_ivar(deltaf_tot, ivar, vel, vmin_corr, vmax_corr, dv_corr,
+                                                               given_bins=given_bins, gpm=all_masks)
+
+    print(xi_tot2/xi_tot1)
+
+    # checking between these 2 using npix weights
+    vel_mid, xi_tot1, npix_tot1, _ = reion_utils.compute_xi_weights(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr,
+                                                                    given_bins=given_bins, gpm=all_masks,
+                                                                    weights_in=None)
+
+    vel_mid, xi_tot2, npix_tot2, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr,
+                                                                    given_bins=given_bins, gpm=all_masks)
+
+    print(xi_tot2 / xi_tot1)
+
+def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None, given_bins=None, ivar_weights=False):
+    # compute the CF for one QSO spectrum
+    # updated 4/14/2022
+    # options for redshift_bin are 'low', 'high', 'all'
+    # cgm_fit_gpm are gpm from MgiiFinder.py
+
+    raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
+    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+    strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
+
+    #ivar = ivar * 1/(std_corr**2) # np.ones(ivar.shape)
+
+    ###### CF from not masking CGM ######
+    all_masks = master_mask
+
+    norm_good_flux = (flux / fluxfit)[all_masks]
+    ivar_good = ivar[all_masks]
+    #norm_good_std = (std / fluxfit)[all_masks]
+    #good_wave = wave[all_masks]
+    #vel = mutils.obswave_to_vel_2(wave)
+    #vel = vel[all_masks]
+    #meanflux_tot = np.mean(norm_good_flux)
+    #deltaf_tot = (norm_good_flux - meanflux_tot) / meanflux_tot
+    #vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr)
+    #xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
+
+    norm_flux = flux/fluxfit
+    vel = mutils.obswave_to_vel_2(wave)
+    meanflux_tot = np.mean(norm_good_flux)
+    deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
+
+    if ivar_weights:
+        print("use ivar as weights in CF")
+        #vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi_ivar(deltaf_tot, ivar, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
+        weights_in = ivar
+    else:
+        #vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=all_masks)
+        weights_in = None
+
+    vel_mid, xi_tot, npix_tot, _ = reion_utils.compute_xi_weights(deltaf_tot, vel, vmin_corr, vmax_corr, dv_corr,
+                                                          given_bins=given_bins, gpm=all_masks, weights_in=weights_in)
+
+    xi_mean_tot = np.mean(xi_tot, axis=0)  # not really averaging here since it's one spectrum (i.e. xi_mean_tot = xi_tot)
+
+    ###### CF from masking CGM ######
+    norm_good_flux_cgm = norm_good_flux[cgm_fit_gpm]
+    meanflux_tot_mask = np.mean(norm_good_flux_cgm)
+    #deltaf_tot_mask = (norm_good_flux_cgm - meanflux_tot_mask) / meanflux_tot_mask
+    #vel_cgm = vel[all_masks][cgm_fit_gpm]
+    deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
+    vel_cgm = vel[all_masks]
+
+    #df = (norm_good_flux_cgm - np.mean(norm_good_flux_cgm)) / np.mean(norm_good_flux_cgm)
+    #deltaf_tot_mask -= np.mean(df)
+
+    if ivar_weights:
+        print("use ivar as weights in CF")
+        #vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi_ivar(deltaf_tot_mask, ivar_good, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
+        weights_in = ivar_good
+    else:
+        #vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)
+        weights_in = None
+
+    vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi_weights(deltaf_tot_mask, vel_cgm, vmin_corr, vmax_corr,
+                                                                       dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm, weights_in=weights_in)
+
+    xi_mean_tot_mask = np.mean(xi_tot_mask, axis=0) # again not really averaging here since we only have 1 spectrum
+
+    print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
+
+    ###### CF from pure noise (no CGM masking) ######
+    rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
+    norm_std = std / fluxfit
+    fnoise = []
+    fnoise_masked = []
+    n_real = 50
+
+    xi_noise = None
+    xi_noise_masked = None
+
+    if plot:
+        # plot with no masking
+        plt.figure(figsize=(12, 5))
+        plt.suptitle('%s, %s-z bin' % (qso_namelist[iqso], redshift_bin))
+        plt.subplot(121)
+        plt.plot(vel_mid, xi_mean_tot, linewidth=1.5, label='data unmasked')
+        plt.axhline(0, color='k', ls='--')
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        # plot with masking
+        plt.subplot(122)
+        plt.plot(vel_mid, xi_mean_tot_mask, linewidth=1.5, label='data masked')
+        plt.axhline(0, color='k', ls='--')
+        plt.legend(fontsize=15)
+        plt.xlabel(r'$\Delta v$ [km/s]', fontsize=18)
+        plt.ylabel(r'$\xi(\Delta v)$', fontsize=18)
+        vel_doublet = reion_utils.vel_metal_doublet('Mg II', returnVerbose=False)
+        plt.axvline(vel_doublet.value, color='red', linestyle=':', linewidth=1.5, label='Doublet separation (%0.1f km/s)' % vel_doublet.value)
+
+        plt.tight_layout()
+        plt.show()
+
+    #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
+    return vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, npix_tot, npix_tot_chimask
 
 def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iqso_to_use=None, ivar_weights=False):
     # running onespec() for all the 4 QSOs

@@ -1,9 +1,9 @@
 import mcmc_inference as mcmc
 import compute_cf_data as ccf
 
-modelfile = 'corr_func_models_all.fits'
+modelfile = 'igm_cluster/5qso/corr_func_models_all.fits'
 redshift_bin = 'all'
-figpath = '/Users/suksientie/Research/MgII_forest/mcmc/8qso/'
+figpath = '/Users/suksientie/Research/MgII_forest/mcmc/5qso/'
 given_bins = ccf.custom_cf_bin4(dv1=80)
 
 # initialize

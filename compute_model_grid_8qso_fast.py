@@ -188,7 +188,7 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, given_bins, mask
     npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
     return vel_mid, xi_mock, npix_xi
 
-def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, given_bins, norm_std_chunk, mask_chunk=None):
+def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, given_bins, norm_std_chunk=None, mask_chunk=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
 
     vmin_corr, vmax_corr, dv_corr = 0, 0, 0  # dummy values since using custom binning, but still required arguments for compute_xi
@@ -212,18 +212,28 @@ def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, give
         mask_ncopy = None
         mean_flux = np.nanmean(reshaped_flux)
 
-    norm_std_chunk_ncopy = np.tile(norm_std_chunk, (ncopy, 1, 1))
-    norm_std_chunk_ncopy = np.reshape(norm_std_chunk_ncopy, (ncopy * nskew, npix))
+    if norm_std_chunk is not None:
+        norm_std_chunk_ncopy = np.tile(norm_std_chunk, (ncopy, 1, 1))
+        norm_std_chunk_ncopy = np.reshape(norm_std_chunk_ncopy, (ncopy * nskew, npix))
+        ivar = 1 / (norm_std_chunk_ncopy ** 2)
+        weights_in = ivar
+
+    else:
+        weights_in = None
 
     delta_f = (reshaped_flux - mean_flux)/mean_flux
-    ivar = 1/(norm_std_chunk_ncopy**2)
-    (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi_ivar(delta_f, ivar, vel_lores, vmin_corr, vmax_corr, dv_corr, \
-                                                                     given_bins=given_bins, gpm=mask_ncopy)
+
+    #(vel_mid, xi_mock, w_xi, xi_mock_zero_lag) = utils.compute_xi_ivar(delta_f, ivar, vel_lores, vmin_corr, vmax_corr, dv_corr, \
+    #                                                                 given_bins=given_bins, gpm=mask_ncopy)
+
+    (vel_mid, xi_mock, w_xi, xi_mock_zero_lag) = utils.compute_xi_weights(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, \
+                                                                     given_bins=given_bins, gpm=mask_ncopy, weights_in=weights_in)
 
     # reshape xi_mock into the original input shape
     xi_mock = np.reshape(xi_mock, (ncopy, nskew, len(vel_mid)))
-    npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
-    return vel_mid, xi_mock, npix_xi
+    w_xi = np.reshape(w_xi, (ncopy, nskew, len(vel_mid))) #npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
+
+    return vel_mid, xi_mock, w_xi #return vel_mid, xi_mock, npix_xi
 
 def init_dataset(nqso, redshift_bin, datapath):
 
@@ -277,6 +287,7 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
     xi_mock_ncopy = []
     xi_mock_ncopy_noiseless = []
     npix_mock_ncopy = []
+    w_mock_ncopy = []
 
     for iqso in range(3, nqso_to_use):
         vel_data = vel_data_allqso[iqso]
@@ -304,30 +315,33 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
 
         norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
 
-        vel_mid, xi_onespec_ncopy, npix_xi = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, norm_std_chunk, mask_chunk=master_mask_chunk)
-        vel_mid, xi_onespec_ncopy_noiseless, npix_xi = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, norm_std_chunk, mask_chunk=master_mask_chunk)
+        vel_mid, xi_onespec_ncopy, w_xi = \
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, norm_std_chunk=norm_std_chunk, mask_chunk=master_mask_chunk)
+
+        vel_mid, xi_onespec_ncopy_noiseless, npix_xi_noiseless = \
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, norm_std_chunk=None, mask_chunk=master_mask_chunk)
 
         xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1) # averaging over nskew to get CF of onespec
         xi_mock_onespec_noiseless_ncopy = np.mean(xi_onespec_ncopy_noiseless, axis=1)
 
         xi_mock_ncopy.append(xi_mock_onespec_ncopy)
         xi_mock_ncopy_noiseless.append(xi_mock_onespec_noiseless_ncopy)
-        npix_mock_ncopy.append(np.sum(npix_xi, axis=1)) # sum npix_xi over nskew axis
+        w_mock_ncopy.append(np.sum(w_xi, axis=1))
+        npix_mock_ncopy.append(np.sum(npix_xi_noiseless, axis=1)) # sum npix_xi over nskew axis
 
     # cast all into np arrays
     vel_mid = np.array(vel_mid)
     xi_mock_ncopy = np.array(xi_mock_ncopy) # (nqso, ncopy, ncorr)
     xi_mock_ncopy_noiseless = np.array(xi_mock_ncopy_noiseless)
     npix_mock_ncopy = np.array(npix_mock_ncopy) # (nqso, ncopy, ncorr)
-    weights_ncopy = npix_mock_ncopy / np.sum(npix_mock_ncopy, axis=0)  # weights = nqso, ncopy, ncorr
+    w_mock_ncopy = np.array(w_mock_ncopy) # (nqso, ncopy, ncorr)
+    #weights_ncopy = npix_mock_ncopy / np.sum(npix_mock_ncopy, axis=0)  # weights = nqso, ncopy, ncorr
 
     # average over nqso to get mean CF for a dataset
-    xi_mock_mean_ncopy = np.average(xi_mock_ncopy, axis=0, weights=weights_ncopy)
+    xi_mock_mean_ncopy = np.average(xi_mock_ncopy, axis=0, weights=w_mock_ncopy)
 
     # average over nqso with noiseless CF; (ncopy, ncorr)
-    xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=weights_ncopy)
+    xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=npix_mock_ncopy)
     xi_mean = np.mean(xi_mean_ncopy, axis=0) # average over ncopy
 
     ncorr = xi_mean.shape[0]
