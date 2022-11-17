@@ -277,9 +277,6 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, seed=None
     deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
     vel_cgm = vel[all_masks]
 
-    #df = (norm_good_flux_cgm - np.mean(norm_good_flux_cgm)) / np.mean(norm_good_flux_cgm)
-    #deltaf_tot_mask -= np.mean(df)
-
     if ivar_weights:
         print("use ivar as weights in CF")
         #vel_mid, xi_tot_mask, npix_tot_chimask, _ = reion_utils.compute_xi_ivar(deltaf_tot_mask, ivar_good, vel_cgm, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=cgm_fit_gpm)

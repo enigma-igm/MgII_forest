@@ -87,7 +87,10 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
         cgm_fit_gpm_all = highz_cgm_fit_gpm
     elif redshift_bin == 'all':
         cgm_fit_gpm_all = allz_cgm_fit_gpm
-    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins)
+
+    iqso_to_use = range(3, nqso)
+    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, \
+                                                                                given_bins=given_bins, iqso_to_use=iqso_to_use)
 
     xi_data = xi_mean_mask
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
@@ -334,7 +337,7 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     imock = rand.choice(np.arange(samples.shape[0]), size=nrand)
     xi_model_rand = xi_model_samp[imock, :]
     ymin = factor*np.min(xi_data - 1.3*xi_err)
-    ymax = factor*np.max(xi_data + 1.6*xi_err)
+    ymax = factor*np.max(xi_data + 1.6*xi_err )
 
     axis.set_xlabel(r'$\Delta v$ (km/s)', fontsize=26)
     axis.set_ylabel(r'$\xi(\Delta v)\times 10^5$', fontsize=26, labelpad=-4)

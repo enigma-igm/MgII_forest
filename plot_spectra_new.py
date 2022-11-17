@@ -47,8 +47,10 @@ ymin = -0.05
 ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6]
 ymin_norm, ymax_norm = -0.05, 2.3
 
-savefig = True #True
+savefig = False
 
+good_zpix_all = []
+dx_all = []
 for i in range(nqso_to_plot):
 #for i in range(2):
 
@@ -56,15 +58,20 @@ for i in range(nqso_to_plot):
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
-    all_masks = mask * redshift_mask * pz_mask * zbin_mask * telluric_mask
+    mgii_tot = mgii_tot_all[i]
+    fs_mask = mgii_tot.fit_gpm[0]
+
+    all_masks = master_mask * fs_mask
     print("masked fraction", 1 - np.sum(all_masks) / len(all_masks))
 
     median_snr = np.nanmedian((flux / std)[all_masks])
     print("median snr", median_snr)
 
-    mgii_tot = mgii_tot_all[i]
-    fs_mask = mgii_tot.fit_gpm[0]
-    all_masks = all_masks * fs_mask
+    good_zpix = wave[all_masks] / 2800 - 1
+    good_zpix_all.extend(good_zpix)
+    zlow, zhigh = good_zpix.min(), good_zpix.max()
+    dx = mutils.abspath(zhigh, zlow)
+    dx_all.append(dx)
 
     ymax = ymax_ls[i]
     xmax = wave.max()
@@ -114,10 +121,6 @@ for i in range(nqso_to_plot):
     ax2.set_xlabel(r'obs wavelength ($\mathrm{{\AA}}$)', fontsize=xylabel_fontsize)
     ax2.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize+5)
 
-    #ax3.plot(wave, flux / fluxfit, c='k', drawstyle='steps-mid')
-    #ax3.set_xlim([xmin, xmax])
-    #ax3.set_ylim([0.8, 1.05])
-
     atwin = ax1.twiny()
     atwin.set_xlabel('redshift', fontsize=xylabel_fontsize)
     zmin, zmax = xmin / 2800 - 1, xmax / 2800 - 1
@@ -131,3 +134,7 @@ for i in range(nqso_to_plot):
     if savefig is False:
         plt.show()
 
+
+print("##############")
+print("good zpix = median:%0.3f, min: %0.3f, max: %0.3f" % (np.median(good_zpix_all), np.min(good_zpix_all), np.max(good_zpix_all)))
+print("dx total", np.sum(dx_all))

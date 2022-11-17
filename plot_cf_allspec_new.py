@@ -51,8 +51,8 @@ nqso = len(qso_namelist)
 median_z = 6.50
 #seed_list = [None] * nqso
 given_bins = ccf.custom_cf_bin4(dv1=80)
-savefig = 'paper_plots/8qso/cf_%sz_%dqso.pdf' % (redshift_bin, nqso)
-savefig = None
+savefig = 'paper_plots/8qso/cf_%sz_%dqso_ivar.pdf' % (redshift_bin, nqso)
+#savefig = None
 iqso_to_use = None #np.array([0])
 ivar_weights = args.ivarweights
 
@@ -68,13 +68,6 @@ elif redshift_bin == 'high':
     cgm_fit_gpm = highz_cgm_fit_gpm
 elif redshift_bin == 'all':
     cgm_fit_gpm = allz_cgm_fit_gpm
-
-"""
-weights = mutils.reweight_factors(nqso, redshift_bin)
-if iqso_to_use is not None:
-    weights = weights[iqso_to_use]
-print(weights)
-"""
 
 vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask = \
     ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=ivar_weights)

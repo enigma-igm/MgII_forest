@@ -240,8 +240,9 @@ def init_dataset(nqso, redshift_bin, datapath):
     norm_std_allqso = []
     vel_data_allqso = []
     master_mask_allqso = []
-
     instr_allqso = ['nires', 'nires', 'nires', 'mosfire', 'mosfire', 'mosfire', 'mosfire', 'mosfire']
+    norm_flux_allqso = []
+
     for iqso in range(nqso):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -252,6 +253,7 @@ def init_dataset(nqso, redshift_bin, datapath):
         vel_data = mutils.obswave_to_vel_2(wave)
         norm_std_allqso.append(norm_std)
         vel_data_allqso.append(vel_data)
+        norm_flux_allqso.append(norm_flux)
 
         do_not_apply_any_mask = True
 
@@ -276,7 +278,7 @@ def init_dataset(nqso, redshift_bin, datapath):
         gpm_allspec = mgii_tot.fit_gpm[0]
         master_mask_allqso.append(master_mask * gpm_allspec)
 
-    return vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
+    return vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, norm_flux_allqso
 
 def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
@@ -289,7 +291,7 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
     npix_mock_ncopy = []
     w_mock_ncopy = []
 
-    for iqso in range(3, nqso_to_use):
+    for iqso in range(nqso_to_use):
         vel_data = vel_data_allqso[iqso]
         norm_std = norm_std_allqso[iqso]
         master_mask = master_mask_allqso[iqso]
@@ -396,13 +398,11 @@ def compute_model(args):
     # interpolate flux lores to dv=40 (nyx)
     start = time.process_time()
     dv_coarse = 40
-    coarse_grid_all = np.arange(len(vel_lores_nires)+1) * dv_coarse
-    vel_lores_nires_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
+    vel_lores_nires_interp = np.arange(vel_lores_nires[0], vel_lores_nires[-1], dv_coarse)
     flux_lores_nires_interp = scipy.interpolate.interp1d(vel_lores_nires, flux_lores_nires, kind = 'cubic', \
                                                         bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
 
-    coarse_grid_all = np.arange(len(vel_lores_mosfire) + 1) * dv_coarse
-    vel_lores_mosfire_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
+    vel_lores_mosfire_interp = np.arange(vel_lores_mosfire[0], vel_lores_mosfire[-1], dv_coarse)
     flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic',
                                                        bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
     end = time.process_time()
@@ -440,7 +440,7 @@ def test_compute_model():
     logZ = -3.5
     redshift_bin = 'all'
 
-    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso = init_dataset(8, redshift_bin, datapath)
+    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, _ = init_dataset(8, redshift_bin, datapath)
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
     output = compute_model(args)
     ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet = output
@@ -489,7 +489,7 @@ def main():
 
     # Read grid of neutral fractions from the 21cm fast xHI fields
     xhi_val, xhi_boxes = utils.read_xhi_boxes() # len(xhi_val) = 51, with d_xhi = 0.02
-    #xhi_val = xhi_val[0:3] # testing for production run
+    #xhi_val = xhi_val[0:2] # testing for production run
     nhi = xhi_val.shape[0]
 
     # Some file paths and then read in the params table to get the redshift
@@ -502,7 +502,7 @@ def main():
     files = glob.glob(os.path.join(xhi_path, '*_tau.fits'))
     params = Table.read(files[0], hdu=1)
 
-    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso = init_dataset(nqso_to_use, redshift_bin, datapath)
+    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, _ = init_dataset(nqso_to_use, redshift_bin, datapath)
 
     #args = xhi_path, zstr, fwhm, sampling, vmin_corr, vmax_corr, dv_corr, redshift_bin, ncopy, cgm_masking_gpm
     args = xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso

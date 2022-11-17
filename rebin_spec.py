@@ -16,9 +16,9 @@ arr = df.to_numpy()
 
 wave_method = 'velocity'
 dv = 40
-mg2forest_wavemin = 19500
+wave_grid_min = 19500
 plot = False
-saveout = True
+saveout = False
 savepath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 
 for i in range(len(arr)):
@@ -28,6 +28,7 @@ for i in range(len(arr)):
     data = fits.open(fitsfile)[1].data
     wavegrid_mid = data['wave_grid_mid'].astype('float64')
     wave_coadd = data['wave'].astype('float64')
+    print(instr, wave_coadd[0], wave_coadd[-1])
     flux_coadd = data['flux'].astype('float64')
     ivar_coadd = data['ivar'].astype('float64')
     mask_coadd = data['mask'].astype('bool')
@@ -35,7 +36,7 @@ for i in range(len(arr)):
     obj_model_coadd = data['obj_model'].astype('float64')
 
     # creating a new wavelength grid uniform in velocity scale having dv spacing
-    new_wavegrid, new_wavegrid_mid, dsamp = wvutils.get_wave_grid(wave_coadd, masks=None, wave_method=wave_method, dv=dv, wave_grid_min=mg2forest_wavemin)
+    new_wavegrid, new_wavegrid_mid, dsamp = wvutils.get_wave_grid(wave_coadd, masks=None, wave_method=wave_method, dv=dv, wave_grid_min=wave_grid_min)
 
     # interpolate flux and ivar on this new wavelength grid
     flux_new, ivar_new, gpm_new = coadd.interp_oned(new_wavegrid, wave_coadd, flux_coadd, ivar_coadd, mask_coadd, sensfunc=False)
