@@ -44,7 +44,6 @@ parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--modelfile', type=str)
 args = parser.parse_args()
 
-
 seed = args.seed
 if seed == None:
     seed = np.random.randint(0, 1000000)
@@ -54,9 +53,6 @@ rand = np.random.RandomState(seed)
 nqso = 8
 #figpath = '/Users/suksientie/Research/MgII_forest/paper_plots/8qso/mcmc/'
 
-# for init_mockdata()
-logZ_guess = -5.0 #-4.50 # -3.70
-xhi_guess  = 0.50 # 0.74
 given_bins = compute_cf_data.custom_cf_bin4(dv1=80)
 
 def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
@@ -88,9 +84,10 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
     elif redshift_bin == 'all':
         cgm_fit_gpm_all = allz_cgm_fit_gpm
 
-    iqso_to_use = range(3, nqso)
-    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, \
-                                                                                given_bins=given_bins, iqso_to_use=iqso_to_use)
+    #iqso_to_use = range(3, nqso)
+    #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins, iqso_to_use=iqso_to_use)
+
+    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _  = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=True)
 
     xi_data = xi_mean_mask
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
@@ -120,9 +117,10 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
     lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
     xi_model_fine = inference.interp_model(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, xi_model_array)
 
+
     # Make a 2d surface plot of the likelhiood
     logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
-    lnlikefile = figpath + 'lnlike.pdf'
+    lnlikefile = figpath + redshift_bin + 'z_lnlike.pdf'
     inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
 
     fine_out = xhi_fine, logZ_fine, lnlike_fine, xi_model_fine
@@ -131,15 +129,15 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
 
     return fine_out, coarse_out, data_out
 
-def init_mockdata(modelfile):
+def init_mockdata(modelfile, xhi_guess, logZ_guess):
 
     # modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000.fits'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
     logZ_coarse = params['logZ'].flatten()
     xhi_coarse = params['xhi'].flatten()
     vel_corr = params['vel_mid'].flatten()
-    vel_min = params['vmin_corr'][0]
-    vel_max = params['vmax_corr'][0]
+    #vel_min = params['vmin_corr'][0]
+    #vel_max = params['vmax_corr'][0]
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
@@ -184,7 +182,8 @@ def init_mockdata(modelfile):
 
     # Make a 2d surface plot of the likelhiood
     logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
-    lnlikefile = figpath + 'lnlike.pdf'
+    #lnlikefile = figpath + 'lnlike.pdf'
+    lnlikefile = None
     inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
 
     fine_out = xhi_fine, logZ_fine, lnlike_fine, xi_model_fine
@@ -284,8 +283,9 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
         corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
                       corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err)
     else:
-        inference.corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse,
-                                logZ_coarse, covar_array, xhi_data, logZ_data, corrfile, rand=rand)
+        #inference.corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, xhi_data, logZ_data, corrfile, rand=rand)
+        corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse,
+                      covar_array, corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err)
 
     # Upper limit on metallicity for pristine case
     if linearZprior:
@@ -428,8 +428,9 @@ def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=N
 
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
     xhi_data, logZ_data, xi_data, covar_array, params = data_out
-    vmin_corr = params['vmin_corr'][0]
-    vmax_corr = params['vmax_corr'][0]
+    vel_corr = params['vel_mid'].flatten()
+    vmin_corr = vel_corr[0]
+    vmax_corr = vel_corr[-1]
 
     ixhi = find_closest(xhi_coarse, xhi_want)
     iZ = find_closest(logZ_coarse, logZ_want)
