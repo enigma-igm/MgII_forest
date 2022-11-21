@@ -292,8 +292,10 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
         vel_mid, xi_onespec_ncopy_noiseless, npix_xi_noiseless = \
             compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, norm_std_chunk=None, mask_chunk=master_mask_chunk)
 
-        xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1) # averaging over nskew to get CF of onespec
-        xi_mock_onespec_noiseless_ncopy = np.mean(xi_onespec_ncopy_noiseless, axis=1) # same for noiseless onespec
+        #xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1) # averaging over nskew to get CF of onespec
+        #xi_mock_onespec_noiseless_ncopy = np.mean(xi_onespec_ncopy_noiseless, axis=1) # same for noiseless onespec
+        xi_mock_onespec_ncopy = np.average(xi_onespec_ncopy, axis=1, weights=w_xi)  # averaging over nskew to get CF of onespec
+        xi_mock_onespec_noiseless_ncopy = np.average(xi_onespec_ncopy_noiseless, axis=1, weights=npix_xi_noiseless)  # same for noiseless onespec
 
         xi_mock_ncopy.append(xi_mock_onespec_ncopy)
         xi_mock_ncopy_noiseless.append(xi_mock_onespec_noiseless_ncopy)
@@ -394,9 +396,9 @@ def test_compute_model():
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
-    ncovar = 3
-    nmock = 3
-    master_seed = 9999
+    ncovar = 1000
+    nmock = 1000
+    master_seed = 99991
     logZ = -3.5
     redshift_bin = 'all'
 
