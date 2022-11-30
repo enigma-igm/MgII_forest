@@ -52,7 +52,7 @@ median_z = 6.50
 #seed_list = [None] * nqso
 given_bins = ccf.custom_cf_bin4(dv1=80)
 savefig = 'paper_plots/8qso/cf_%sz_%dqso_ivar.pdf' % (redshift_bin, nqso)
-#savefig = None
+savefig = None
 iqso_to_use = None #np.array([0])
 ivar_weights = args.ivarweights
 
@@ -69,7 +69,7 @@ elif redshift_bin == 'high':
 elif redshift_bin == 'all':
     cgm_fit_gpm = allz_cgm_fit_gpm
 
-vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask = \
+vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask, w_masked, w_unmasked = \
     ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=ivar_weights)
 
 xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized to N-1
@@ -116,6 +116,7 @@ yerr = (xi_std_unmask / np.sqrt(nqso)) * factor
 #yerr = xi_noise_unmask_std * factor
 ax1.errorbar(vel_mid, xi_mean_unmask * factor, yerr=yerr, lw=2.0, \
              fmt='o-', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+ax1.axhline(0, c='k', ls=":", lw=2.0)
 
 #ax1.set_xticks(range(500, 4000, 500))
 ax1.set_yticks(range(int(ymin), int(ymax) + 50, 50))
@@ -154,7 +155,7 @@ ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
 #ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr_cov, lw=2.0, \
 #             fmt='o-', c='black', ecolor='red', capthick=2.0, capsize=2,  mec='none', zorder=20)
 #np.save('plot_cf_allspec_new_xi_std_mask.npy', xi_std_mask)
-
+ax2.axhline(0, c='k', ls=":", lw=2.0)
 ax2.set_xlabel(r'$\Delta v$ (km/s)', fontsize=xylabel_fontsize)
 ax2.tick_params(which="both", right=True, labelsize=xytick_size)
 
