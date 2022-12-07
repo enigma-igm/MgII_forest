@@ -21,7 +21,7 @@ import os
 import emcee
 import corner
 
-from scipy import optimize
+from scipy import optimize, interpolate
 from IPython import embed
 import pdb
 #import sys
@@ -87,7 +87,10 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
     #iqso_to_use = range(3, nqso)
     #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins, iqso_to_use=iqso_to_use)
 
-    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _  = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=True)
+    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _, _, _  = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=True)
+    #import cf_chunk_check as ccc
+    #vel_mid, xi_avg, xi_avg_chunk = ccc.check_allspec()
+    #xi_mean_mask = xi_avg_chunk
 
     xi_data = xi_mean_mask
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
@@ -212,9 +215,10 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
     ndim = 2 # xhi and logZ
 
     # initialize walkers about the maximum within a ball of 1% of the parameter domain
-    pos = [[np.clip(result_opt.x[i] + 1e-2*(bounds[i][1] - bounds[i][0])*rand.randn(1)[0],bounds[i][0],bounds[i][1]) for i in range(ndim)] for i in range(nwalkers)]
+    #pos = [[np.clip(result_opt.x[i] + 1e-2*(bounds[i][1] - bounds[i][0])*rand.randn(1)[0],bounds[i][0],bounds[i][1]) for i in range(ndim)] for i in range(nwalkers)]
     # randomly initialize walkers
-    #pos = [[bounds[i][0] + (bounds[i][1] - bounds[i][0])*rand.rand(1)[0] for i in range(ndim)] for i in range(nwalkers)]
+    print("random initialize walkers")
+    pos = [[bounds[i][0] + (bounds[i][1] - bounds[i][0])*rand.rand(1)[0] for i in range(ndim)] for i in range(nwalkers)]
 
     # I think this seeds the random number generator which will make the emcee results reproducible. Create an issue on this
     np.random.seed(rand.randint(0,seed, size=1)[0])
@@ -436,7 +440,11 @@ def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=N
     iZ = find_closest(logZ_coarse, logZ_want)
     xhi_data = xhi_coarse[ixhi]
     logZ_data = logZ_coarse[iZ]
-    covar = covar_array[ixhi, iZ, :, :]
+    #covar = covar_array[ixhi, iZ, :, :]
+    print(ixhi, iZ)
+
+    vel_corr_want = np.linspace(vmin_corr, vmax_corr, 41)
+    covar = interp_cov(np.array(vel_corr), vel_corr_want, covar_array, ixhi, iZ)
 
     # correlation matrix; easier to visualize compared to covar matrix
     corr = covar / np.sqrt(np.outer(np.diag(covar), np.diag(covar)))
@@ -450,14 +458,25 @@ def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=N
         vmax = corr.max()
 
     plt.figure(figsize=(8, 8))
+    if plot_covar:
+        t = 'Covariance matrix'
+    else:
+        t = 'Correlation matrix'
+
     plt.imshow(corr, origin='lower', interpolation='nearest', extent=[vmin_corr, vmax_corr, vmin_corr, vmax_corr], \
                vmin=vmin, vmax=vmax, cmap='inferno')
     plt.xlabel(r'$\Delta v$ (km/s)', fontsize=15)
     plt.ylabel(r'$\Delta v$ (km/s)', fontsize=15)
-    plt.title('For model (logZ, xHI) = (%0.2f, %0.2f)' % (logZ_data, xhi_data))
+    plt.title('%s: For model (logZ, xHI) = (%0.2f, %0.2f)' % (t, logZ_data, xhi_data))
     plt.colorbar()
 
     plt.show()
+
+def interp_cov(ori_vel_corr_grid, want_vel_corr_grid, covar_array, ixhi, iZ):
+    subcovar = covar_array[ixhi, iZ]
+    f = interpolate.interp2d(ori_vel_corr_grid, ori_vel_corr_grid, subcovar, kind='linear')
+    subcovar_interp = f(want_vel_corr_grid, want_vel_corr_grid)
+    return subcovar_interp
 
 def corr_matrix(covar_array):
 
@@ -518,7 +537,7 @@ def lnlike_plot_slice(xhi_arr, logZ_arr, lnlike_arr, xhi_want, logZ_want):
     plt.subplot(121)
     plt.plot(logZ_arr, lnlike_arr[ixhi])
     plt.xlabel('logZ')
-    plt.ylabel('likelihood')
+    plt.ylabel('exp(lnL-lnL_max)')
 
     plt.subplot(122)
     plt.plot(xhi_arr, lnlike_arr[:,iZ])

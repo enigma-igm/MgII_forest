@@ -136,10 +136,11 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
         norm_std[norm_std < 0] = 100  # get rid of negative errors
         noise = rand.normal(0, std_corr * norm_std) # sample noise vector assuming noise is Gaussian
         noise_chunk = reshape_data_array(noise, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+        #noiseless_chunk = reshape_data_array(np.zeros(noise.shape), nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
 
         # adding noise to flux lores
         flux_noise_ncopy[icopy] = flux_lores[ranindx] + noise_chunk
-        flux_noiseless_ncopy[icopy] = flux_lores[ranindx]
+        flux_noiseless_ncopy[icopy] = flux_lores[ranindx] #+ noiseless_chunk # no change with adding noiseless chunk
 
     return vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew
 
@@ -228,6 +229,8 @@ def init_dataset(nqso, redshift_bin, datapath):
         vel_data_allqso.append(vel_data)
         norm_flux_allqso.append(norm_flux)
 
+        # do not apply any mask before CGM masking to keep the data dimension the same
+        # for the purpose of forward modeling; all masks will be applied during the CF computation
         do_not_apply_any_mask = True
 
         if do_not_apply_any_mask:
@@ -284,13 +287,14 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
                                         std_corr=std_corr)
 
         # compute the 2PCF
-        norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+        #norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+        norm_std_chunk = reshape_data_array(std_corr * norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
 
         vel_mid, xi_onespec_ncopy, w_xi = \
             compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, norm_std_chunk=norm_std_chunk, mask_chunk=master_mask_chunk)
 
         vel_mid, xi_onespec_ncopy_noiseless, npix_xi_noiseless = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, norm_std_chunk=None, mask_chunk=master_mask_chunk)
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, norm_std_chunk=norm_std_chunk, mask_chunk=master_mask_chunk)
 
         #xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1) # averaging over nskew to get CF of onespec
         #xi_mock_onespec_noiseless_ncopy = np.mean(xi_onespec_ncopy_noiseless, axis=1) # same for noiseless onespec
@@ -399,7 +403,7 @@ def test_compute_model():
     ncovar = 1000
     nmock = 1000
     master_seed = 99991
-    logZ = -3.5
+    logZ = -3
     redshift_bin = 'all'
 
     vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, _ = init_dataset(8, redshift_bin, datapath)

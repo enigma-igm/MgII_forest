@@ -69,7 +69,7 @@ def extract_data(fitsfile):
 
     data = fits.open(fitsfile)[1].data
     #wave_arr = data['wave_grid_mid'].astype('float64') # midpoint values of wavelength bin
-    wave_arr = data['wave'].astype('float64')  # midpoint values of wavelength bin
+    wave_arr = data['wave'].astype('float64')
     flux_arr = data['flux'].astype('float64')
     ivar_arr = data['ivar'].astype('float64')
     mask_arr = data['mask'].astype('bool')
@@ -389,6 +389,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
 
     qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
     qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+    qso_median_snr = [9.29, 5.50, 3.95, 8.60, 11.42, 14.28, 13.07, 8.72] # from Table 1 in current draft (12/6/2022)
     everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
     exclude_restwave = 1216 - 1185
     median_z = 6.500 # see allqso_pathlength_snr.py
