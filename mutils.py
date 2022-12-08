@@ -461,7 +461,6 @@ def init_onespec_old(iqso, redshift_bin, datapath='/Users/suksientie/Research/da
     elif redshift_bin == 'all':
         zbin_mask = np.ones_like(wave, dtype=bool)
 
-    # master mask for measuring 2PCF
     #master_mask = mask * strong_abs_gpm * redshift_mask * pz_mask * zbin_mask
     master_mask = mask * redshift_mask * pz_mask * zbin_mask
 
@@ -575,32 +574,6 @@ def plot_allspec_pdf(redshift_bin, seed_list=[None, None, None, None, None]):
     plt.show()
 
 ######################################################
-def init_skewers_compute_model_grid(filename, dv_corr, logZ):
-    # initialize Nyx skewers for testing compute_model_grid_new.py
-
-    #filename = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
-    params = Table.read(filename, hdu=1)
-    skewers = Table.read(filename, hdu=2)
-
-    fwhm = 120 #90 # 83
-    sampling = 3
-    #logZ = -3.50
-
-    vel_lores, (flux_lores, flux_lores_igm, flux_lores_cgm, _, _), \
-    vel_hires, (flux_hires, flux_hires_igm, flux_hires_cgm, _, _), \
-    (oden, v_los, T, xHI), cgm_tuple = utils.create_mgii_forest(params, skewers, logZ, fwhm, sampling=sampling)
-
-    vmin_corr, vmax_corr = 10, 3500
-    mean_flux_nless = np.mean(flux_lores)
-    delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
-
-    return delta_f_nless, vel_lores, flux_lores
-
-    (vel_mid, xi_nless, npix, xi_nless_zero_lag) = utils.compute_xi(delta_f_nless, vel_lores, vmin_corr, vmax_corr, dv_corr)
-    xi_mean = np.mean(xi_nless, axis=0)
-
-    return vel_lores, flux_lores, vel_mid, xi_mean, npix, xi_nless
-
 def lya_spikes(fitsfile, zlow, zhigh):
     # fitsfile = '/Users/suksientie/Research/highz_absorbers/J0313m1806_fire_mosfire_nires_tellcorr_contfit.fits'
     # lyb @ 1026
@@ -638,7 +611,7 @@ def abspath(z1, z2, cosmo=None):
     return cosmo.absorption_distance(z1)-cosmo.absorption_distance(z2)
 
 def reweight_factors(nqso, redshift_bin):
-
+    # (12/8/2022) old stuffs
     dx_all = []
 
     for iqso in range(nqso):
@@ -669,20 +642,3 @@ def mosfire_nires_fwhm():
 
     return nires_fwhm, mosfire_fwhm
 
-from pypeit.core import coadd
-from pypeit.core.wavecal import wvutils
-def coarse_vel_grid():
-
-    wave_method = 'velocity'
-    dv = 40
-    wave_grid_min = 19500
-    fitsfile = '/Users/suksientie/Research/data_redux/silvia/J1917+5003_NIRES_coadd_tellcorr.fits'
-    data = fits.open(fitsfile)[1].data
-    wave_coadd = data['wave'].astype('float64')
-    new_wavegrid, new_wavegrid_mid, dsamp = wvutils.get_wave_grid(wave_coadd, masks=None, wave_method=wave_method,
-                                                                  dv=dv, wave_grid_min=wave_grid_min)
-
-    vel_coadd = obswave_to_vel_2(wave_coadd)
-    new_velgrid = obswave_to_vel_2(new_wavegrid)
-
-    return vel_coadd, new_velgrid

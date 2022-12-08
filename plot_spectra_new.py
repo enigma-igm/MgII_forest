@@ -32,7 +32,6 @@ legend_fontsize = 14
 datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
-everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
@@ -47,7 +46,7 @@ ymin = -0.05
 ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6]
 ymin_norm, ymax_norm = -0.05, 2.3
 
-savefig = False
+savefig = True
 
 good_zpix_all = []
 dx_all = []
@@ -129,7 +128,7 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('paper_plots/8qso/spec_%s.pdf' % qso_namelist[i])
+        plt.savefig('paper_plots/8qso/everyn_bkpt_40/spec_%s.pdf' % qso_namelist[i])
         plt.close()
     if savefig is False:
         plt.show()

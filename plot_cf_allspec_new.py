@@ -34,7 +34,7 @@ legend_fontsize = 14
 qso_alpha = 0.6
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--zbin', type=str, help="options: all, high, low")
+parser.add_argument('--zbin', required=True, type=str, help="options: all, high, low")
 parser.add_argument('--ivarweights', action='store_true', default=False)
 args = parser.parse_args()
 redshift_bin = args.zbin
@@ -46,7 +46,8 @@ seed_list=[None, None, None, None, None]
 given_bins = ccf.custom_cf_bin4()
 """
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+#qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 nqso = len(qso_namelist)
 median_z = 6.50
 #seed_list = [None] * nqso
@@ -60,7 +61,8 @@ if iqso_to_use is None:
     iqso_to_use = np.arange(0, nqso)
 
 #######
-lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm()
+#lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm()
+lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm(do_not_apply_any_mask=True)
 
 if redshift_bin == 'low':
     cgm_fit_gpm = lowz_cgm_fit_gpm

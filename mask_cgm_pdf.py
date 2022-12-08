@@ -431,10 +431,10 @@ def plot_masked_onespec(mgii_tot_all, wave_data_all, vel_data_all, norm_good_flu
         plt.savefig(savefig)
     #plt.show()
 
-def do_allqso_allzbin(datapath):
+def do_allqso_allzbin(datapath, do_not_apply_any_mask=False):
     # get mgii_tot_all for all qso and for all redshift bins
 
-    do_not_apply_any_mask = False
+    #do_not_apply_any_mask = False
 
     redshift_bin = 'low'
     lowz_good_vel_data_all, lowz_good_wave_data_all, lowz_norm_good_flux_all, lowz_norm_good_std_all, lowz_good_ivar_all, lowz_noise_all = \

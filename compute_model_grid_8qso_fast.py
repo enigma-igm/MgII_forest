@@ -28,7 +28,6 @@ datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
-everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
 exclude_restwave = 1216 - 1185
 median_z = 6.50
 corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
@@ -211,11 +210,14 @@ def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, give
 
 def init_dataset(nqso, redshift_bin, datapath):
 
-    norm_std_allqso = []
     vel_data_allqso = []
-    master_mask_allqso = []
-    instr_allqso = ['nires', 'nires', 'nires', 'mosfire', 'mosfire', 'mosfire', 'mosfire', 'mosfire']
     norm_flux_allqso = []
+    norm_ivar_allqso = []
+    norm_std_allqso = []
+    master_mask_allqso = []
+    master_mask_allqso_mask_cgm = []
+
+    instr_allqso = ['nires', 'nires', 'nires', 'mosfire', 'mosfire', 'mosfire', 'mosfire', 'mosfire']
 
     for iqso in range(nqso):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
@@ -224,10 +226,13 @@ def init_dataset(nqso, redshift_bin, datapath):
 
         norm_flux = flux / fluxfit
         norm_std = std / fluxfit
+        norm_ivar = ivar * (fluxfit ** 2)
         vel_data = mutils.obswave_to_vel_2(wave)
+
         norm_std_allqso.append(norm_std)
         vel_data_allqso.append(vel_data)
         norm_flux_allqso.append(norm_flux)
+        norm_ivar_allqso.append(norm_ivar)
 
         # do not apply any mask before CGM masking to keep the data dimension the same
         # for the purpose of forward modeling; all masks will be applied during the CF computation
@@ -239,8 +244,8 @@ def init_dataset(nqso, redshift_bin, datapath):
             masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask * telluric_gpm
 
         # masked quantities
-        norm_good_flux = (flux / fluxfit)[masks_for_cgm_masking]
-        norm_good_ivar = (ivar * (fluxfit ** 2))[masks_for_cgm_masking]
+        norm_good_flux = norm_flux[masks_for_cgm_masking]
+        norm_good_ivar = norm_ivar[masks_for_cgm_masking]
         good_vel_data = vel_data[masks_for_cgm_masking]
 
         # reshaping to be compatible with MgiiFinder
@@ -252,9 +257,13 @@ def init_dataset(nqso, redshift_bin, datapath):
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
         gpm_allspec = mgii_tot.fit_gpm[0]
-        master_mask_allqso.append(master_mask * gpm_allspec)
 
-    return vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, norm_flux_allqso
+        master_mask_allqso.append(master_mask)
+        master_mask_allqso_mask_cgm.append(master_mask * gpm_allspec)
+
+    #return vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, norm_flux_allqso
+    return vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, \
+           master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso
 
 def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
