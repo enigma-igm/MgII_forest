@@ -170,7 +170,7 @@ def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, given_bins, mask
     npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
     return vel_mid, xi_mock, npix_xi
 
-def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, given_bins, norm_std_chunk=None, mask_chunk=None):
+def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, given_bins, weights_in=None, mask_chunk=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
 
     vmin_corr, vmax_corr, dv_corr = 0, 0, 0  # dummy values since using custom binning, but still required arguments for compute_xi
@@ -188,6 +188,12 @@ def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, give
         mask_ncopy = None
         mean_flux = np.nanmean(reshaped_flux)
 
+    if weights_in is not None:
+        weights_in_ncopy = np.tile(weights_in, (ncopy, 1, 1))
+        weights_in_ncopy = np.reshape(weights_in_ncopy, (ncopy * nskew, npix))
+        weights_in = weights_in_ncopy
+
+    """
     # use inverse variance weighting if noise is provided, otherwise default to normal npix weighting
     if norm_std_chunk is not None:
         norm_std_chunk_ncopy = np.tile(norm_std_chunk, (ncopy, 1, 1))
@@ -197,7 +203,7 @@ def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, give
 
     else:
         weights_in = None
-
+    """
     delta_f = (reshaped_flux - mean_flux)/mean_flux
     (vel_mid, xi_mock, w_xi, xi_mock_zero_lag) = utils.compute_xi_weights(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, \
                                                                      given_bins=given_bins, gpm=mask_ncopy, weights_in=weights_in)
@@ -273,8 +279,8 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
 
     xi_mock_ncopy = []
     xi_mock_ncopy_noiseless = []
-    npix_mock_ncopy = []
     w_mock_ncopy = []
+    w_mock_ncopy_noiseless = []
 
     for iqso in range(nqso_to_use):
         vel_data = vel_data_allqso[iqso]
@@ -298,35 +304,37 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
         # compute the 2PCF
         #norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
         norm_std_chunk = reshape_data_array(std_corr * norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+        norm_ivar_chunk = 1 / (norm_std_chunk ** 2)
 
         vel_mid, xi_onespec_ncopy, w_xi = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, norm_std_chunk=norm_std_chunk, mask_chunk=master_mask_chunk)
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, weights_in=norm_ivar_chunk, mask_chunk=master_mask_chunk)
 
-        vel_mid, xi_onespec_ncopy_noiseless, npix_xi_noiseless = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, norm_std_chunk=norm_std_chunk, mask_chunk=master_mask_chunk)
+        vel_mid, xi_onespec_ncopy_noiseless, w_xi_noiseless = \
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, weights_in=norm_ivar_chunk, mask_chunk=master_mask_chunk)
 
         #xi_mock_onespec_ncopy = np.mean(xi_onespec_ncopy, axis=1) # averaging over nskew to get CF of onespec
         #xi_mock_onespec_noiseless_ncopy = np.mean(xi_onespec_ncopy_noiseless, axis=1) # same for noiseless onespec
         xi_mock_onespec_ncopy = np.average(xi_onespec_ncopy, axis=1, weights=w_xi)  # averaging over nskew to get CF of onespec
-        xi_mock_onespec_noiseless_ncopy = np.average(xi_onespec_ncopy_noiseless, axis=1, weights=npix_xi_noiseless)  # same for noiseless onespec
+        xi_mock_onespec_noiseless_ncopy = np.average(xi_onespec_ncopy_noiseless, axis=1, weights=w_xi_noiseless)  # same for noiseless onespec
 
         xi_mock_ncopy.append(xi_mock_onespec_ncopy)
         xi_mock_ncopy_noiseless.append(xi_mock_onespec_noiseless_ncopy)
-        w_mock_ncopy.append(np.sum(w_xi, axis=1)) # summing over nskew axis
-        npix_mock_ncopy.append(np.sum(npix_xi_noiseless, axis=1))
+        w_mock_ncopy.append(np.sum(w_xi, axis=1)) # summing the weights over nskew axis
+        w_mock_ncopy_noiseless.append(np.sum(w_xi_noiseless, axis=1)) # summing the weights over nskew axis
 
     # cast all into np arrays
     vel_mid = np.array(vel_mid)
     xi_mock_ncopy = np.array(xi_mock_ncopy) # (nqso, ncopy, ncorr)
     xi_mock_ncopy_noiseless = np.array(xi_mock_ncopy_noiseless)
-    npix_mock_ncopy = np.array(npix_mock_ncopy) # (nqso, ncopy, ncorr)
-    w_mock_ncopy = np.array(w_mock_ncopy) # (nqso, ncopy, ncorr)
+    scale = 1e6
+    w_mock_ncopy = np.array(w_mock_ncopy)/scale # (nqso, ncopy, ncorr)
+    w_mock_ncopy_noiseless = np.array(w_mock_ncopy_noiseless)/scale  # (nqso, ncopy, ncorr)
 
     # average over nqso to get mean CF for a dataset
     xi_mock_mean_ncopy = np.average(xi_mock_ncopy, axis=0, weights=w_mock_ncopy) # (ncopy, ncorr)
 
-    # average over nqso with noiseless CF, then average over ncopy
-    xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=npix_mock_ncopy) # (ncopy, ncorr)
+    # average over nqso with noiseless CF, then average over ncopy, to get model CF
+    xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=w_mock_ncopy_noiseless) # (ncopy, ncorr)
     xi_mean = np.mean(xi_mean_ncopy, axis=0) # average over ncopy
 
     ncorr = xi_mean.shape[0]
@@ -342,7 +350,7 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
     # Divid by ncovar since we estimated the mean from "independent" data
     covar /= ncovar
 
-    return xi_mock_keep, covar, vel_mid, xi_mean
+    return xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless
 
 ########################## running the grid #############################
 import time
@@ -391,7 +399,7 @@ def compute_model(args):
     del flux_lores_mosfire
 
     start = time.process_time()
-    xi_mock_keep, covar, vel_mid, xi_mean = mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
+    xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless = mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, given_bins, seed=rand)
 
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
@@ -399,7 +407,7 @@ def compute_model(args):
     end = time.process_time()
     print("      mock_mean_covar done in .... ", (end - start) / 60, " min")
 
-    return ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet
+    return ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless
 
 
 def test_compute_model():
@@ -409,16 +417,16 @@ def test_compute_model():
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
-    ncovar = 1000
-    nmock = 1000
+    ncovar = 100
+    nmock = 100
     master_seed = 99991
     logZ = -3
     redshift_bin = 'all'
 
-    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, _ = init_dataset(8, redshift_bin, datapath)
+    vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(8, redshift_bin, datapath)
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
     output = compute_model(args)
-    ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet = output
+    ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless = output
 
     return output
 
@@ -477,7 +485,7 @@ def main():
     files = glob.glob(os.path.join(xhi_path, '*_tau.fits'))
     params = Table.read(files[0], hdu=1)
 
-    vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, _ = init_dataset(nqso_to_use, redshift_bin, datapath)
+    vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(nqso_to_use, redshift_bin, datapath)
 
     args = xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
     all_args = []
