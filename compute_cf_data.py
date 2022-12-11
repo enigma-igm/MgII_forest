@@ -35,18 +35,9 @@ everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
 exclude_restwave = 1216 - 1185
 median_z = 6.50
 corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
+#corr_all = np.ones(len(qso_zlist))
 
 vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
-
-# everyn = 20
-# weighted global mean
-#fmean_global_unmask = [0.9943517891999819, 0.9978242883496282, 0.9917724407614039]
-#fmean_global_mask = [1.000820992353624, 1.000761545084083, 1.0008670981617191]
-
-# everyn = 40 (all-z, high-z, low-z)
-# weighted global mean
-fmean_global_unmask = [0.9942360438983243, 0.9978950422789197, 0.9915202604038694]
-fmean_global_mask = [1.0008964733628911, 1.000945347462494, 1.0008585801971037]
 
 #################################
 def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/', do_not_apply_any_mask=False):
@@ -117,8 +108,8 @@ def onespec_old(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
-    ivar *= (fluxfit**2) # normalize by cont
-    ivar *= (1/std_corr**2) # apply correction
+    #ivar *= (fluxfit**2) # normalize by cont
+    #ivar *= (1/std_corr**2) # apply correction
 
     ###### CF from not masking CGM ######
     all_masks = master_mask
@@ -230,7 +221,7 @@ def onespec_old(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given
         plt.show()
 
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
-    return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask
+    return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask, meanflux_tot, meanflux_tot_mask
 
 def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=False, std_corr=1.0, given_bins=None, ivar_weights=False):
 
@@ -242,8 +233,8 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
-    ivar *= (fluxfit**2) # normalize by cont
-    ivar *= (1/std_corr**2) # apply correction
+    #ivar *= (fluxfit**2) # normalize by cont
+    #ivar *= (1/std_corr**2) # apply correction
 
     ###### CF from not masking CGM ######
     all_masks = master_mask
@@ -350,20 +341,32 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     weights_unmasked = []
     weights_masked = []
 
+    # everyn = 20 (all-z, high-z, low-z)
+    # weighted global mean
+    fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758] #[0.9943517891999819, 0.9978242883496282, 0.9917724407614039]
+    fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441] #[1.000820992353624, 1.000761545084083, 1.0008670981617191]
+
+    # everyn = 40 (all-z, high-z, low-z)
+    # weighted global mean
+    #fmean_global_unmask = [0.9957411336527912, 0.998022913883487, 0.9937233923222423] #[0.9942360438983243, 0.9978950422789197, 0.9915202604038694]
+    #fmean_global_mask = [1.0015955926876943, 1.0016205184145572, 1.001573004313652] #[1.0008964733628911, 1.000945347462494, 1.0008585801971037]
+
+    fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758]
+    fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441]
+
     if redshift_bin == 'all':
         i_fmean = 0
     elif redshift_bin == 'high':
         i_fmean = 1
     elif redshift_bin == 'low':
         i_fmean = 2
-
     fmean_unmask = fmean_global_unmask[i_fmean]
     fmean_mask = fmean_global_mask[i_fmean]
 
     #for iqso in range(nqso):
     for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
-        #vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec_old(iqso, redshift_bin, cgm_fit_gpm_all[iqso], plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
+        #vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask, _, _ = onespec_old(iqso, redshift_bin, cgm_fit_gpm_all[iqso], plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
         vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], fmean_unmask, fmean_mask, plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=True)
 
         xi_unmask_all.append(xi_unmask)
@@ -375,8 +378,9 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
         weights_unmasked.append(w_tot.squeeze())
         weights_masked.append(w_tot_chimask.squeeze())
 
-    weights_masked = np.array(weights_masked)
-    weights_unmasked = np.array(weights_unmasked)
+    scale = 1e6
+    weights_masked = np.array(weights_masked)/scale
+    weights_unmasked = np.array(weights_unmasked)/scale
 
     # no need to express as fraction
     #weights_masked = weights_masked/np.sum(weights_masked, axis=0) # pixel weights
@@ -636,7 +640,7 @@ def compare_lin_log_bins(deltaf, vel_lores, given_bins, dv_corr, loglegend, titl
     return vel_mid_log, xi_mean_log, vel_mid_lin, xi_mean_lin
 
 ########################################
-def ivar_per_qso(redshift_bin):
+def ivar_per_qso(redshift_bin, norm=False):
 
     qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503',
                     'J1342+0928']
@@ -659,15 +663,22 @@ def ivar_per_qso(redshift_bin):
     colorls = ['r', 'g', 'b', 'c', 'm', 'k', 'y', 'orange']
 
     for i in range(nqso):
-        plt.plot((wave_all[i] / 2800) - 1, norm_ivar_all[i], c=colorls[i], \
-                 label=qso_namelist[i] + ' (%0.2f)' % np.median(norm_ivar_all[i]), drawstyle = 'steps-mid')
+        if norm:
+            plt.plot((wave_all[i] / 2800) - 1, norm_ivar_all[i], c=colorls[i], \
+                     label=qso_namelist[i] + ' (%0.2f)' % np.median(norm_ivar_all[i]), drawstyle = 'steps-mid')
+        else:
+            plt.plot((wave_all[i] / 2800) - 1, ivar_all[i], c=colorls[i], \
+                     label=qso_namelist[i] + ' (%0.2f)' % np.median(norm_ivar_all[i]), drawstyle='steps-mid')
         plt.axvline(qso_zlist[i], c=colorls[i], alpha=0.7, ls='--')
 
     if redshift_bin == 'all':
         plt.axvline(6.50, c='k', alpha=0.5, lw=3)
 
     plt.xlabel('Redshift')
-    plt.ylabel('Norm ivar')
+    if norm:
+        plt.ylabel('Norm ivar')
+    else:
+        plt.ylabel('Ivar')
     plt.legend()
     plt.show()
 
@@ -679,7 +690,8 @@ def frac_weight_per_qso(redshift_bin, plot=False):
     qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
     qso_median_snr = [9.29, 5.50, 3.95, 8.60, 11.42, 14.28, 13.07, 8.72]  # from Table 1 in current draft (12/6/2022)
 
-    lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = init_cgm_fit_gpm()
+    #lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = init_cgm_fit_gpm()
+    lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = init_cgm_fit_gpm(do_not_apply_any_mask=True)
 
     if redshift_bin == 'low':
         cgm_fit_gpm = lowz_cgm_fit_gpm
@@ -700,7 +712,7 @@ def frac_weight_per_qso(redshift_bin, plot=False):
     frac_w_masked = w_masked / w_masked_sum
 
     for i in range(nqso):
-        print(qso_namelist[i], qso_zlist[i], np.mean(frac_w_masked[i]))
+        print(qso_namelist[i], qso_zlist[i], qso_median_snr[i], '%0.5f' % np.mean(frac_w_masked[i]))
 
     if plot:
         for i in range(nqso):
@@ -713,9 +725,11 @@ def frac_weight_per_qso(redshift_bin, plot=False):
     return allspec_out, frac_w_masked
 
 def compute_neff(weights_allqso):
+    # "weights_allqso" can be frac_w_masked or w_masked returned from frac_weight_per_qso
+
     # https://statisticaloddsandends.wordpress.com/2021/11/11/what-do-we-mean-by-effective-sample-size/
 
-    # axis=0 is sum over nqso
+    # axis=0 is sum over nqso to get the n_eff in each corr bin
     neff = (np.sum(weights_allqso, axis=0)) ** 2 / np.sum(weights_allqso ** 2, axis=0)
     return neff
 
@@ -727,7 +741,7 @@ def fmean_dataset(nqso=8):
 
     datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
     for redshift_bin in z_bin:
-        vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, \
+        vel_data_allqso, norm_flux_allqso, norm_std_allqso, ivar_allqso, \
         master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = cmg8.init_dataset(nqso, redshift_bin, datapath)
 
         # normalized quantities
@@ -739,8 +753,8 @@ def fmean_dataset(nqso=8):
         for iqso in range(nqso):
             f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
             f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
-            ivar_all.extend(norm_ivar_allqso[iqso][master_mask_allqso[iqso]])
-            ivar_all_mask_cgm.extend(norm_ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+            ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
+            ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
 
         # weighted global mean flux
         fmean_zbin.append(np.average(f_all, weights=ivar_all))

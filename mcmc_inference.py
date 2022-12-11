@@ -76,7 +76,8 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
     #vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(nqso, cgm_fit_gpm_all, redshift_bin, vel_lores, given_bins=given_bins)
 
     # using the data in its original format for MCMC
-    lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm()
+    #lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm()
+    lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm(do_not_apply_any_mask=True)
     if redshift_bin == 'low':
         cgm_fit_gpm_all = lowz_cgm_fit_gpm
     elif redshift_bin == 'high':
@@ -225,12 +226,16 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
     sampler = emcee.EnsembleSampler(nwalkers, ndim, inference.lnprob, args=args)
     sampler.run_mcmc(pos, nsteps, progress=True)
 
-    tau = sampler.get_autocorr_time()
-    print('Autocorrelation time')
-    print('tau_xhi = {:7.2f}, tau_logZ = {:7.2f}'.format(tau[0],tau[1]))
-    acceptfrac = sampler.acceptance_fraction
-    print("Acceptance fraction per walker")
-    print(acceptfrac)
+    try:
+        tau = sampler.get_autocorr_time()
+    except:
+        print('Autocorr time does not converge')
+    else:
+        print('Autocorrelation time')
+        print('tau_xhi = {:7.2f}, tau_logZ = {:7.2f}'.format(tau[0],tau[1]))
+        acceptfrac = sampler.acceptance_fraction
+        print("Acceptance fraction per walker")
+        print(acceptfrac)
 
     flat_samples = sampler.get_chain(discard=burnin, thin=250, flat=True)
     if linearZprior:
@@ -493,10 +498,10 @@ def corr_matrix(covar_array):
     corr_array = np.array(corr_array)
     return corr_array
 
-def plot_single_corr_elem(coarse_out, data_out, corr_array, rand_ixhi=None, rand_ilogZ=None, rand_i=None, rand_j=None):
+def plot_single_corr_elem(coarse_out, data_out, corr_array, rand_ixhi=None, rand_ilogZ=None, rand_i=None, rand_j=None, savefig=None):
 
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
-    xhi_data, logZ_data, xi_data, covar_array, params = data_out
+    _, _, _, covar_array, params = data_out
     nxHI, nlogZ, ncorr, _ = np.shape(covar_array)
 
     if rand_i == None and rand_j == None:
@@ -511,21 +516,25 @@ def plot_single_corr_elem(coarse_out, data_out, corr_array, rand_ixhi=None, rand
         rand_ilogZ = np.random.randint(nlogZ)
         print(rand_ilogZ, logZ_coarse[rand_ilogZ])
 
+    plt.figure(figsize=(12,5))
     plt.subplot(121)
-    plt.title('ilogZ = %d, logZ = %0.2f' % (rand_ilogZ, logZ_coarse[rand_ilogZ]))
-    plt.plot(xhi_coarse, corr_array[:,rand_ilogZ, rand_i, rand_j], label='($i,j$)=(%d,%d)' % (rand_i, rand_j))
+    plt.title('logZ = %0.2f (ilogZ = %d)' % (logZ_coarse[rand_ilogZ], rand_ilogZ))
+    plt.plot(xhi_coarse, corr_array[:,rand_ilogZ, rand_i, rand_j], 'k.-', label='($i,j$)=(%d,%d)' % (rand_i, rand_j))
     plt.xlabel('xHI')
     plt.ylabel(r'Corr$_{ij}$=Cov$_{ij}$/$\sqrt{Cov_{ii}Cov_{jj}}$')
     plt.legend()
 
     plt.subplot(122)
-    plt.title('ixHI = %d, xHI = %0.2f' % (rand_ixhi, xhi_coarse[rand_ixhi]))
-    plt.plot(logZ_coarse, corr_array[rand_ixhi, :, rand_i, rand_j])
+    plt.title('xHI = %0.2f (ixHI = %d)' % (xhi_coarse[rand_ixhi], rand_ixhi))
+    plt.plot(logZ_coarse, corr_array[rand_ixhi, :, rand_i, rand_j], 'k.-')
     plt.xlabel('logZ')
+    plt.tight_layout()
 
-    #plt.yscale('log')
-    #plt.legend()
-    plt.show()
+    if savefig is not None:
+        plt.savefig(savefig)
+        plt.close()
+    else:
+        plt.show()
 
 def lnlike_plot_slice(xhi_arr, logZ_arr, lnlike_arr, xhi_want, logZ_want):
     ixhi = find_closest(xhi_arr, xhi_want)

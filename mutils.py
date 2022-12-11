@@ -390,7 +390,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
     qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
     qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
     qso_median_snr = [9.29, 5.50, 3.95, 8.60, 11.42, 14.28, 13.07, 8.72] # from Table 1 in current draft (12/6/2022)
-    everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
+    everyn_break_list = (np.ones(len(qso_namelist)) * 60).astype('int')
     exclude_restwave = 1216 - 1185
     median_z = 6.500 # see allqso_pathlength_snr.py
 
@@ -494,11 +494,11 @@ def plot_onespec_pdf(iqso, seed=None, title=None):
 
     norm_flux = flux/fluxfit
     norm_std = std/fluxfit
-    norm_flux = norm_flux[mask * redshift_mask * pz_mask * zbin_mask]
-    norm_std = norm_std[mask * redshift_mask * pz_mask * zbin_mask]
+    norm_flux = norm_flux[master_mask]
+    norm_std = norm_std[master_mask]
 
-    chi = (1 - norm_flux) / norm_std
-    corr_factor = mad_std(chi)
+    chi = (1 - norm_flux) / norm_std # expected to be a Gaussian with unit variance
+    corr_factor = mad_std(chi) # median absolute std
     print(corr_factor)
     #corr_factor = mad_std(norm_flux)/np.median(norm_std)
 

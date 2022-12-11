@@ -128,7 +128,7 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('paper_plots/8qso/everyn_bkpt_40/spec_%s.pdf' % qso_namelist[i])
+        plt.savefig('plots/8qso/everyn_bkpt_60_spec/spec_%s.pdf' % qso_namelist[i])
         plt.close()
     if savefig is False:
         plt.show()
