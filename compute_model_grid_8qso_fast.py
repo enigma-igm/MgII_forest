@@ -19,10 +19,13 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import mutils
 import pdb
+from IPython import embed
 import compute_cf_data as ccf
+import time
 import scipy
 import warnings
 warnings.filterwarnings(action='ignore')#, message='divide by zero encountered in true_divide (compute_model_grid_8qso_fast.py:311)')
+#import xi_cython
 
 ###################### global variables ######################
 datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
@@ -42,13 +45,14 @@ mosfire_sampling = 2.78
 
 qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm]
 qso_sampling = [nires_sampling, nires_sampling, nires_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling]
-given_bins = ccf.custom_cf_bin4(dv1=80)
+given_bins = np.array(ccf.custom_cf_bin4(dv1=80))
 
 signif_thresh = 2.0
 signif_mask_dv = 300.0 # value used in Hennawi+2021
 signif_mask_nsigma = 3
 one_minF_thresh = 0.3 # flux threshold
 
+scale_weight = 1e6
 ########################## helper functions #############################
 def imap_unordered_bar(func, args, nproc):
     """
@@ -117,7 +121,7 @@ def reshape_data_array(data_arr, nskew_to_match_data, npix_sim_skew, data_arr_is
     new_data_arr = padded_data_arr.reshape(nskew_to_match_data, npix_sim_skew)
     return new_data_arr
 
-def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, ncovar, seed=None, std_corr=1.0):
+def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, nmock, seed=None, std_corr=1.0):
 
     rand = np.random.RandomState(seed) if seed is None else seed
 
@@ -127,21 +131,22 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
     # first run to get nskew in order to initialize arrays
     ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=None)
 
-    flux_noise_ncopy = np.zeros((ncovar, nskew_to_match_data, npix_sim_skew))
-    flux_noiseless_ncopy = np.zeros((ncovar, nskew_to_match_data, npix_sim_skew))
+    flux_noise_ncopy = np.zeros((nmock, nskew_to_match_data, npix_sim_skew))
+    flux_noiseless_ncopy = np.zeros((nmock, nskew_to_match_data, npix_sim_skew))
     master_mask_chunk = reshape_data_array(master_mask, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=True)
 
-    for icopy in range(ncovar):
+    norm_std[norm_std < 0] = 100  # get rid of negative errors
+
+    for icopy in range(nmock):
         ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=seed)
-        print("random skewers", ranindx)
-        norm_std[norm_std < 0] = 100  # get rid of negative errors
-        noise = rand.normal(0, std_corr * norm_std) # sample noise vector assuming noise is Gaussian
-        noise_chunk = reshape_data_array(noise, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
-        #noiseless_chunk = reshape_data_array(np.zeros(noise.shape), nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+        #print("random skewers", ranindx)
+        noise = rand.normal(0, std_corr * norm_std) # sample noise vector assuming noise is Gaussian # (npix_data)
+        noise_chunk = reshape_data_array(noise, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False) # (nskew, npix)
+        #print("noise", noise[100:120])
 
         # adding noise to flux lores
         flux_noise_ncopy[icopy] = flux_lores[ranindx] + noise_chunk
-        flux_noiseless_ncopy[icopy] = flux_lores[ranindx] #+ noiseless_chunk # no change with adding noiseless chunk
+        flux_noiseless_ncopy[icopy] = flux_lores[ranindx]
 
     return vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew
 
@@ -195,22 +200,10 @@ def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, give
         weights_in_ncopy = np.reshape(weights_in_ncopy, (ncopy * nskew, npix))
         weights_in = weights_in_ncopy
 
-    """
-    # use inverse variance weighting if noise is provided, otherwise default to normal npix weighting
-    if norm_std_chunk is not None:
-        norm_std_chunk_ncopy = np.tile(norm_std_chunk, (ncopy, 1, 1))
-        norm_std_chunk_ncopy = np.reshape(norm_std_chunk_ncopy, (ncopy * nskew, npix))
-        ivar = 1 / (norm_std_chunk_ncopy ** 2)
-        weights_in = ivar
-
-    else:
-        weights_in = None
-    """
     delta_f = (reshaped_flux - mean_flux)/mean_flux
     start = time.process_time()
     (vel_mid, xi_mock, w_xi, xi_mock_zero_lag) = utils.compute_xi_weights(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, \
                                                                      given_bins=given_bins, gpm=mask_ncopy, weights_in=weights_in)
-    #(vel_mid, xi_mock, w_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, given_bins=given_bins, gpm=mask_ncopy)
     end = time.process_time()
     print("compute_xi_weights", end-start)
 
@@ -224,7 +217,7 @@ def init_dataset(nqso, redshift_bin, datapath):
 
     vel_data_allqso = []
     norm_flux_allqso = []
-    ivar_allqso = []
+    norm_ivar_allqso = []
     norm_std_allqso = []
     master_mask_allqso = []
     master_mask_allqso_mask_cgm = []
@@ -244,7 +237,7 @@ def init_dataset(nqso, redshift_bin, datapath):
         norm_std_allqso.append(norm_std)
         vel_data_allqso.append(vel_data)
         norm_flux_allqso.append(norm_flux)
-        ivar_allqso.append(ivar)
+        norm_ivar_allqso.append(norm_ivar)
 
         # do not apply any mask before CGM masking to keep the data dimension the same
         # for the purpose of forward modeling; all masks will be applied during the CF computation
@@ -274,10 +267,10 @@ def init_dataset(nqso, redshift_bin, datapath):
         master_mask_allqso_mask_cgm.append(master_mask * gpm_allspec)
 
     #return vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, norm_flux_allqso
-    return vel_data_allqso, norm_flux_allqso, norm_std_allqso, ivar_allqso, \
+    return vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, \
            master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso
 
-def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
+def mock_mean_covar_old(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
                     given_bins, seed=None):
 
@@ -287,9 +280,9 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
     xi_mock_ncopy_noiseless = []
     w_mock_ncopy = []
     w_mock_ncopy_noiseless = []
+    w_mock_nskew_ncopy_allqso = []
 
-    #for iqso in range(nqso_to_use):
-    for iqso in range(2):
+    for iqso in range(nqso_to_use):
         vel_data = vel_data_allqso[iqso]
         norm_std = norm_std_allqso[iqso]
         master_mask = master_mask_allqso[iqso]
@@ -303,7 +296,7 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
             vel_lores = vel_lores_mosfire_interp
             flux_lores = flux_lores_mosfire_interp
 
-        # generate mock data spectrum
+        # generate mock data spectrum (0.3 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 on my Mac)
         start = time.process_time()
         vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew = \
             forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, ncovar, seed=rand,
@@ -312,20 +305,20 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
         print("      iqso = ", iqso)
         print("         forward models done in .... ", (end - start))# / 60, " min")
 
-        # compute the 2PCF
-        #norm_std_chunk = reshape_data_array(norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
         norm_std_chunk = reshape_data_array(std_corr * norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
         norm_ivar_chunk = 1 / (norm_std_chunk ** 2)
+        weights_in = None #norm_ivar_chunk
 
+        # compute the 2PCF (5 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 skewers on my Mac)
         start = time.process_time()
         vel_mid, xi_onespec_ncopy, w_xi = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, weights_in=norm_ivar_chunk, mask_chunk=master_mask_chunk)
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk)
         end = time.process_time()
         print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
 
         start = time.process_time()
         vel_mid, xi_onespec_ncopy_noiseless, w_xi_noiseless = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, weights_in=norm_ivar_chunk, mask_chunk=master_mask_chunk)
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk)
         end = time.process_time()
         print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
 
@@ -337,11 +330,13 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
         w_mock_ncopy.append(np.sum(w_xi, axis=1)) # summing the weights over nskew axis
         w_mock_ncopy_noiseless.append(np.sum(w_xi_noiseless, axis=1)) # summing the weights over nskew axis
 
+        w_mock_nskew_ncopy_allqso.append(w_xi)
+
     # cast all into np arrays
     vel_mid = np.array(vel_mid)
     xi_mock_ncopy = np.array(xi_mock_ncopy) # (nqso, ncopy, ncorr)
     xi_mock_ncopy_noiseless = np.array(xi_mock_ncopy_noiseless)
-    scale = 1e6
+    scale = 1#1e6
     w_mock_ncopy = np.array(w_mock_ncopy)/scale # (nqso, ncopy, ncorr)
     w_mock_ncopy_noiseless = np.array(w_mock_ncopy_noiseless)/scale  # (nqso, ncopy, ncorr)
 
@@ -366,16 +361,135 @@ def mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, mas
     covar /= ncovar
 
     # weights = np.array(w_mock_ncopy / np.sum(w_mock_ncopy, axis=0))
-    return xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless
+    return xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso
+
+def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
+                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
+                    given_bins, seed=None):
+
+    rand = np.random.RandomState(seed) if seed is None else seed
+
+    xi_mock_ncopy = []
+    xi_mock_ncopy_noiseless = []
+    w_mock_ncopy = []
+    w_mock_ncopy_noiseless = []
+    w_mock_nskew_ncopy_allqso = []
+
+    for iqso in range(nqso_to_use):
+        vel_data = vel_data_allqso[iqso]
+        norm_std = norm_std_allqso[iqso]
+        master_mask = master_mask_allqso[iqso]
+        std_corr = corr_all[iqso]
+        instr = instr_allqso[iqso]
+
+        if instr == 'nires':
+            vel_lores = vel_lores_nires_interp
+            flux_lores = flux_lores_nires_interp
+        elif instr == 'mosfire':
+            vel_lores = vel_lores_mosfire_interp
+            flux_lores = flux_lores_mosfire_interp
+
+        # generate mock data spectrum (0.3 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 on my Mac)
+        start = time.process_time()
+        vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew = \
+            forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux_lores, nmock, seed=rand,
+                                        std_corr=std_corr)
+        end = time.process_time()
+        print("      iqso = ", iqso)
+        print("         forward models done in .... ", (end - start))# / 60, " min")
+
+        norm_std_chunk = reshape_data_array(std_corr * norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
+        norm_ivar_chunk = 1 / (norm_std_chunk ** 2)
+        weights_in = norm_ivar_chunk
+
+        # compute the 2PCF (5 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 skewers on my Mac)
+        start = time.process_time()
+        vel_mid, xi_onespec_ncopy, w_xi = \
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk)
+        end = time.process_time()
+        print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
+
+        start = time.process_time()
+        vel_mid, xi_onespec_ncopy_noiseless, w_xi_noiseless = \
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk)
+        end = time.process_time()
+        print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
+
+        xi_mock_onespec_ncopy = np.average(xi_onespec_ncopy, axis=1, weights=w_xi)  # averaging over nskew to get CF of onespec
+        xi_mock_onespec_noiseless_ncopy = np.average(xi_onespec_ncopy_noiseless, axis=1, weights=w_xi_noiseless)  # same for noiseless onespec
+
+        xi_mock_ncopy.append(xi_mock_onespec_ncopy)
+        xi_mock_ncopy_noiseless.append(xi_mock_onespec_noiseless_ncopy)
+        w_mock_ncopy.append(np.sum(w_xi, axis=1)) # summing the weights over nskew axis
+        w_mock_ncopy_noiseless.append(np.sum(w_xi_noiseless, axis=1)) # summing the weights over nskew axis
+
+        w_mock_nskew_ncopy_allqso.append(w_xi)
+
+    # cast all into np arrays
+    vel_mid = np.array(vel_mid)
+    xi_mock_ncopy = np.array(xi_mock_ncopy) # (nqso, ncopy, ncorr)
+    xi_mock_ncopy_noiseless = np.array(xi_mock_ncopy_noiseless)
+
+    w_mock_ncopy = np.array(w_mock_ncopy)/scale_weight # (nqso, ncopy, ncorr)
+    w_mock_ncopy_noiseless = np.array(w_mock_ncopy_noiseless)/scale_weight  # (nqso, ncopy, ncorr)
+
+    # average over nqso with noiseless CF, then average over ncopy, to get model CF
+    xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=w_mock_ncopy_noiseless)  # (ncopy, ncorr)
+    xi_mean = np.mean(xi_mean_ncopy, axis=0)  # average over ncopy
+
+    nqso, nmock, ncorr = np.shape(xi_mock_ncopy)
+    ncorr = xi_mean.shape[0]
+    covar = np.zeros((ncorr, ncorr))
+    xi_mock_keep = np.zeros((nmock, ncorr))
+
+    """
+    xi_mean_ncopy2 = []
+    for icovar in range(ncovar):
+        xi_mock_ncopy_noiseless2 = []  # (nqso, ncopy, ncorr)
+        w_mock_ncopy_noiseless2 = []
+
+        ran_imock = rand.choice(nmock, replace=True, size=8)
+        for i in range(8):
+            xi_mock_ncopy_noiseless2.append(xi_mock_ncopy_noiseless[i][ran_imock[i]])
+            w_mock_ncopy_noiseless2.append(w_mock_ncopy_noiseless[i][ran_imock[i]])
+
+        xitmp = np.average(xi_mock_ncopy_noiseless2, axis=0, weights=w_mock_ncopy_noiseless2)
+        xi_mean_ncopy2.append(xitmp) # ncovar, corr
+
+    print("====== xi_mean_ncopy2", np.shape(xi_mean_ncopy2))
+    xi_mean2 = np.mean(xi_mean_ncopy2, axis=0)
+    """
+
+    start = time.process_time()
+    for icovar in range(ncovar):
+        xi = []
+        w = []
+        ran_imock = rand.choice(nmock, replace=True, size=nqso)
+        for i in range(nqso):
+            xi.append(xi_mock_ncopy[i][ran_imock[i]])
+            w.append(w_mock_ncopy[i][ran_imock[i]])
+
+        xi_mock_icovar = np.average(xi, axis=0, weights=w)
+        delta_xi = xi_mock_icovar - xi_mean
+        covar += np.outer(delta_xi, delta_xi)  # off-diagonal elements
+
+        if icovar < nmock:
+            xi_mock_keep[icovar, :] = xi_mock_icovar
+
+    # Divid by ncovar since we estimated the mean from "independent" data
+    covar /= ncovar
+    end = time.process_time()
+    print("         ncovar loop done in .... ", (end - start))  # / 60, " min") # 1 min
+
+    # weights = np.array(w_mock_ncopy / np.sum(w_mock_ncopy, axis=0))
+    return xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso
 
 ########################## running the grid #############################
-import time
 def compute_model(args):
     # compute CF and covariance of mock dataset at each point of model grid
     # args: tuple of arguments from parser
 
     ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso = args
-
     rantaufile = os.path.join(xhi_path, 'ran_skewers_' + zstr + '_OVT_' + 'xHI_{:4.2f}'.format(xHI) + '_tau.fits')
     params = Table.read(rantaufile, hdu=1)
     skewers = Table.read(rantaufile, hdu=2)
@@ -383,7 +497,7 @@ def compute_model(args):
     rand = np.random.RandomState(master_seed)
 
     start = time.process_time()
-    # NIRES fwhm and sampling
+    # NIRES fwhm and sampling (18 sec for 10,000 skewers on my Mac)
     vel_lores_nires, flux_lores_nires = utils.create_mgii_forest(params, skewers, logZ, nires_fwhm, sampling=nires_sampling, mockcalc=True)
     end = time.process_time()
     print("      NIRES mocks done in .... ", (end - start))# / 60, " min")
@@ -394,7 +508,7 @@ def compute_model(args):
     end = time.process_time()
     print("      MOSFIRE mocks done in .... ", (end - start))# / 60, " min")
 
-    # interpolate flux lores to dv=40 (nyx)
+    # interpolate flux lores to dv=40 (nyx); ~0.13 sec for 10,000 skewers on my Mac
     start = time.process_time()
     dv_coarse = 40
     vel_lores_nires_interp = np.arange(vel_lores_nires[0], vel_lores_nires[-1], dv_coarse)
@@ -415,15 +529,15 @@ def compute_model(args):
     del flux_lores_mosfire
 
     start = time.process_time()
-    xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless = mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
+    xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso = \
+        mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, given_bins, seed=rand)
-
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
     end = time.process_time()
     print("      mock_mean_covar done in .... ", (end - start))# / 60, " min")
 
-    return ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless
+    return ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso
 
 
 def test_compute_model():
@@ -433,16 +547,16 @@ def test_compute_model():
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
-    ncovar = 10
+    ncovar = 100
     nmock = 10
     master_seed = 99991
-    logZ = -3
-    redshift_bin = 'low'
+    logZ = -3.5
+    redshift_bin = 'all'
 
     vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(8, redshift_bin, datapath)
-    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
+    args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso_mask_cgm, instr_allqso
     output = compute_model(args)
-    ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless = output
+    #ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso = output
 
     return output
 
@@ -487,23 +601,27 @@ def main():
     logZ_vec = np.linspace(logZ_min, logZ_max, nlogZ)
 
     # Read grid of neutral fractions from the 21cm fast xHI fields
-    xhi_val, xhi_boxes = utils.read_xhi_boxes() # len(xhi_val) = 51, with d_xhi = 0.02
+    #xhi_val, xhi_boxes = utils.read_xhi_boxes() # len(xhi_val) = 51, with d_xhi = 0.02
     #xhi_val = xhi_val[0:2] # testing for production run
+    xhi_val = np.array([0.2, 0.9])
     nhi = xhi_val.shape[0]
 
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
     outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/8qso/'
+    outpath = '/Users/suksientie/Research/MgII_forest/'
     outfilename = 'corr_func_models_{:s}'.format(redshift_bin) + '_ivarweights.fits'
     outfile = os.path.join(outpath, outfilename)
 
-    xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'
+    #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/'
+    xhi_path = '/Users/suksientie/Research/MgII_forest'
     files = glob.glob(os.path.join(xhi_path, '*_tau.fits'))
     params = Table.read(files[0], hdu=1)
 
     vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(nqso_to_use, redshift_bin, datapath)
 
-    args = xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
+    #args = xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso
+    args = xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso_mask_cgm, instr_allqso
     all_args = []
     seed_vec = np.full(nhi*nlogZ, seed) # same seed for each CPU process
 
@@ -520,7 +638,7 @@ def main():
     #output = pool.starmap(compute_model, all_args)
 
     # Allocate the arrays to hold everything
-    ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet = output[0] # ihi and iZ not actually used and simply returned as outputs
+    ihi, iZ, vel_mid, xi_mock, xi_mean, covar, icovar, logdet, _, _, _ = output[0] # ihi and iZ not actually used and simply returned as outputs
     ncorr = vel_mid.shape[0]
     xi_mock_array = np.zeros((nhi, nlogZ,) + xi_mock.shape)
     xi_mean_array = np.zeros((nhi, nlogZ,) + xi_mean.shape)

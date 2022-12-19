@@ -35,7 +35,6 @@ everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
 exclude_restwave = 1216 - 1185
 median_z = 6.50
 corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
-#corr_all = np.ones(len(qso_zlist))
 
 vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
 
@@ -58,7 +57,6 @@ def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_s
 
     return lowz_fit_gpm, highz_fit_gpm, allz_fit_gpm
 
-"""
 def check_onespec(iqso, redshift_bin, given_bins):
 
     raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin)
@@ -96,7 +94,7 @@ def check_onespec(iqso, redshift_bin, given_bins):
                                                                     given_bins=given_bins, gpm=all_masks)
 
     print(xi_tot2 / xi_tot1)
-"""
+    return vel_mid, npix_tot1, npix_tot2
 
 def onespec_old(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given_bins=None, ivar_weights=False):
 
@@ -233,8 +231,8 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
-    #ivar *= (fluxfit**2) # normalize by cont
-    #ivar *= (1/std_corr**2) # apply correction
+    ivar *= (fluxfit**2) # normalize by cont
+    ivar *= (1/std_corr**2) # apply correction
 
     ###### CF from not masking CGM ######
     all_masks = master_mask
@@ -341,18 +339,26 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     weights_unmasked = []
     weights_masked = []
 
-    # everyn = 20 (all-z, high-z, low-z)
-    # weighted global mean
-    fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758] #[0.9943517891999819, 0.9978242883496282, 0.9917724407614039]
-    fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441] #[1.000820992353624, 1.000761545084083, 1.0008670981617191]
+    # everyn = 20 (all-z, high-z, low-z); # weighted global mean
+    # un-normalized ivar
+    #fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758]
+    #fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441]
+    fmean_global_unmask = [0.9943517891999819, 0.9978242883496282, 0.9917724407614039]
+    fmean_global_mask = [1.000820992353624, 1.000761545084083, 1.0008670981617191]
 
-    # everyn = 40 (all-z, high-z, low-z)
-    # weighted global mean
-    #fmean_global_unmask = [0.9957411336527912, 0.998022913883487, 0.9937233923222423] #[0.9942360438983243, 0.9978950422789197, 0.9915202604038694]
-    #fmean_global_mask = [1.0015955926876943, 1.0016205184145572, 1.001573004313652] #[1.0008964733628911, 1.000945347462494, 1.0008585801971037]
+    # everyn = 40 (all-z, high-z, low-z); # weighted global mean
+    # un-normalized ivar
+    #fmean_global_unmask = [0.9957411336527912, 0.998022913883487, 0.9937233923222423]
+    #fmean_global_mask = [1.0015955926876943, 1.0016205184145572, 1.001573004313652]
+    #fmean_global_unmask = [0.9942360438983243, 0.9978950422789197, 0.9915202604038694]
+    #fmean_global_mask = [1.0008964733628911, 1.000945347462494, 1.0008585801971037]
 
-    fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758]
-    fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441]
+    # everyn = 60 (all-z, high-z, low-z)
+    # un-normalized ivar
+    #fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758]
+    #fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441]
+    fmean_global_unmask = [0.9945437229984158, 0.9986658355772385, 0.9914894025444619]
+    fmean_global_mask = [1.0013868138771054, 1.0019725509921347, 1.0009292561522118]
 
     if redshift_bin == 'all':
         i_fmean = 0
@@ -367,7 +373,7 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
         #vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask, _, _ = onespec_old(iqso, redshift_bin, cgm_fit_gpm_all[iqso], plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
-        vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], fmean_unmask, fmean_mask, plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=True)
+        vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], fmean_unmask, fmean_mask, plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
 
         xi_unmask_all.append(xi_unmask)
         xi_mask_all.append(xi_mask)
@@ -378,7 +384,7 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
         weights_unmasked.append(w_tot.squeeze())
         weights_masked.append(w_tot_chimask.squeeze())
 
-    scale = 1e6
+    scale = 1#1e6
     weights_masked = np.array(weights_masked)/scale
     weights_unmasked = np.array(weights_unmasked)/scale
 
