@@ -48,7 +48,8 @@ ax_plot = axes.flatten()
 ymin, ymax = -0.5, 8
 xmin, xmax = -10, 62000
 
-savefig = 'paper_plots/8qso/forward_model_specs.pdf'
+redshift_bin = 'high'
+savefig = 'paper_plots/8qso/forward_model_specs_%sz.pdf' % redshift_bin
 #savefig = None
 
 ###################### fixed data variables ######################
@@ -74,8 +75,9 @@ ncovar = 5 # just mocking for plots
 
 ###################### forward models ######################
 nqso = 8
-redshift_bin = 'all'
-vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, norm_flux_allqso = cmg8.init_dataset(nqso, redshift_bin, datapath)
+#vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, norm_flux_allqso = cmg8.init_dataset(nqso, redshift_bin, datapath)
+vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = cmg8.init_dataset(
+    8, redshift_bin, datapath)
 
 rantaufile = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
 params = Table.read(rantaufile, hdu=1)
@@ -104,7 +106,7 @@ iplot = 0
 for iqso in iqso_to_use:
     vel_data = vel_data_allqso[iqso]
     norm_std = norm_std_allqso[iqso]
-    master_mask = master_mask_allqso[iqso]
+    master_mask = master_mask_allqso_mask_cgm[iqso]
     std_corr = corr_all[iqso]
     instr = instr_allqso[iqso]
     norm_flux = norm_flux_allqso[iqso]
@@ -154,5 +156,6 @@ for iqso in iqso_to_use:
 if savefig is not None:
     plt.savefig(savefig)
 
-plt.show()
+else:
+    plt.show()
 plt.close()

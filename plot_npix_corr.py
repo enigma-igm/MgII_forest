@@ -54,12 +54,9 @@ for iqso in range(nqso):
     plt.xlabel('vel')
     plt.ylabel('npixpair_corr')
 
-    ratio = w_masked[iqso]/w_mock_ncopy[iqso][imock]
-    #print(ratio)
-
     for iskew in range(nskew):
-        if np.sum(w_mock_qso[iskew]) > 0:
-            plt.plot(vel_mid, w_mock_qso[iskew], alpha=0.5)#, label='iskew %d' % iskew)
+        #if np.sum(w_mock_qso[iskew]) > 0:
+        plt.plot(vel_mid, w_mock_qso[iskew], alpha=0.5)#, label='iskew %d' % iskew)
 
     plt.tight_layout()
     plt.legend(loc=2, fontsize=8)
@@ -76,7 +73,6 @@ for iqso in range(nqso):
     ratio = w_masked[iqso]/(w_mock_ncopy[iqso][imock])
     # print(ratio)
 
-    #plt.subplot(2,4,iqso+1)
     plt.plot(vel_mid, np.sqrt(ratio), label=qso_namelist[iqso])
     plt.xlabel('vel')
     plt.ylabel('sqrt(npair_data/npair_mock)')
