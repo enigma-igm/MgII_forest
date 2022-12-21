@@ -150,33 +150,6 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
 
     return vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk, nskew_to_match_data, npix_sim_skew
 
-def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, given_bins, mask_chunk=None):
-    # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
-
-    vmin_corr, vmax_corr, dv_corr = 0, 0, 0  # dummy values since using custom binning, but still required arguments for compute_xi
-
-    ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
-    # compress ncopy and nskew dimensions together because compute_xi() only takes in 2D arrays
-    # (tried keeping the original 3D array and looping over ncopy when compute_xi(), but loop process too slow, sth like 1.4 min per 100 copy)
-    reshaped_flux = np.reshape(noisy_flux_lores_ncopy, (ncopy * nskew, npix))
-
-    if mask_chunk is not None:
-        mask_ncopy = np.tile(mask_chunk, (ncopy, 1, 1))
-        mask_ncopy = np.reshape(mask_ncopy, (ncopy * nskew, npix))
-        mean_flux = np.nanmean(reshaped_flux[mask_ncopy])
-    else:
-        mask_ncopy = None
-        mean_flux = np.nanmean(reshaped_flux)
-
-    delta_f = (reshaped_flux - mean_flux)/mean_flux
-    (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, \
-                                                                     given_bins=given_bins, gpm=mask_ncopy)
-
-    # reshape xi_mock into the original input shape
-    xi_mock = np.reshape(xi_mock, (ncopy, nskew, len(vel_mid)))
-    npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
-    return vel_mid, xi_mock, npix_xi
-
 def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, given_bins, weights_in=None, mask_chunk=None):
     # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
 
@@ -261,12 +234,32 @@ def init_dataset(nqso, redshift_bin, datapath):
         #######
         tmp_mask = pz_mask * zbin_mask
 
+        """
         norm_std_allqso.append(norm_std[tmp_mask])
         vel_data_allqso.append(vel_data[tmp_mask])
         norm_flux_allqso.append(norm_flux[tmp_mask])
         norm_ivar_allqso.append(norm_ivar[tmp_mask])
         master_mask_allqso.append(master_mask[tmp_mask])
         master_mask_allqso_mask_cgm.append((master_mask * gpm_allspec)[tmp_mask])
+        """
+
+        boost = 1.28
+        npix_more = int(len(vel_data[tmp_mask])*boost - len(vel_data[tmp_mask]))
+
+        new_vel = vel_data[tmp_mask].tolist() + np.arange(vel_data[tmp_mask][-1] + 40, (vel_data[tmp_mask][-1] + 40) + 40*npix_more, 40).tolist()
+        #new_vel = np.arange(vel_data[tmp_mask][0], vel_data[0] + 40*int(len(vel_data[tmp_mask])*1.3), 40)
+        new_norm_std = norm_std[tmp_mask].tolist() + norm_std[tmp_mask][0:npix_more].tolist()
+        new_norm_flux = norm_flux[tmp_mask].tolist() + norm_flux[tmp_mask][0:npix_more].tolist()
+        new_norm_ivar = norm_ivar[tmp_mask].tolist() + norm_ivar[tmp_mask][0:npix_more].tolist()
+        new_master_mask = master_mask[tmp_mask].tolist() + master_mask[tmp_mask][0:npix_more].tolist()
+        new_master_mask_cgm = (master_mask * gpm_allspec)[tmp_mask].tolist() + (master_mask * gpm_allspec)[tmp_mask][0:npix_more].tolist()
+
+        norm_std_allqso.append(np.array(new_norm_std))
+        vel_data_allqso.append(np.array(new_vel))
+        norm_flux_allqso.append(np.array(new_norm_flux))
+        norm_ivar_allqso.append(np.array(new_norm_ivar))
+        master_mask_allqso.append(np.array(new_master_mask))
+        master_mask_allqso_mask_cgm.append(np.array(new_master_mask_cgm))
 
     return vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, \
            master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso
@@ -456,11 +449,11 @@ def test_compute_model():
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
     xHI = 0.50
-    ncovar = 100
+    ncovar = 10
     nmock = 10
     master_seed = 99991
     logZ = -3.5
-    redshift_bin = 'high'
+    redshift_bin = 'all'
 
     vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(8, redshift_bin, datapath)
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso_mask_cgm, instr_allqso
@@ -739,3 +732,30 @@ def mock_mean_covar_old(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso,
 
     # weights = np.array(w_mock_ncopy / np.sum(w_mock_ncopy, axis=0))
     return xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso
+
+def compute_cf_onespec_chunk(vel_lores, noisy_flux_lores_ncopy, given_bins, mask_chunk=None):
+    # "mask" is any mask, not necessarily cgm mask; need to be of shape (nskew, npix), use the reshape_data_array() function above
+
+    vmin_corr, vmax_corr, dv_corr = 0, 0, 0  # dummy values since using custom binning, but still required arguments for compute_xi
+
+    ncopy, nskew, npix = np.shape(noisy_flux_lores_ncopy)
+    # compress ncopy and nskew dimensions together because compute_xi() only takes in 2D arrays
+    # (tried keeping the original 3D array and looping over ncopy when compute_xi(), but loop process too slow, sth like 1.4 min per 100 copy)
+    reshaped_flux = np.reshape(noisy_flux_lores_ncopy, (ncopy * nskew, npix))
+
+    if mask_chunk is not None:
+        mask_ncopy = np.tile(mask_chunk, (ncopy, 1, 1))
+        mask_ncopy = np.reshape(mask_ncopy, (ncopy * nskew, npix))
+        mean_flux = np.nanmean(reshaped_flux[mask_ncopy])
+    else:
+        mask_ncopy = None
+        mean_flux = np.nanmean(reshaped_flux)
+
+    delta_f = (reshaped_flux - mean_flux)/mean_flux
+    (vel_mid, xi_mock, npix_xi, xi_mock_zero_lag) = utils.compute_xi(delta_f, vel_lores, vmin_corr, vmax_corr, dv_corr, \
+                                                                     given_bins=given_bins, gpm=mask_ncopy)
+
+    # reshape xi_mock into the original input shape
+    xi_mock = np.reshape(xi_mock, (ncopy, nskew, len(vel_mid)))
+    npix_xi = np.reshape(npix_xi, (ncopy, nskew, len(vel_mid)))
+    return vel_mid, xi_mock, npix_xi

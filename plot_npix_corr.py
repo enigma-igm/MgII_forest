@@ -61,6 +61,7 @@ for iqso in range(nqso):
     plt.tight_layout()
     plt.legend(loc=2, fontsize=8)
 plt.show()
+#so that sort of on average you have roughly the same S/N as measured by that ratio
 
 #######
 imock = 0
@@ -73,7 +74,7 @@ for iqso in range(nqso):
     ratio = w_masked[iqso]/(w_mock_ncopy[iqso][imock])
     # print(ratio)
 
-    plt.plot(vel_mid, np.sqrt(ratio), label=qso_namelist[iqso])
+    plt.plot(vel_mid, np.sqrt(ratio), 'o-', label=qso_namelist[iqso])
     plt.xlabel('vel')
     plt.ylabel('sqrt(npair_data/npair_mock)')
 
