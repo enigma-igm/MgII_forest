@@ -55,7 +55,7 @@ nqso = 8
 
 given_bins = compute_cf_data.custom_cf_bin4(dv1=80)
 
-def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
+def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None):
     # vel_lores = np.load('vel_lores_nyx.npy')
 
     # options for redshift_bin: 'all', 'low', 'high'
@@ -71,29 +71,33 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
     xhi_data, logZ_data = 0.5, -3.50  # bogus numbers
     seed_list = [None] * nqso
 
-    # using the chunked data for the MCMC...
-    #cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/') # only CGM masks, other masks added later in ccf.onespec_chunk
-    #vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(nqso, cgm_fit_gpm_all, redshift_bin, vel_lores, given_bins=given_bins)
+    if xi_mean_data is None:
+        # using the chunked data for the MCMC...
+        #cgm_fit_gpm_all, _ = cmg.init_cgm_masking(redshift_bin, datapath='/Users/suksientie/Research/data_redux/') # only CGM masks, other masks added later in ccf.onespec_chunk
+        #vel_mid, xi_mean_unmask, xi_mean_mask = compute_cf_data.allspec_chunk(nqso, cgm_fit_gpm_all, redshift_bin, vel_lores, given_bins=given_bins)
 
-    # using the data in its original format for MCMC
-    #lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm()
-    lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm(do_not_apply_any_mask=True)
-    if redshift_bin == 'low':
-        cgm_fit_gpm_all = lowz_cgm_fit_gpm
-    elif redshift_bin == 'high':
-        cgm_fit_gpm_all = highz_cgm_fit_gpm
-    elif redshift_bin == 'all':
-        cgm_fit_gpm_all = allz_cgm_fit_gpm
+        # using the data in its original format for MCMC
+        #lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm()
+        lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = compute_cf_data.init_cgm_fit_gpm(do_not_apply_any_mask=True)
+        if redshift_bin == 'low':
+            cgm_fit_gpm_all = lowz_cgm_fit_gpm
+        elif redshift_bin == 'high':
+            cgm_fit_gpm_all = highz_cgm_fit_gpm
+        elif redshift_bin == 'all':
+            cgm_fit_gpm_all = allz_cgm_fit_gpm
 
-    #iqso_to_use = range(3, nqso)
-    #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins, iqso_to_use=iqso_to_use)
+        #iqso_to_use = range(3, nqso)
+        #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins, iqso_to_use=iqso_to_use)
 
-    vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _, _, _  = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=True)
-    #import cf_chunk_check as ccc
-    #vel_mid, xi_avg, xi_avg_chunk = ccc.check_allspec()
-    #xi_mean_mask = xi_avg_chunk
+        vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _, _, _  = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, \
+                                                plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=False)
+        #import cf_chunk_check as ccc
+        #vel_mid, xi_avg, xi_avg_chunk = ccc.check_allspec()
+        #xi_mean_mask = xi_avg_chunk
 
-    xi_data = xi_mean_mask
+        xi_data = xi_mean_mask
+    else:
+        xi_data = xi_mean_data
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
 
     # Interpolate the likelihood onto a fine grid to speed up the MCMC
@@ -124,8 +128,9 @@ def init(modelfile, redshift_bin, figpath, given_bins, vel_lores=None):
 
     # Make a 2d surface plot of the likelhiood
     logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
-    lnlikefile = figpath + redshift_bin + 'z_lnlike.pdf'
-    inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
+    if figpath is not None:
+        lnlikefile = figpath + redshift_bin + 'z_lnlike.pdf'
+        inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
 
     fine_out = xhi_fine, logZ_fine, lnlike_fine, xi_model_fine
     coarse_out = xhi_coarse, logZ_coarse, lnlike_coarse
@@ -207,8 +212,8 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
     chi2_func = lambda *args: -2 * inference.lnprob(*args)
     logZ_fine_min = logZ_fine.min()
     logZ_fine_max = logZ_fine.max()
-    #bounds = [(0.0,1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.95, 1.0), (0.0, np.power(10.0,logZ_fine_max))]
-    bounds = [(0.0, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.0, 1.0), (0.0, np.power(10.0, logZ_fine_max))]
+    bounds = [(0.8, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.8, 1.0), (0.0, np.power(10.0,logZ_fine_max))]
+    #bounds = [(0.0, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.0, 1.0), (0.0, np.power(10.0, logZ_fine_max))]
     print("bounds", bounds)
     args = (lnlike_fine, xhi_fine, logZ_fine, linearZprior)
     result_opt = optimize.differential_evolution(chi2_func,bounds=bounds, popsize=25, recombination=0.7,
@@ -216,10 +221,10 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
     ndim = 2 # xhi and logZ
 
     # initialize walkers about the maximum within a ball of 1% of the parameter domain
-    #pos = [[np.clip(result_opt.x[i] + 1e-2*(bounds[i][1] - bounds[i][0])*rand.randn(1)[0],bounds[i][0],bounds[i][1]) for i in range(ndim)] for i in range(nwalkers)]
+    pos = [[np.clip(result_opt.x[i] + 1e-2*(bounds[i][1] - bounds[i][0])*rand.randn(1)[0],bounds[i][0],bounds[i][1]) for i in range(ndim)] for i in range(nwalkers)]
     # randomly initialize walkers
-    print("random initialize walkers")
-    pos = [[bounds[i][0] + (bounds[i][1] - bounds[i][0])*rand.rand(1)[0] for i in range(ndim)] for i in range(nwalkers)]
+    #print("random initialize walkers")
+    #pos = [[bounds[i][0] + (bounds[i][1] - bounds[i][0])*rand.rand(1)[0] for i in range(ndim)] for i in range(nwalkers)]
 
     # I think this seeds the random number generator which will make the emcee results reproducible. Create an issue on this
     np.random.seed(rand.randint(0,seed, size=1)[0])
@@ -314,7 +319,8 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
 
 ################################## plotting ##################################
 def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
-                  corrfile, nrand=50, rand=None, save_xi_err=None):
+                  corrfile, nrand=50, rand=None, save_xi_err=None, vel_mid_compare=None, xi_mean_compare=None, \
+                  label_compare=None, plot_draws=True, inferred_model='mean'):
 
     # adapted from enigma.reion_forest.inference.corrfunc_plot
     if rand is None:
@@ -332,7 +338,10 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     vmin, vmax = 0.4*vel_corr.min(), 1.02*vel_corr.max()
     # Compute the mean model from the samples
     xi_model_samp = inference.xi_model(samples, xhi_fine, logZ_fine, xi_model_fine)
-    xi_model_mean = np.mean(xi_model_samp, axis=0)
+    if inferred_model == 'mean':
+        xi_model_mean = np.mean(xi_model_samp, axis=0)
+    elif inferred_model == 'median':
+        xi_model_mean = np.median(xi_model_samp, axis=0)
     # Compute the covariance at the mean model
     theta_mean = np.mean(samples,axis=0)
     # Average the diagonal instead?
@@ -345,8 +354,10 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     # Grab some realizations
     imock = rand.choice(np.arange(samples.shape[0]), size=nrand)
     xi_model_rand = xi_model_samp[imock, :]
-    ymin = factor*np.min(xi_data - 1.3*xi_err)
-    ymax = factor*np.max(xi_data + 1.6*xi_err )
+    #ymin = factor*np.min(xi_data - 1.3*xi_err)
+    #ymax = factor*np.max(xi_data + 1.6*xi_err )
+    ymin = factor * -0.00055
+    ymax = factor * 0.00055
 
     axis.set_xlabel(r'$\Delta v$ (km/s)', fontsize=26)
     axis.set_ylabel(r'$\xi(\Delta v)\times 10^5$', fontsize=26, labelpad=-4)
@@ -357,6 +368,8 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
                   capsize=4,
                   mec='none', ls='none', label='data', zorder=20)
     axis.plot(vel_corr, factor*xi_model_mean, linewidth=2.0, color='red', zorder=10, label='inferred model')
+    if vel_mid_compare is not None:
+        axis.plot(vel_mid_compare, factor * xi_mean_compare, linewidth=2.0, color='blue', zorder=10, label=label_compare)
 
     #true_xy = (vmin + 0.44*(vmax-vmin), 0.60*ymax)
     #xhi_xy  = (vmin + 0.385*(vmax-vmin), 0.52*ymax)
@@ -387,9 +400,10 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     axis.annotate(xhi_label, xy=xhi_xy, xytext=xhi_xy, textcoords='data', xycoords='data', color='red', annotation_clip=False,fontsize=16, zorder=25)
     axis.annotate(logZ_label, xy=Z_xy, xytext=Z_xy, textcoords='data', xycoords='data', color='red', annotation_clip=False,fontsize=16, zorder=25)
 
-    for ind in range(nrand):
-        label = 'posterior draws' if ind == 0 else None
-        axis.plot(vel_corr, factor*xi_model_rand[ind, :], linewidth=0.5, color='cornflowerblue', alpha=0.7, zorder=0, label=label)
+    if plot_draws:
+        for ind in range(nrand):
+            label = 'posterior draws' if ind == 0 else None
+            axis.plot(vel_corr, factor*xi_model_rand[ind, :], linewidth=0.5, color='cornflowerblue', alpha=0.7, zorder=0, label=label)
 
     axis.tick_params(right=True, which='both')
     axis.minorticks_on()
@@ -428,11 +442,141 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     axis.legend(fontsize=16)
 
     fx.tight_layout()
+    plt.show()
     fx.savefig(corrfile)
     plt.close()
-    #plt.show()
 
-def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=None, plot_covar=False):
+def corrfunc_plot_jwst(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
+                  corrfile, nrand=50, rand=None, save_xi_err=None, vel_mid_compare=None, xi_mean_compare=None, \
+                  label_compare=None, plot_draws=True, inferred_model='mean'):
+
+    # adapted from enigma.reion_forest.inference.corrfunc_plot
+    if rand is None:
+        rand = np.random.RandomState(1234)
+
+    factor = 1e5
+    fx = plt.figure(1, figsize=(12, 9))
+    # left, bottom, width, height
+    rect = [0.12, 0.12, 0.84, 0.75]
+    axis = fx.add_axes(rect)
+    vel_corr = params['vel_mid'].flatten()
+    #vel_min = params['vmin_corr']
+    #vel_max = params['vmax_corr']
+
+    vmin, vmax = 0.4*vel_corr.min(), 1.02*vel_corr.max()
+    # Compute the mean model from the samples
+    xi_model_samp = inference.xi_model(samples, xhi_fine, logZ_fine, xi_model_fine)
+    if inferred_model == 'mean':
+        xi_model_mean = np.mean(xi_model_samp, axis=0)
+    elif inferred_model == 'median':
+        xi_model_mean = np.median(xi_model_samp, axis=0)
+    # Compute the covariance at the mean model
+    theta_mean = np.mean(samples,axis=0)
+    # Average the diagonal instead?
+    covar_mean = inference.covar_model(theta_mean, xhi_coarse, logZ_coarse, covar_array)
+    xi_err = np.sqrt(np.diag(covar_mean))
+
+    if save_xi_err is not None:
+        np.save(save_xi_err, xi_err)
+
+    # Grab some realizations
+    imock = rand.choice(np.arange(samples.shape[0]), size=nrand)
+    xi_model_rand = xi_model_samp[imock, :]
+    #ymin = factor*np.min(xi_data - 1.3*xi_err)
+    #ymax = factor*np.max(xi_data + 1.6*xi_err )
+    ymin = factor * -0.00055
+    ymax = factor * 0.00055
+
+    axis.set_xlabel(r'$\Delta v$ (km/s)', fontsize=26)
+    axis.set_ylabel(r'$\xi(\Delta v)\times 10^5$', fontsize=26, labelpad=-4)
+    axis.tick_params(axis="x", labelsize=16)
+    axis.tick_params(axis="y", labelsize=16)
+
+    axis.errorbar(vel_corr, factor*xi_data, yerr=factor*xi_err, marker='o', ms=6, color='black', ecolor='black', capthick=2,
+                  capsize=4,
+                  mec='none', ls='none', label='data', zorder=20)
+    #axis.plot(vel_corr, factor*xi_model_mean, linewidth=2.0, color='red', zorder=10, label='inferred model')
+    if vel_mid_compare is not None:
+        axis.plot(vel_mid_compare, factor * xi_mean_compare, linewidth=2.0, color='blue', zorder=10, label=label_compare)
+
+    #true_xy = (vmin + 0.44*(vmax-vmin), 0.60*ymax)
+    #xhi_xy  = (vmin + 0.385*(vmax-vmin), 0.52*ymax)
+    #Z_xy    = (vmin + 0.283*(vmax-vmin), 0.44*ymax)
+    #xhi_label  = r'$\langle x_{{\rm HI}}\rangle = {:3.2f}$'.format(xhi_data)
+    #logZ_label = '      ' + r'$[{{\rm Mg\slash H}}]={:5.2f}$'.format(logZ_data)
+    #axis.annotate('True', xy=true_xy, xytext=true_xy, textcoords='data', xycoords='data', color='darkgreen', annotation_clip=False,fontsize=16, zorder=25)
+    #axis.annotate(xhi_label, xy=xhi_xy, xytext=xhi_xy, textcoords='data', xycoords='data', color='darkgreen', annotation_clip=False,fontsize=16, zorder=25)
+    #axis.annotate(logZ_label, xy=Z_xy, xytext=Z_xy, textcoords='data', xycoords='data', color='darkgreen', annotation_clip=False,fontsize=16, zorder=25)
+
+    # error bar
+    percent_lower = (1.0-0.6827)/2.0
+    percent_upper = 1.0 - percent_lower
+    param = np.median(samples, axis=0)
+    param_lower = param - np.percentile(samples, 100*percent_lower, axis=0)
+    param_upper = np.percentile(samples, 100*percent_upper, axis=0) - param
+
+    #infr_xy = (vmin + 0.1*(vmax-vmin), 0.90*ymax)
+    #xhi_xy  = (vmin + 0.05*(vmax-vmin), 0.80*ymax)
+    #Z_xy    = (vmin - 0.05*(vmax-vmin), 0.70*ymax)
+    infr_xy = (1800, (0.55 * ymax))
+    xhi_xy = (1700, (0.42 * ymax))
+    Z_xy = (1355, (0.29 * ymax))
+
+    """
+    xhi_label  = r'$\langle x_{{\rm HI}}\rangle = {:3.2f}^{{+{:3.2f}}}_{{-{:3.2f}}}$'.format(param[0], param_upper[0], param_lower[0])
+    logZ_label = '          ' + r'$[{{\rm Mg\slash H}}]={:5.2f}^{{+{:3.2f}}}_{{-{:3.2f}}}$'.format(param[1], param_upper[1], param_lower[1])
+    axis.annotate('Inferred', xy=infr_xy, xytext=infr_xy, textcoords='data', xycoords='data', color='red', annotation_clip=False,fontsize=16, zorder=25)
+    axis.annotate(xhi_label, xy=xhi_xy, xytext=xhi_xy, textcoords='data', xycoords='data', color='red', annotation_clip=False,fontsize=16, zorder=25)
+    axis.annotate(logZ_label, xy=Z_xy, xytext=Z_xy, textcoords='data', xycoords='data', color='red', annotation_clip=False,fontsize=16, zorder=25)
+    """
+    if plot_draws:
+        for ind in range(nrand):
+            label = 'posterior draws' if ind == 0 else None
+            axis.plot(vel_corr, factor*xi_model_rand[ind, :], linewidth=0.5, color='cornflowerblue', alpha=0.7, zorder=0, label=label)
+
+    axis.tick_params(right=True, which='both')
+    axis.minorticks_on()
+    axis.set_xlim((vmin, vmax))
+    axis.set_ylim((ymin, ymax))
+
+    # Make the new upper x-axes in cMpc
+    z = params['z'][0]
+    nlogZ = params['nlogZ'][0]
+    nhi = params['nhi'][0]
+    cosmo = FlatLambdaCDM(H0=100.0 * params['lit_h'][0], Om0=params['Om0'][0], Ob0=params['Ob0'][0])
+    Hz = (cosmo.H(z))
+    a = 1.0 / (1.0 + z)
+    rmin = (vmin * u.km / u.s / a / Hz).to('Mpc').value
+    rmax = (vmax * u.km / u.s / a / Hz).to('Mpc').value
+    atwin = axis.twiny()
+    atwin.set_xlabel('R (cMpc)', fontsize=26, labelpad=8)
+    atwin.xaxis.tick_top()
+    # atwin.yaxis.tick_right()
+    atwin.axis([rmin, rmax, ymin, ymax])
+    atwin.tick_params(top=True)
+    atwin.xaxis.set_minor_locator(AutoMinorLocator())
+    atwin.tick_params(axis="x", labelsize=16)
+
+    """
+    axis.annotate('MgII doublet', xy=(1030, 0.90 * ymax), xytext=(1030, 0.90* ymax), fontsize=16, color='black')
+    axis.annotate('separation', xy=(1070, 0.82 * ymax), xytext=(1070, 0.82 * ymax), fontsize=16, color='black')
+    axis.annotate('', xy=(780, 0.88 * ymax), xytext=(1010, 0.88* ymax),
+                fontsize=16, arrowprops={'arrowstyle': '-|>', 'lw': 4, 'color': 'black'}, va='center', color='black')
+    """
+
+    # Plot a vertical line at the MgII doublet separation
+    vel_mg = vel_mgii()
+    axis.vlines(vel_mg.value, ymin, ymax, color='r', linestyle='--', linewidth=1.5, label='MgII double separation')
+
+    #axis.legend(fontsize=16,loc='lower left', bbox_to_anchor=(1800, 0.69*ymax), bbox_transform=axis.transData)
+    axis.legend(fontsize=16)
+
+    fx.tight_layout()
+    plt.show()
+    fx.savefig(corrfile)
+    plt.close()
+
+def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=None, plot_covar=False, interp_covar=True):
     # plotting the correlation matrix (copied from CIV_forest/metal_corrfunc.py)
 
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -448,8 +592,11 @@ def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=N
     #covar = covar_array[ixhi, iZ, :, :]
     print(ixhi, iZ)
 
-    vel_corr_want = np.linspace(vmin_corr, vmax_corr, 41)
-    covar = interp_cov(np.array(vel_corr), vel_corr_want, covar_array, ixhi, iZ)
+    if interp_covar:
+        vel_corr_want = np.linspace(vmin_corr, vmax_corr, 41)
+        covar = interp_cov(np.array(vel_corr), vel_corr_want, covar_array, ixhi, iZ)
+    else:
+        covar = covar_array[ixhi, iZ, :, :]
 
     # correlation matrix; easier to visualize compared to covar matrix
     corr = covar / np.sqrt(np.outer(np.diag(covar), np.diag(covar)))
@@ -585,4 +732,21 @@ def lnlike_plot_xhi_many(xhi_arr, logZ_arr, lnlike_arr, logZ_want_arr):
 
     plt.legend()
     plt.show()
+
+import seaborn as sns
+def lnlike_heatmap(lnlike_grid, xhi_grid, logz_grid, cbar_label, vmin=None, vmax=None):
+    ax = sns.heatmap(lnlike_grid, xticklabels=logz_grid, yticklabels=xhi_grid, vmin=vmin, vmax=vmax, cbar_kws={'label': cbar_label})
+    if lnlike_grid.shape[0] > 100:
+        nstep1, nstep2 = 110, 110
+    else:
+        nstep1, nstep2 = 12, 6
+    ax.set_xticks(ax.get_xticks()[::nstep1])
+    ax.set_xticklabels(np.round(logz_grid[::nstep1],2))
+    ax.set_yticks(ax.get_yticks()[::nstep2])
+    ax.set_yticklabels(xhi_grid[::nstep2])
+    ax.set_xlabel('logZ')
+    ax.set_ylabel('xHI')
+    plt.tight_layout()
+    plt.show()
+
 
