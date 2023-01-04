@@ -11,14 +11,16 @@ from astropy.io import fits
 
 sqldb = 'highzqso.sqlite'
 con = m2.create_connection(sqldb)
-df = pd.read_sql_query("select id, redshift, path, instrument from qso order by redshift", con)
+#query = "select id, redshift, path, instrument from qso order by redshift"
+query = "select id, redshift, path, instrument from qso where id in ('J1120+0641', 'J1007+2115')"
+df = pd.read_sql_query(query, con)
 arr = df.to_numpy()
 
 wave_method = 'velocity'
 dv = 40
 wave_grid_min = 19500
 plot = False
-saveout = False
+saveout = True
 savepath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 
 for i in range(len(arr)):
@@ -46,6 +48,7 @@ for i in range(len(arr)):
     flux_new = np.nan_to_num(flux_new, nan=-100)
     ivar_new = np.nan_to_num(ivar_new, nan=1e-5)
 
+    # plot the ori spectrum vs. rebinned spectrum
     if plot:
         print(np.sum(mask_coadd), len(wave_coadd))
         plt.figure(figsize=(14,5))

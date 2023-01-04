@@ -74,7 +74,7 @@ for i in range(len(arr)):
     qsoid, qsoz, fitsfile, instr  = arr[i][0], arr[i][1], arr[i][2], arr[i][3]
     x, y = i, new_median_snr[i]
     plt.scatter(x, y)
-    plt.annotate(qsoid + '\n' + 'z=%0.2f' % qsoz + ' (%s)' % instr, (x-0.5, y+0.5))
+    plt.annotate(qsoid + '\n' + 'z=%0.2f' % qsoz + '\n' + '(%s)' % instr, (x-0.5, y+0.5))
     plt.ylabel('median snr (dv=40 km/s)')
 
 plt.grid(True)
