@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import os
 import emcee
 import corner
-
+import time
 from scipy import optimize, interpolate
 from IPython import embed
 import pdb
@@ -38,6 +38,7 @@ from astropy.io import fits
 import compute_cf_data
 import compute_model_grid_new as cmg
 import argparse
+from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=None)
@@ -55,7 +56,7 @@ nqso = 8
 
 given_bins = compute_cf_data.custom_cf_bin4(dv1=80)
 
-def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None):
+def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None, covar_array_fine=None):
     # vel_lores = np.load('vel_lores_nyx.npy')
 
     # options for redshift_bin: 'all', 'low', 'high'
@@ -90,7 +91,7 @@ def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None):
         #vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _ = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, seed_list=seed_list, given_bins=given_bins, iqso_to_use=iqso_to_use)
 
         vel_mid, xi_mean_unmask, xi_mean_mask, _, _, _, _, _, _  = compute_cf_data.allspec(nqso, redshift_bin, cgm_fit_gpm_all, \
-                                                plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=False)
+                                                plot=False, given_bins=given_bins, iqso_to_use=None, ivar_weights=True)
         #import cf_chunk_check as ccc
         #vel_mid, xi_avg, xi_avg_chunk = ccc.check_allspec()
         #xi_mean_mask = xi_avg_chunk
@@ -122,9 +123,19 @@ def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None):
             lnlike_coarse[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_array[ixhi, iZ, :], lndet_array[ixhi, iZ],
                                                   covar_array[ixhi, iZ, :, :])
 
-    lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
     xi_model_fine = inference.interp_model(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, xi_model_array)
 
+    if covar_array_fine is not None:
+        lndet_array_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lndet_array)
+        lnlike_fine = np.zeros((nhi_fine, nlogZ_fine,))
+
+        for ixhi, xhi in enumerate(xhi_fine):
+            for iZ, logZ in enumerate(logZ_fine):
+                lnlike_fine[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_fine[ixhi, iZ, :],
+                                                                lndet_array_fine[ixhi, iZ],
+                                                                covar_array_fine[ixhi, iZ, :, :])
+    else:
+        lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
 
     # Make a 2d surface plot of the likelhiood
     logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
@@ -193,7 +204,7 @@ def init_mockdata(modelfile, xhi_guess, logZ_guess):
     logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
     #lnlikefile = figpath + 'lnlike.pdf'
     lnlikefile = None
-    inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
+    #inference.lnlike_plot(xhi_fine_2d, logZ_fine_2d, lnlike_fine, lnlikefile)
 
     fine_out = xhi_fine, logZ_fine, lnlike_fine, xi_model_fine
     coarse_out = xhi_coarse, logZ_coarse, lnlike_coarse
@@ -202,7 +213,7 @@ def init_mockdata(modelfile, xhi_guess, logZ_guess):
     return fine_out, coarse_out, data_out
 
 def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=100000, burnin=1000, nwalkers=40, \
-             linearZprior=False, savefits_chain=None, actual_data=True, save_xi_err=None):
+             linearZprior=False, savefits_chain=None, actual_data=True, save_xi_err=None, inferred_model='mean'):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -212,8 +223,8 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
     chi2_func = lambda *args: -2 * inference.lnprob(*args)
     logZ_fine_min = logZ_fine.min()
     logZ_fine_max = logZ_fine.max()
-    bounds = [(0.8, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.8, 1.0), (0.0, np.power(10.0,logZ_fine_max))]
-    #bounds = [(0.0, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.0, 1.0), (0.0, np.power(10.0, logZ_fine_max))]
+    #bounds = [(0.8, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.8, 1.0), (0.0, np.power(10.0,logZ_fine_max))]
+    bounds = [(0.0, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.0, 1.0), (0.0, np.power(10.0, logZ_fine_max))]
     print("bounds", bounds)
     args = (lnlike_fine, xhi_fine, logZ_fine, linearZprior)
     result_opt = optimize.differential_evolution(chi2_func,bounds=bounds, popsize=25, recombination=0.7,
@@ -295,11 +306,11 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
 
     if actual_data:
         corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
-                      corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err)
+                      corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err, inferred_model=inferred_model)
     else:
         #inference.corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, xhi_data, logZ_data, corrfile, rand=rand)
         corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse,
-                      covar_array, corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err)
+                      covar_array, corrfile, nrand=300, rand=rand, save_xi_err=save_xi_err, inferred_model=inferred_model)
 
     # Upper limit on metallicity for pristine case
     if linearZprior:
@@ -354,10 +365,8 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     # Grab some realizations
     imock = rand.choice(np.arange(samples.shape[0]), size=nrand)
     xi_model_rand = xi_model_samp[imock, :]
-    #ymin = factor*np.min(xi_data - 1.3*xi_err)
-    #ymax = factor*np.max(xi_data + 1.6*xi_err )
-    ymin = factor * -0.00055
-    ymax = factor * 0.00055
+    ymin = factor*np.min(xi_data - 1.3*xi_err)
+    ymax = factor*np.max(xi_data + 1.6*xi_err)
 
     axis.set_xlabel(r'$\Delta v$ (km/s)', fontsize=26)
     axis.set_ylabel(r'$\xi(\Delta v)\times 10^5$', fontsize=26, labelpad=-4)
@@ -455,7 +464,7 @@ def corrfunc_plot_jwst(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_f
         rand = np.random.RandomState(1234)
 
     factor = 1e5
-    fx = plt.figure(1, figsize=(12, 9))
+    fx = plt.figure(1, figsize=(10, 7))
     # left, bottom, width, height
     rect = [0.12, 0.12, 0.84, 0.75]
     axis = fx.add_axes(rect)
@@ -485,19 +494,24 @@ def corrfunc_plot_jwst(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_f
     #ymin = factor*np.min(xi_data - 1.3*xi_err)
     #ymax = factor*np.max(xi_data + 1.6*xi_err )
     ymin = factor * -0.00055
-    ymax = factor * 0.00055
+    ymax = factor * 0.00115
 
     axis.set_xlabel(r'$\Delta v$ (km/s)', fontsize=26)
     axis.set_ylabel(r'$\xi(\Delta v)\times 10^5$', fontsize=26, labelpad=-4)
     axis.tick_params(axis="x", labelsize=16)
     axis.tick_params(axis="y", labelsize=16)
+    axis.tick_params(right=True, which='both')
+    axis.minorticks_on()
+    axis.set_xlim((vmin, vmax))
+    axis.set_ylim((ymin, ymax))
 
     axis.errorbar(vel_corr, factor*xi_data, yerr=factor*xi_err, marker='o', ms=6, color='black', ecolor='black', capthick=2,
                   capsize=4,
-                  mec='none', ls='none', label='data', zorder=20)
+                  mec='none', ls='none', label='ground-based data', zorder=20)
     #axis.plot(vel_corr, factor*xi_model_mean, linewidth=2.0, color='red', zorder=10, label='inferred model')
     if vel_mid_compare is not None:
-        axis.plot(vel_mid_compare, factor * xi_mean_compare, linewidth=2.0, color='blue', zorder=10, label=label_compare)
+        axis.plot(vel_mid_compare, factor * xi_mean_compare, linewidth=2.0, color='red', zorder=10, label='Fiducial IGM model')
+
 
     #true_xy = (vmin + 0.44*(vmax-vmin), 0.60*ymax)
     #xhi_xy  = (vmin + 0.385*(vmax-vmin), 0.52*ymax)
@@ -557,21 +571,21 @@ def corrfunc_plot_jwst(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_f
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
     atwin.tick_params(axis="x", labelsize=16)
 
-    """
+
     axis.annotate('MgII doublet', xy=(1030, 0.90 * ymax), xytext=(1030, 0.90* ymax), fontsize=16, color='black')
     axis.annotate('separation', xy=(1070, 0.82 * ymax), xytext=(1070, 0.82 * ymax), fontsize=16, color='black')
     axis.annotate('', xy=(780, 0.88 * ymax), xytext=(1010, 0.88* ymax),
                 fontsize=16, arrowprops={'arrowstyle': '-|>', 'lw': 4, 'color': 'black'}, va='center', color='black')
-    """
+
 
     # Plot a vertical line at the MgII doublet separation
     vel_mg = vel_mgii()
-    axis.vlines(vel_mg.value, ymin, ymax, color='r', linestyle='--', linewidth=1.5, label='MgII double separation')
+    axis.vlines(vel_mg.value, ymin, ymax, color='black', linestyle='--', linewidth=1.2)
 
     #axis.legend(fontsize=16,loc='lower left', bbox_to_anchor=(1800, 0.69*ymax), bbox_transform=axis.transData)
     axis.legend(fontsize=16)
 
-    fx.tight_layout()
+    #fx.tight_layout()
     plt.show()
     fx.savefig(corrfile)
     plt.close()
@@ -749,4 +763,20 @@ def lnlike_heatmap(lnlike_grid, xhi_grid, logz_grid, cbar_label, vmin=None, vmax
     plt.tight_layout()
     plt.show()
 
+################################## interp covar ##################################
+def interp_covar(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, covar_array):
+
+    nhi_fine = xhi_fine.size
+    nlogZ_fine = logZ_fine.size
+    # Interpolate the model onto the fine grid as well, as we will need this for plotting
+    ncorr = covar_array.shape[2]
+
+    # 25 sec for 1001 x 1001
+    covar_fine = np.zeros((nhi_fine, nlogZ_fine,ncorr, ncorr))
+    for icorr in range(ncorr):
+        for jcorr in range(ncorr):
+            covar_interp_func = RectBivariateSpline(xhi_coarse, logZ_coarse, covar_array[:, :, icorr, jcorr])
+            covar_fine[:, :, icorr, jcorr] = covar_interp_func(xhi_fine, logZ_fine)
+
+    return covar_fine
 

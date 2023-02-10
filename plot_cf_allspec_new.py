@@ -10,7 +10,7 @@ from astropy.table import Table
 import compute_cf_data as ccf
 import sys
 sys.path.append('/Users/suksientie/codes/enigma')
-from enigma.reion_forest import utils as reion_utilsf
+from enigma.reion_forest import utils as reion_utils
 from enigma.reion_forest.compute_model_grid import read_model_grid
 import argparse
 import mutils
@@ -35,9 +35,19 @@ qso_alpha = 0.6
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--zbin', required=True, type=str, help="options: all, high, low")
-parser.add_argument('--ivarweights', action='store_true', default=False)
+parser.add_argument('--ivarweights', action='store_true', default=False, help="whether to use inverse variance weighting to compute the CF")
+parser.add_argument('--subtractdf', action='store_true', default=False)
+parser.add_argument('--xi_err_file', default=None, help="use the error bars from this file, if provided")
+parser.add_argument('--savefig', default=None)
+parser.add_argument('--save_cf_out', default=None)
+
 args = parser.parse_args()
 redshift_bin = args.zbin
+subtract_mean_deltaf = args.subtractdf
+ivar_weights = args.ivarweights
+xi_err_file = args.xi_err_file
+savefig = args.savefig
+save_cf_out = args.save_cf_out
 
 """
 qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'unpublished \n new QSO']
@@ -45,18 +55,17 @@ median_z = 6.554
 seed_list=[None, None, None, None, None]
 given_bins = ccf.custom_cf_bin4()
 """
-
 #qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
+qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+                'J1342+0928', 'J1007+2115', 'J1120+0641']
 nqso = len(qso_namelist)
-median_z = 6.50
+
 #seed_list = [None] * nqso
 given_bins = ccf.custom_cf_bin4(dv1=80)
-savefig = 'paper_plots/8qso/cf_%sz_%dqso_ivar.pdf' % (redshift_bin, nqso)
-savefig = None
-iqso_to_use = None #np.array([0])
-ivar_weights = args.ivarweights
+#savefig = 'plots/cf_8qso_ivarweights_everyn60_globalfmean_df_%sz.png' % redshift_bin #'paper_plots/8qso/cf_%sz_%dqso_ivar.pdf' % (redshift_bin, nqso)
+#savefig = None
 
+iqso_to_use = None #np.array([9])
 if iqso_to_use is None:
     iqso_to_use = np.arange(0, nqso)
 
@@ -72,11 +81,16 @@ elif redshift_bin == 'all':
     cgm_fit_gpm = allz_cgm_fit_gpm
 
 vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask, w_masked, w_unmasked = \
-    ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=ivar_weights)
+    ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=ivar_weights, \
+                subtract_mean_deltaf=subtract_mean_deltaf)
 
 xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized to N-1
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
+if save_cf_out is not None:
+    np.save(save_cf_out, xi_mean_mask)
+
+exit()
 #######
 vel_corr = vel_mid
 
@@ -150,7 +164,12 @@ for i in range(len(xi_mask)):
     xi = xi_mask[i]
     ax2.plot(vel_mid, xi * factor, alpha=qso_alpha, linewidth=1.0, label=qso_namelist[iqso_to_use[i]])
 
-yerr = (xi_std_mask / np.sqrt(nqso)) * factor
+if xi_err_file is None:
+    yerr = (xi_std_mask / np.sqrt(nqso)) * factor
+else:
+    print("Using error from covariance matrix")
+    yerr = np.load(xi_err_file) * factor
+
 #yerr_cov = np.load('mcmc/8qso/xi_err.npy') * factor
 ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
              fmt='o-', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')

@@ -29,13 +29,12 @@ from scipy import interpolate
 import pdb
 
 ####### global variables #######
-qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
-everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
-exclude_restwave = 1216 - 1185
-median_z = 6.50
-corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
+qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+                'J1342+0928', 'J1007+2115', 'J1120+0641']
+qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
+corr_all = [1, 1, 1, 0.73, 0.697, 0.653, 0.667, 0.72, 1, 1]
+#corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
 vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
 
 #################################
@@ -221,7 +220,7 @@ def onespec_old(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask, meanflux_tot, meanflux_tot_mask
 
-def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=False, std_corr=1.0, given_bins=None, ivar_weights=False):
+def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=False, std_corr=1.0, given_bins=None, ivar_weights=False, subtract_mean_deltaf=False):
 
     # compute the CF for one QSO spectrum
     # options for redshift_bin are 'low', 'high', 'all'
@@ -242,11 +241,12 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
 
     norm_flux = flux/fluxfit
     vel = mutils.obswave_to_vel_2(wave)
-    #meanflux_tot = np.mean(norm_good_flux)
+    #meanflux_tot = np.mean(norm_good_flux) # mean flux for onespec
     meanflux_tot = fmean_unmask
     deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
     mean_deltaf_tot = np.mean(deltaf_tot[all_masks])
-    #deltaf_tot -= np.mean(mean_deltaf_tot)
+    if subtract_mean_deltaf:
+        deltaf_tot -= np.mean(mean_deltaf_tot)
 
     if ivar_weights:
         print("use ivar as weights in CF")
@@ -273,7 +273,8 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     meanflux_tot_mask = fmean_mask
     deltaf_tot_mask = (norm_flux - meanflux_tot_mask) / meanflux_tot_mask
     mean_deltaf_tot_mask = np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm])
-    #deltaf_tot_mask -= mean_deltaf_tot_mask
+    if subtract_mean_deltaf:
+        deltaf_tot_mask -= mean_deltaf_tot_mask
 
     if ivar_weights:
         print("use ivar as weights in CF")
@@ -294,7 +295,14 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
     print("mean(DELTA FLUX)", np.mean(deltaf_tot[all_masks]), np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm]))
 
-
+    """
+    plt.figure()
+    plt.title(qso_namelist[iqso])
+    plt.hist(deltaf_tot[all_masks], bins=np.arange(-0.5, 0.5, 0.02), histtype='step', color='b')
+    plt.hist(deltaf_tot_mask[all_masks], bins=np.arange(-0.5, 0.5, 0.02), histtype='step', label='mask CGM', color='r')
+    plt.axvline(np.mean(deltaf_tot_mask[all_masks]), color='r')
+    plt.legend()
+    """
     if plot:
         # plot with no masking
         plt.figure(figsize=(12, 5))
@@ -324,7 +332,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask
 
-def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iqso_to_use=None, ivar_weights=False):
+def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iqso_to_use=None, ivar_weights=False, subtract_mean_deltaf=False):
     # running onespec() for all the 4 QSOs
 
     xi_unmask_all = []
@@ -339,26 +347,15 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     weights_unmasked = []
     weights_masked = []
 
-    # everyn = 20 (all-z, high-z, low-z); # weighted global mean
-    # un-normalized ivar
-    #fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758]
-    #fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441]
-    fmean_global_unmask = [0.9943517891999819, 0.9978242883496282, 0.9917724407614039]
-    fmean_global_mask = [1.000820992353624, 1.000761545084083, 1.0008670981617191]
+    # everyn = 60 (all-z, high-z, low-z), nqso=8
+    # normalized ivar, weighted fmean of dataset
+    #fmean_global_unmask = [0.9945437229984158, 0.9986658355772385, 0.9914894025444619]
+    #fmean_global_mask = [1.0013868138771054, 1.0019725509921347, 1.0009292561522118]
 
-    # everyn = 40 (all-z, high-z, low-z); # weighted global mean
-    # un-normalized ivar
-    #fmean_global_unmask = [0.9957411336527912, 0.998022913883487, 0.9937233923222423]
-    #fmean_global_mask = [1.0015955926876943, 1.0016205184145572, 1.001573004313652]
-    #fmean_global_unmask = [0.9942360438983243, 0.9978950422789197, 0.9915202604038694]
-    #fmean_global_mask = [1.0008964733628911, 1.000945347462494, 1.0008585801971037]
-
-    # everyn = 60 (all-z, high-z, low-z)
-    # un-normalized ivar
-    #fmean_global_unmask = [0.9958029822064607, 0.9978042984772253, 0.994033250616758]
-    #fmean_global_mask = [1.0014587053269721, 1.001394544252525, 1.0015168018273441]
-    fmean_global_unmask = [0.9945437229984158, 0.9986658355772385, 0.9914894025444619]
-    fmean_global_mask = [1.0013868138771054, 1.0019725509921347, 1.0009292561522118]
+    # everyn = 60 (all-z, high-z, low-z), nqso=10
+    # normalized ivar, weighted fmean of dataset
+    fmean_global_unmask = [0.9952775044785822, 0.998804106985206, 0.9927064690772747]
+    fmean_global_mask = [1.001426984289517, 1.0018512443910101, 1.0011034891413138]
 
     if redshift_bin == 'all':
         i_fmean = 0
@@ -369,11 +366,12 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     fmean_unmask = fmean_global_unmask[i_fmean]
     fmean_mask = fmean_global_mask[i_fmean]
 
-    #for iqso in range(nqso):
     for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
         #vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask, _, _ = onespec_old(iqso, redshift_bin, cgm_fit_gpm_all[iqso], plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
-        vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], fmean_unmask, fmean_mask, plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
+        vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
+                                fmean_unmask, fmean_mask, plot=False, std_corr=std_corr, given_bins=given_bins, \
+                                ivar_weights=ivar_weights, subtract_mean_deltaf=subtract_mean_deltaf)
 
         xi_unmask_all.append(xi_unmask)
         xi_mask_all.append(xi_mask)
@@ -651,7 +649,7 @@ def ivar_per_qso(redshift_bin, norm=False):
     qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503',
                     'J1342+0928']
     qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
-    nqso = 8
+    nqso = len(qso_namelist)
     datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
     wave_all = []
     ivar_all = []
@@ -690,11 +688,10 @@ def ivar_per_qso(redshift_bin, norm=False):
 
     return wave_all, ivar_all, norm_ivar_all
 
-def frac_weight_per_qso(redshift_bin, plot=False):
-    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503',
-                    'J1342+0928']
-    qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
-    qso_median_snr = [9.29, 5.50, 3.95, 8.60, 11.42, 14.28, 13.07, 8.72]  # from Table 1 in current draft (12/6/2022)
+def frac_weight_per_qso(redshift_bin, nqso, plot=False):
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
+    qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
+    qso_median_snr = [9.27, 5.51, 3.95, 8.60, 11.42, 14.28, 13.07, 8.57, 7.05, 6.54]  # from Table 1 in current draft (12/6/2022)
 
     #lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = init_cgm_fit_gpm()
     lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = init_cgm_fit_gpm(do_not_apply_any_mask=True)
@@ -706,7 +703,6 @@ def frac_weight_per_qso(redshift_bin, plot=False):
     elif redshift_bin == 'all':
         cgm_fit_gpm = allz_cgm_fit_gpm
 
-    nqso = 8
     given_bins = custom_cf_bin4(dv1=80)
     ivar_weights = True
     vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask, w_masked, w_unmasked = \
@@ -741,11 +737,15 @@ def compute_neff(weights_allqso):
 
 def fmean_dataset(nqso=8):
     import compute_model_grid_8qso_fast as cmg8
-    z_bin = ['all', 'high', 'low']
-    fmean_zbin = []
-    fmean_zbin_mask_cgm = []
 
+    z_bin = ['all', 'high', 'low']
     datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+
+    fmean_unmask = []
+    fmean_mask = []
+    fmean_unmask_onespec = []
+    fmean_mask_onespec = []
+
     for redshift_bin in z_bin:
         vel_data_allqso, norm_flux_allqso, norm_std_allqso, ivar_allqso, \
         master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = cmg8.init_dataset(nqso, redshift_bin, datapath)
@@ -755,6 +755,8 @@ def fmean_dataset(nqso=8):
         f_all_mask_cgm = []
         ivar_all = []
         ivar_all_mask_cgm = []
+        f_all_onespec = []
+        f_all_mask_cgm_onespec = []
 
         for iqso in range(nqso):
             f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
@@ -762,8 +764,82 @@ def fmean_dataset(nqso=8):
             ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
             ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
 
-        # weighted global mean flux
-        fmean_zbin.append(np.average(f_all, weights=ivar_all))
-        fmean_zbin_mask_cgm.append(np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm))
+            f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
+            f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
 
-    return fmean_zbin, fmean_zbin_mask_cgm
+        # weighted global mean flux
+        fmean_unmask.append(np.average(f_all, weights=ivar_all))
+        fmean_mask.append(np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm))
+        #fmean_zbin.append(np.mean(f_all))
+        #fmean_zbin_mask_cgm.append(np.mean(f_all_mask_cgm))
+
+        fmean_unmask_onespec.append(f_all_onespec)
+        fmean_mask_onespec.append(f_all_mask_cgm_onespec)
+
+    return fmean_unmask, fmean_mask, fmean_unmask_onespec, fmean_mask_onespec
+
+def fmean_dataset2(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mask_allqso_mask_cgm, iqso_remove=None):
+
+    nqso = 10
+    if iqso_remove is not None:
+        iqso_to_use = np.delete(np.arange(nqso), iqso_remove)
+    else:
+        iqso_to_use = np.arange(nqso)
+
+    # normalized quantities
+    f_all = []
+    f_all_mask_cgm = []
+    ivar_all = []
+    ivar_all_mask_cgm = []
+    f_all_onespec = []
+    f_all_mask_cgm_onespec = []
+
+    for iqso in iqso_to_use:
+        f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
+        f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+        ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
+        ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+
+        f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
+        f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
+
+    fmean_unmask = np.average(f_all, weights=ivar_all)
+    fmean_mask = np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm)
+
+    return fmean_unmask, fmean_mask
+
+    #fractional diff of fmean remains unaffected within ~0.1% when iteratively removing qso
+    #iqso_remove_ls = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, [4, 5, 6]]
+
+def fmean_dataset3(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mask_allqso_mask_cgm):
+
+    nqso = 10
+
+    # normalized quantities
+    f_all = []
+    f_all_mask_cgm = []
+    ivar_all = []
+    ivar_all_mask_cgm = []
+    f_all_onespec = []
+    f_all_mask_cgm_onespec = []
+
+    for iqso in range(nqso):
+        f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
+        f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+        ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
+        ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+
+        f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
+        f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
+
+    fmean_unmask = np.average(f_all, weights=ivar_all)
+    fmean_mask = np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm)
+
+    return fmean_unmask, fmean_mask
+
+    # minimal change in fmean when changing the continuum breakpoint (everyn=20, 40, 60)
+    #fmean_mask20, fmean_mask40, fmean_mask60
+    #(1.0009382101500206, 1.0010164874168208, 1.001426984289517)
+
+    #fmean_unmask20, fmean_unmask40, fmean_unmask60
+    #(0.9951233615221605, 0.9950089122951656, 0.9952775044785822)

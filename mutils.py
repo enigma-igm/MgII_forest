@@ -385,14 +385,17 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
                      datapath + 'J0313-1806_dv40_coadd_tellcorr.fits', \
                      datapath + 'J0038-1527_dv40_coadd_tellcorr.fits', \
                      datapath + 'J0252-0503_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits']
+                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1007+2115_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1120+0641_dv40_coadd_tellcorr.fits']
 
-    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-    qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+                    'J1342+0928', 'J1007+2115', 'J1120+0641']
+    qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
     qso_median_snr = [9.29, 5.50, 3.95, 8.60, 11.42, 14.28, 13.07, 8.72] # from Table 1 in current draft (12/6/2022)
     everyn_break_list = (np.ones(len(qso_namelist)) * 60).astype('int')
     exclude_restwave = 1216 - 1185
-    median_z = 6.500 # see allqso_pathlength_snr.py
+    median_z = 6.500 # (8qso) see allqso_pathlength_snr.py # 6.512 (10 qso)
 
     fitsfile = fitsfile_list[iqso]
     wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])

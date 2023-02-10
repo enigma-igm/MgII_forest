@@ -26,15 +26,17 @@ import scipy
 import warnings
 warnings.filterwarnings(action='ignore')#, message='divide by zero encountered in true_divide (compute_model_grid_8qso_fast.py:311)')
 #import xi_cython
+import mask_cgm_pdf
 
 ###################### global variables ######################
 datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 #datapath = '/mnt/quasar/sstie/MgII_forest/z75/rebinned_spectra/'
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+                'J1342+0928', 'J1007+2115', 'J1120+0641']
+qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 exclude_restwave = 1216 - 1185
-median_z = 6.50
+median_z = 6.50 # (8qso)
 corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
 nqso_to_use = len(qso_namelist)
 
@@ -42,9 +44,11 @@ nires_fwhm = 111.03
 mosfire_fwhm = 83.05
 nires_sampling = 2.7
 mosfire_sampling = 2.78
+xshooter_fwhm = 42.8 # R=7000 quoted in Bosman+2017
+xshooter_sampling = 3.7 #https://www.eso.org/sci/facilities/paranal/instruments/xshooter/inst.html
 
-qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm]
-qso_sampling = [nires_sampling, nires_sampling, nires_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling]
+qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, nires_fwhm, xshooter_fwhm]
+qso_sampling = [nires_sampling, nires_sampling, nires_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, mosfire_sampling, nires_sampling, xshooter_sampling]
 given_bins = np.array(ccf.custom_cf_bin4(dv1=80))
 
 signif_thresh = 2.0
@@ -195,7 +199,7 @@ def init_dataset(nqso, redshift_bin, datapath):
     master_mask_allqso = []
     master_mask_allqso_mask_cgm = []
 
-    instr_allqso = ['nires', 'nires', 'nires', 'mosfire', 'mosfire', 'mosfire', 'mosfire', 'mosfire']
+    instr_allqso = ['nires', 'nires', 'nires', 'mosfire', 'mosfire', 'mosfire', 'mosfire', 'mosfire', 'nires', 'xshooter']
 
     for iqso in range(nqso):
         raw_data_out, _, all_masks_out = mutils.init_onespec(iqso, redshift_bin, datapath=datapath)
@@ -226,15 +230,25 @@ def init_dataset(nqso, redshift_bin, datapath):
         norm_good_ivar = norm_good_ivar.reshape((1, len(norm_good_ivar)))
         fwhm = qso_fwhm[iqso]
 
+        # J1120+0641
+        #if iqso == 9:
+        #    signif_mask_nsigma = 2.05
+
         mgii_tot = MgiiFinder(good_vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
-        gpm_allspec = mgii_tot.fit_gpm[0]
+
+        # J1120+0641
+        if iqso == 9:
+            print("masking absorbers from Bosman et al. 2017")
+            _, abs_mask_gpm = mask_cgm_pdf.bosman_J1120([4, 4, 3.5])
+            gpm_allspec = mgii_tot.fit_gpm[0] * abs_mask_gpm
+        else:
+            gpm_allspec = mgii_tot.fit_gpm[0]
 
         #######
         tmp_mask = pz_mask * zbin_mask
 
-        """
         norm_std_allqso.append(norm_std[tmp_mask])
         vel_data_allqso.append(vel_data[tmp_mask])
         norm_flux_allqso.append(norm_flux[tmp_mask])
@@ -242,7 +256,6 @@ def init_dataset(nqso, redshift_bin, datapath):
         master_mask_allqso.append(master_mask[tmp_mask])
         master_mask_allqso_mask_cgm.append((master_mask * gpm_allspec)[tmp_mask])
         """
-
         boost = 1.28
         npix_more = int(len(vel_data[tmp_mask])*boost - len(vel_data[tmp_mask]))
 
@@ -260,6 +273,7 @@ def init_dataset(nqso, redshift_bin, datapath):
         norm_ivar_allqso.append(np.array(new_norm_ivar))
         master_mask_allqso.append(np.array(new_master_mask))
         master_mask_allqso_mask_cgm.append(np.array(new_master_mask_cgm))
+        """
 
     return vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, \
            master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso
@@ -302,7 +316,7 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
 
         norm_std_chunk = reshape_data_array(std_corr * norm_std, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False)
         norm_ivar_chunk = 1 / (norm_std_chunk ** 2)
-        weights_in = None#norm_ivar_chunk
+        weights_in = norm_ivar_chunk
 
         # compute the 2PCF (5 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 skewers on my Mac)
         start = time.process_time()
@@ -317,6 +331,8 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
         end = time.process_time()
         print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
 
+        w_xi /= 1e5
+        w_xi_noiseless /= 1e5
         xi_mock_onespec_ncopy = np.average(xi_onespec_ncopy, axis=1, weights=w_xi)  # averaging over nskew to get CF of onespec
         xi_mock_onespec_noiseless_ncopy = np.average(xi_onespec_ncopy_noiseless, axis=1, weights=w_xi_noiseless)  # same for noiseless onespec
 
@@ -327,13 +343,15 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
 
         w_mock_nskew_ncopy_allqso.append(w_xi)
 
+        print(np.sum(w_xi, axis=1)[0])
+
     # cast all into np arrays
     vel_mid = np.array(vel_mid)
     xi_mock_ncopy = np.array(xi_mock_ncopy) # (nqso, ncopy, ncorr)
     xi_mock_ncopy_noiseless = np.array(xi_mock_ncopy_noiseless)
 
-    w_mock_ncopy = np.array(w_mock_ncopy)/scale_weight # (nqso, ncopy, ncorr)
-    w_mock_ncopy_noiseless = np.array(w_mock_ncopy_noiseless)/scale_weight  # (nqso, ncopy, ncorr)
+    w_mock_ncopy = np.array(w_mock_ncopy) # (nqso, ncopy, ncorr)
+    w_mock_ncopy_noiseless = np.array(w_mock_ncopy_noiseless)  # (nqso, ncopy, ncorr)
 
     # average over nqso with noiseless CF, then average over ncopy, to get model CF
     xi_mean_ncopy = np.average(xi_mock_ncopy_noiseless, axis=0, weights=w_mock_ncopy_noiseless)  # (ncopy, ncorr)

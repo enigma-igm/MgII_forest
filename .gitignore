@@ -15,4 +15,4 @@ log.txt
 paper_plots/
 mcmc/
 *.log
-
+*tmp*

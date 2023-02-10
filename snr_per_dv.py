@@ -56,7 +56,7 @@ for i in range(len(arr)):
         zlow, zhigh = good_zpix.min(), good_zpix.max()
         dx = mutils.abspath(zhigh, zlow)
         dx_all.append(dx)
-        print(qsoid, qsoz, np.median(snr_new[final_mask_new]), dx)
+        print(qsoid, qsoz, np.median(snr_new[final_mask_new]), dx, zhigh-zlow)
 
     plt.plot(wave_rebin[final_mask_new], snr_new[final_mask_new], drawstyle='steps-mid', \
              label=qsoid + ' z=%0.2f' % qsoz + ' (%s)' % instr)

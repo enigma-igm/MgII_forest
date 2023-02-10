@@ -54,7 +54,7 @@ else:
     iqso_to_use = np.array([args.iqso])
 
 #######
-lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm()
+lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm(do_not_apply_any_mask=True)
 
 if redshift_bin == 'low':
     cgm_fit_gpm = lowz_cgm_fit_gpm
@@ -64,14 +64,14 @@ elif redshift_bin == 'all':
     cgm_fit_gpm = allz_cgm_fit_gpm
 
 # ivar weights
-vel_mid, xi_mean_unmask, xi_mean_mask, _, _, xi_unmask, xi_mask = \
+vel_mid, xi_mean_unmask, xi_mean_mask, _, _, xi_unmask, xi_mask, _, _ = \
     ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=True)
 
 xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized to N-1
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
 # old
-vel_mid, xi_mean_unmask_old, xi_mean_mask_old, _, _, xi_unmask_old, xi_mask_old = \
+vel_mid, xi_mean_unmask_old, xi_mean_mask_old, _, _, xi_unmask_old, xi_mask_old, _, _ = \
     ccf.allspec(nqso, redshift_bin, cgm_fit_gpm, given_bins=given_bins, iqso_to_use=iqso_to_use, ivar_weights=False)
 
 xi_std_unmask_old = np.std(xi_unmask_old, axis=0, ddof=1) # ddof=1 means std normalized to N-1

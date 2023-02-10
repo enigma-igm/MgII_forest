@@ -10,7 +10,6 @@ import mutils
 import argparse
 import mask_cgm_pdf
 import mutils
-import mutils2 as m2
 
 ### Figure settings
 font = {'family' : 'serif', 'weight' : 'normal'}#, 'size': 11}
@@ -30,36 +29,45 @@ xylabel_fontsize = 20
 legend_fontsize = 14
 
 datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
+qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
+
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
 
 # CGM masks
-good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all = \
+good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, _, _ = \
     mask_cgm_pdf.init(redshift_bin=redshift_bin, do_not_apply_any_mask=True, datapath=datapath)
 mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None)
 
 xmin = 19500
 ymin = -0.05
-ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6]
+ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6, 0.6, 0.7]
 ymin_norm, ymax_norm = -0.05, 2.3
 
 savefig = True
 
 good_zpix_all = []
 dx_all = []
-for i in range(nqso_to_plot):
-#for i in range(2):
+dz_all = []
 
+for i in range(nqso_to_plot):
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
 
     mgii_tot = mgii_tot_all[i]
-    fs_mask = mgii_tot.fit_gpm[0]
 
+    # J1120+0641
+    if i == 9:
+        print("masking absorbers from Bosman et al. 2017")
+        _, abs_mask_gpm = mask_cgm_pdf.bosman_J1120([4, 4, 3.5])
+        fs_mask = mgii_tot.fit_gpm[0] * abs_mask_gpm
+    else:
+        fs_mask = mgii_tot.fit_gpm[0]
+
+    print("====== %s ======" % qso_namelist[i])
     all_masks = master_mask * fs_mask
     print("masked fraction", 1 - np.sum(all_masks) / len(all_masks))
 
@@ -71,6 +79,8 @@ for i in range(nqso_to_plot):
     zlow, zhigh = good_zpix.min(), good_zpix.max()
     dx = mutils.abspath(zhigh, zlow)
     dx_all.append(dx)
+    dz_all.append(zhigh-zlow)
+    print(zhigh-zlow, dx)
 
     ymax = ymax_ls[i]
     xmax = wave.max()
@@ -128,12 +138,14 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('plots/8qso/everyn_bkpt_60_spec/spec_%s.pdf' % qso_namelist[i])
+        #plt.savefig('plots/8qso/everyn_bkpt_60_spec/spec_%s.pdf' % qso_namelist[i])
+        plt.savefig('paper_plots/10qso/spec_%s.pdf' % qso_namelist[i])
         plt.close()
     if savefig is False:
         plt.show()
-
+        plt.close()
 
 print("##############")
 print("good zpix = median:%0.3f, min: %0.3f, max: %0.3f" % (np.median(good_zpix_all), np.min(good_zpix_all), np.max(good_zpix_all)))
 print("dx total", np.sum(dx_all))
+print("dz total", np.sum(dz_all))
