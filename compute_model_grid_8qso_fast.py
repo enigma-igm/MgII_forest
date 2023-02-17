@@ -37,7 +37,7 @@ qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 exclude_restwave = 1216 - 1185
 median_z = 6.50 # (8qso)
-corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
+corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
 nqso_to_use = len(qso_namelist)
 
 nires_fwhm = 111.03
@@ -165,7 +165,12 @@ def compute_cf_onespec_chunk_ivarweights(vel_lores, noisy_flux_lores_ncopy, give
     reshaped_flux = np.reshape(noisy_flux_lores_ncopy, (ncopy * nskew, npix))
 
     if mask_chunk is not None:
-        mask_ncopy = np.tile(mask_chunk, (ncopy, 1, 1)) # copy mask "ncopy" times
+        if mask_chunk.shape == (ncopy, nskew, npix):
+            mask_ncopy = mask_chunk
+        else:
+            print('tiling mask_chunk')
+            mask_ncopy = np.tile(mask_chunk, (ncopy, 1, 1)) # copy mask "ncopy" times
+
         mask_ncopy = np.reshape(mask_ncopy, (ncopy * nskew, npix))
         mean_flux = np.nanmean(reshaped_flux[mask_ncopy])
     else:
@@ -280,7 +285,7 @@ def init_dataset(nqso, redshift_bin, datapath):
 
 def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
-                    given_bins, seed=None):
+                    vel_lores_xshooter_interp, flux_lores_xshooter_interp, given_bins, seed=None):
 
     rand = np.random.RandomState(seed) if seed is None else seed
 
@@ -303,6 +308,9 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
         elif instr == 'mosfire':
             vel_lores = vel_lores_mosfire_interp
             flux_lores = flux_lores_mosfire_interp
+        elif instr == 'xshooter':
+            vel_lores = vel_lores_xshooter_interp
+            flux_lores = flux_lores_xshooter_interp
 
         # generate mock data spectrum (0.3 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 on my Mac)
         start = time.process_time()
@@ -318,16 +326,20 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
         norm_ivar_chunk = 1 / (norm_std_chunk ** 2)
         weights_in = norm_ivar_chunk
 
+        # new
+        m = (1 - flux_noise_ncopy) < 0.3 # 0.3 is the 1-F cutoff for masking CGM
+        master_mask_chunk_tile = np.tile(master_mask_chunk, (nmock, 1, 1)) * m
+
         # compute the 2PCF (5 sec per qso for ncovar x nskew = 1000 x 10 = 10,000 skewers on my Mac)
         start = time.process_time()
         vel_mid, xi_onespec_ncopy, w_xi = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk)
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noise_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk_tile) #mask_chunk=master_mask_chunk)
         end = time.process_time()
         print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
 
         start = time.process_time()
         vel_mid, xi_onespec_ncopy_noiseless, w_xi_noiseless = \
-            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk)
+            compute_cf_onespec_chunk_ivarweights(vel_lores, flux_noiseless_ncopy, given_bins, weights_in=weights_in, mask_chunk=master_mask_chunk_tile) #mask_chunk=master_mask_chunk)
         end = time.process_time()
         print("         compute_cf_onespec_chunk_ivarweights done in .... ", (end - start))# / 60, " min")
 
@@ -428,6 +440,9 @@ def compute_model(args):
     end = time.process_time()
     print("      MOSFIRE mocks done in .... ", (end - start))# / 60, " min")
 
+    # xshooter fwhm and sampling
+    vel_lores_xshooter, flux_lores_xshooter = utils.create_mgii_forest(params, skewers, logZ, xshooter_fwhm, sampling=xshooter_sampling, mockcalc=True)
+
     # interpolate flux lores to dv=40 (nyx); ~0.13 sec for 10,000 skewers on my Mac
     start = time.process_time()
     dv_coarse = 40
@@ -436,8 +451,13 @@ def compute_model(args):
                                                         bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
 
     vel_lores_mosfire_interp = np.arange(vel_lores_mosfire[0], vel_lores_mosfire[-1], dv_coarse)
-    flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic',
-                                                       bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
+    flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic', \
+                                                           bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
+
+    vel_lores_xshooter_interp = np.arange(vel_lores_xshooter[0], vel_lores_xshooter[-1], dv_coarse)
+    flux_lores_xshooter_interp = scipy.interpolate.interp1d(vel_lores_xshooter, flux_lores_xshooter, kind='cubic', \
+                                                            bounds_error=False, fill_value=np.nan)(vel_lores_xshooter_interp)
+
     end = time.process_time()
     print("      interpolating both mocks done in .... ", (end - start))# / 60, " min")
 
@@ -447,11 +467,14 @@ def compute_model(args):
     del vel_lores_mosfire
     del flux_lores_nires
     del flux_lores_mosfire
+    del vel_lores_xshooter
+    del flux_lores_xshooter
 
     start = time.process_time()
     xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso = \
         mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
-                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, given_bins, seed=rand)
+                    vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
+                        vel_lores_xshooter_interp, flux_lores_xshooter_interp, given_bins, seed=rand)
     icovar = np.linalg.inv(covar)  # invert the covariance matrix
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
     end = time.process_time()
@@ -473,7 +496,7 @@ def test_compute_model():
     logZ = -3.5
     redshift_bin = 'all'
 
-    vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(8, redshift_bin, datapath)
+    vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(nqso_to_use, redshift_bin, datapath)
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso_mask_cgm, instr_allqso
     output = compute_model(args)
     #ihi, iZ, vel_mid, xi_mock_keep, xi_mean, covar, icovar, logdet, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso = output
