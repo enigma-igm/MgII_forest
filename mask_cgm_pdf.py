@@ -642,11 +642,12 @@ def init_old():
 
     return norm_good_flux_all, norm_good_std_all, good_ivar_all, vel_data_all, good_wave_all, noise_all
 
-def bosman_J1120(dwave_ls):
+def bosman_J1120(dwave_ls, wave=None, norm_flux=None):
 
-    raw_data_out, _, all_masks_out = mutils.init_onespec(9, 'all')
-    wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
-    norm_flux = flux / fluxfit
+    if wave is None and norm_flux is None:
+        raw_data_out, _, all_masks_out = mutils.init_onespec(9, 'all')
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+        norm_flux = flux / fluxfit
 
     bosman_abs = [6.1711, 6.21845, 6.40671]
     bosman_ew = [0.258, 0.139, 0.094] # [4, 4, 3.5] approximately reproduces Bosman EW = [0.235, 0.13, 0.11]
