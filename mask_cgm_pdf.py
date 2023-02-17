@@ -642,10 +642,10 @@ def init_old():
 
     return norm_good_flux_all, norm_good_std_all, good_ivar_all, vel_data_all, good_wave_all, noise_all
 
-def bosman_J1120(dwave_ls, wave=None, norm_flux=None):
+def bosman_J1120(dwave_ls, wave=None, norm_flux=None, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
 
     if wave is None and norm_flux is None:
-        raw_data_out, _, all_masks_out = mutils.init_onespec(9, 'all')
+        raw_data_out, _, all_masks_out = mutils.init_onespec(9, 'all', datapath=datapath)
         wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
         norm_flux = flux / fluxfit
 

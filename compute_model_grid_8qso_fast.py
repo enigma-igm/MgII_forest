@@ -246,7 +246,7 @@ def init_dataset(nqso, redshift_bin, datapath):
         # J1120+0641
         if iqso == 9:
             print("masking absorbers from Bosman et al. 2017")
-            _, abs_mask_gpm = mask_cgm_pdf.bosman_J1120([4, 4, 3.5])
+            _, abs_mask_gpm = mask_cgm_pdf.bosman_J1120([4, 4, 3.5], datapath=datapath)
             gpm_allspec = mgii_tot.fit_gpm[0] * abs_mask_gpm
         else:
             gpm_allspec = mgii_tot.fit_gpm[0]
