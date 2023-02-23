@@ -225,6 +225,8 @@ import time
 
 def mockdata_lnlike_max(xhi_guess, logZ_guess):
 
+    # return the max log like and the CF computed from a number of mock data
+    # ~1 sec per mock computing time
     start = time.process_time()
     modelfile = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/corr_func_models_all_ivarweights.fits'
     nmock = 500 #1000
