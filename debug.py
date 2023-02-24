@@ -217,6 +217,32 @@ def remove_qso(cgm_mask):
         xi_mean_unmask_remove.append(xi_mean_unmask)
     return xi_mean_mask_remove, xi_mean_unmask_remove, iqso_to_use_ls
 
+def contfit_effect():
+    # paper_plots/10qso/cf_compare_everyn_v2.png
+    xi_20 = np.load('save_cf/xi_mean_mask_10qso_everyn20.npy')
+    xi_40 = np.load('save_cf/xi_mean_mask_10qso_everyn40.npy')
+    xi_60 = np.load('save_cf/xi_mean_mask_10qso_everyn60.npy')
+    xi_80 = np.load('save_cf/xi_mean_mask_10qso_everyn80.npy')
+    xi_mean_fluxfit = np.load('save_cf/xi_mean_mask_10qso_mean_fluxfit2.npy')
+    xi_ls = [xi_20, xi_40, xi_60, xi_80]
+    label = np.arange(20, 100, 20).astype(int)
+
+    fitsfile = fits.open('save_cf/xi_mean_mask_10qso_everyn60.fits')
+    vel_mid = fitsfile['VEL_MID'].data
+
+    for i, xi in enumerate(xi_ls):
+        plt.plot(vel_mid, xi, label='everyn=%d (%d km/s)' % (label[i], label[i]*40), alpha=0.75)
+
+    plt.plot(vel_mid, xi_mean_fluxfit, 'k', label='mean continuum')
+    plt.ylabel('xi')
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+
+
+
 
 ##### MCMC #####
 import mcmc_inference as mcmc
@@ -247,6 +273,48 @@ def mockdata_lnlike_max(xhi_guess, logZ_guess):
     print((end-start))
 
     return lnl_fine_max, xi_data_allmocks
+
+def plot_cf_corr(xi_real_data, xi_data_allmocks, ibin, v_mid, neg_lags, saveplot=False, xi_mask_allqso=None):
+
+    #neg_lags, _ = get_neg_lags()
+    ibin_neg = []
+    for neg in neg_lags:
+        ibin_neg.append(np.argwhere(v_mid == neg)[0][0])
+
+    plt.figure(figsize=(13, 8)) # 6x5
+    for j in range(len(v_mid)):
+        plt.subplot(5, 6, j + 1)
+        if j != ibin:
+            plt.plot(xi_data_allmocks[:, ibin], xi_data_allmocks[:, j], 'kx')
+            if j in ibin_neg:
+                plt.plot(xi_real_data[ibin], xi_real_data[j], 'r+', ms=10, markeredgewidth = 2)
+            else:
+                plt.plot(xi_real_data[ibin], xi_real_data[j], 'g+', ms=10, markeredgewidth = 2)
+
+            if xi_mask_allqso is not None:
+                for iqso in range(len(xi_mask_allqso)):
+                    plt.scatter(xi_mask_allqso[iqso][ibin], xi_mask_allqso[iqso][j], label=iqso, zorder=10)
+
+            plt.xlabel('xi(dv=%d)' % v_mid[ibin])
+            plt.ylabel('xi(dv=%d)' % v_mid[j])
+
+    plt.tight_layout()
+    if saveplot:
+        plt.savefig('paper_plots/10qso/debug/cf_corr_dv%d.png' % v_mid[ibin])
+    plt.show()
+
+def plot_cf_corr_qso(xi_mask_allqso, xi_mean_data, ibin, v_mid):
+
+    plt.figure(figsize=(13, 8))  # 6x5
+    for j in range(len(v_mid)):
+        plt.subplot(5, 6, j + 1)
+        if j != ibin:
+            plt.plot(xi_mean_data[ibin], xi_mean_data[j], 'kx', markeredgewidth = 2, zorder=20)
+            for iqso in range(len(xi_mask_allqso)):
+                plt.scatter(xi_mask_allqso[iqso][ibin], xi_mask_allqso[iqso][j], label=iqso)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 ##### checking forward models #####
 def check_fm1(logZ):
