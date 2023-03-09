@@ -376,6 +376,32 @@ def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_
 
     return good_z
 
+def init_onespec_fluxfit(iqso):
+    datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+    fitsfile_list = [datapath + 'J0411-0907_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0319-1008_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0410-0139_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0038-0653_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0313-1806_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0038-1527_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0252-0503_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1007+2115_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1120+0641_dv40_coadd_tellcorr.fits']
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+                    'J1342+0928', 'J1007+2115', 'J1120+0641']
+
+    everyn_ls = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+    fluxfit_ls = []
+    for everyn in everyn_ls:
+        wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile_list[iqso], everyn, qso_namelist[iqso])
+        fluxfit_ls.append(fluxfit)
+
+    mean_fluxfit = np.mean(fluxfit_ls, axis=0)
+    np.save('mean_fluxfit_' + qso_namelist[iqso] + '.npy', mean_fluxfit)
+    return mean_fluxfit
+
+
 def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
 
     fitsfile_list = [datapath + 'J0411-0907_dv40_coadd_tellcorr.fits', \
@@ -401,6 +427,9 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
     wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso])
     redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_zlist[iqso], exclude_restwave)
     telluric_gpm = telluric_mask(wave)
+
+    # try????
+    #fluxfit = np.load('mean_fluxfit_' + qso_namelist[iqso] + '.npy')
 
     if redshift_bin == 'low':
         zbin_mask = wave < (2800 * (1 + median_z))
@@ -431,7 +460,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
 
     return raw_data_out, masked_data_out, all_masks_out
 
-def init_onespec_old(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_redux/'):
+def old_init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_redux/'):
     # initialize all needed quantities for one qso, included all masks, for all subsequent analyses
     # important to make sure fits files and global variables are up to dates
 
@@ -645,3 +674,15 @@ def mosfire_nires_fwhm():
 
     return nires_fwhm, mosfire_fwhm
 
+######################################################
+def cf_lags_to_mask():
+
+    given_bins = np.array(ccf.custom_cf_bin4(dv1=80))
+    v_lo, v_hi = given_bins
+    vel_mid = (v_hi + v_lo) / 2
+
+    cf_lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
+    ibad = np.array([11, 14, 18])  # corresponding to lags 930, 1170, 1490
+    cf_lag_mask[ibad] = 0
+
+    return cf_lag_mask
