@@ -681,8 +681,8 @@ def cf_lags_to_mask():
     v_lo, v_hi = given_bins
     vel_mid = (v_hi + v_lo) / 2
 
-    cf_lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
+    lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
     ibad = np.array([11, 14, 18])  # corresponding to lags 930, 1170, 1490
-    cf_lag_mask[ibad] = 0
+    lag_mask[ibad] = 0
 
-    return cf_lag_mask
+    return lag_mask
