@@ -59,13 +59,13 @@ given_bins = ccf.custom_cf_bin4()
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 nqso = len(qso_namelist)
-
+nqso = 2
 #seed_list = [None] * nqso
 given_bins = ccf.custom_cf_bin4(dv1=80)
 #savefig = 'plots/cf_8qso_ivarweights_everyn60_globalfmean_df_%sz.png' % redshift_bin #'paper_plots/8qso/cf_%sz_%dqso_ivar.pdf' % (redshift_bin, nqso)
 #savefig = None
 
-iqso_to_use = None #np.array([9])
+iqso_to_use = None #np.array([0,3,4,5,6,7,8,9])
 if iqso_to_use is None:
     iqso_to_use = np.arange(0, nqso)
 
@@ -88,9 +88,18 @@ xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized 
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
 if save_cf_out is not None:
-    np.save(save_cf_out, xi_mean_mask)
+    #np.save(save_cf_out, xi_mean_mask)
 
-exit()
+    hdulist = fits.HDUList()
+    hdulist.append(fits.ImageHDU(data=vel_mid, name='vel_mid'))
+    hdulist.append(fits.ImageHDU(data=xi_mean_unmask, name='xi_mean_unmask'))
+    hdulist.append(fits.ImageHDU(data=xi_mean_mask, name='xi_mean_mask'))
+    hdulist.append(fits.ImageHDU(data=xi_unmask, name='xi_unmask'))
+    hdulist.append(fits.ImageHDU(data=xi_mask, name='xi_mask'))
+    hdulist.append(fits.ImageHDU(data=w_masked, name='w_masked'))
+    hdulist.append(fits.ImageHDU(data=w_unmasked, name='w_unmasked'))
+    hdulist.writeto(save_cf_out, overwrite=True)
+
 #######
 vel_corr = vel_mid
 

@@ -33,8 +33,8 @@ qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
-corr_all = [1, 1, 1, 0.73, 0.697, 0.653, 0.667, 0.72, 1, 1]
-#corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
+#corr_all = [1, 1, 1, 0.73, 0.697, 0.653, 0.667, 0.72, 1, 1]
+corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64] #xi_mean_mask_10qso_everyn60_corr.fits
 vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
 
 #################################
@@ -95,7 +95,7 @@ def check_onespec(iqso, redshift_bin, given_bins):
     print(xi_tot2 / xi_tot1)
     return vel_mid, npix_tot1, npix_tot2
 
-def onespec_old(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given_bins=None, ivar_weights=False):
+def old_onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given_bins=None, ivar_weights=False):
 
     # compute the CF for one QSO spectrum
     # options for redshift_bin are 'low', 'high', 'all'
@@ -233,10 +233,12 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     ivar *= (fluxfit**2) # normalize by cont
     ivar *= (1/std_corr**2) # apply correction
 
+    #ivar = np.random.permutation(ivar)
+
     ###### CF from not masking CGM ######
     all_masks = master_mask
 
-    #norm_good_flux = (flux / fluxfit)[all_masks]
+    norm_good_flux = (flux / fluxfit)[all_masks]
     #ivar_good = ivar[all_masks]
 
     norm_flux = flux/fluxfit
@@ -270,6 +272,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
     vel_cgm = vel[all_masks]
     """
+    #meanflux_tot_mask = np.mean(norm_flux[all_masks * cgm_fit_gpm])
     meanflux_tot_mask = fmean_mask
     deltaf_tot_mask = (norm_flux - meanflux_tot_mask) / meanflux_tot_mask
     mean_deltaf_tot_mask = np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm])
@@ -404,7 +407,9 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     # data and noise
     xi_mask_all = np.array(xi_mask_all)
     #xi_mean_mask = np.mean(xi_mask_all, axis=0)
+    #xi_mean_mask = np.average(xi_mask_all, axis=0, weights=weights_masked)
     xi_mean_mask = np.average(xi_mask_all, axis=0, weights=weights_masked)
+
     xi_std_mask = np.std(xi_mask_all, axis=0)
     xi_noise_mask_all = np.array(xi_noise_mask_all)
     #xi_mean_noise_mask = np.mean(xi_noise_mask_all, axis=0)

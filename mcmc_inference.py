@@ -100,6 +100,8 @@ def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None, c
     else:
         xi_data = xi_mean_data
     xi_mask = np.ones_like(xi_data, dtype=bool)  # Boolean array
+    ibad = np.array([11, 14, 18]) # lags 930, 1170, 1490
+    xi_mask[ibad] = 0
 
     # Interpolate the likelihood onto a fine grid to speed up the MCMC
     nlogZ = logZ_coarse.size
@@ -149,7 +151,7 @@ def init(modelfile, redshift_bin, given_bins, figpath=None, xi_mean_data=None, c
 
     return fine_out, coarse_out, data_out
 
-def init_mockdata(modelfile, xhi_guess, logZ_guess):
+def init_mockdata(modelfile, xhi_guess, logZ_guess, imock=None):
 
     # modelfile = 'igm_cluster/corr_func_models_fwhm_90.000_samp_3.000.fits'
     params, xi_mock_array, xi_model_array, covar_array, icovar_array, lndet_array = read_model_grid(modelfile)
@@ -161,14 +163,15 @@ def init_mockdata(modelfile, xhi_guess, logZ_guess):
     nlogZ = params['nlogZ'][0]
     nhi = params['nhi'][0]
 
-    # Pick the mock data that we will run with
-    nmock = xi_mock_array.shape[2]
-    imock = rand.choice(np.arange(nmock), size=1)
+    if imock is None:
+        # Pick the mock data that we will run with
+        nmock = xi_mock_array.shape[2]
+        imock = rand.choice(np.arange(nmock), size=1)
 
     # find the closest model values to guesses
     ixhi = find_closest(xhi_coarse, xhi_guess)
     iZ = find_closest(logZ_coarse, logZ_guess)
-    print("imock, ixhi, iZ", imock, ixhi, iZ)
+    #print("imock, ixhi, iZ", imock, ixhi, iZ)
 
     xhi_data = xhi_coarse[ixhi]
     logZ_data = logZ_coarse[iZ]
@@ -210,7 +213,7 @@ def init_mockdata(modelfile, xhi_guess, logZ_guess):
     coarse_out = xhi_coarse, logZ_coarse, lnlike_coarse
     data_out = xhi_data, logZ_data, xi_data, covar_array, params
 
-    return fine_out, coarse_out, data_out
+    return fine_out, coarse_out, data_out, imock, ixhi, iZ
 
 def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=100000, burnin=1000, nwalkers=40, \
              linearZprior=False, savefits_chain=None, actual_data=True, save_xi_err=None, inferred_model='mean'):
@@ -374,8 +377,12 @@ def corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, 
     axis.tick_params(axis="y", labelsize=16)
 
     axis.errorbar(vel_corr, factor*xi_data, yerr=factor*xi_err, marker='o', ms=6, color='black', ecolor='black', capthick=2,
-                  capsize=4,
-                  mec='none', ls='none', label='data', zorder=20)
+                  capsize=4, mec='none', ls='none', label='data', zorder=20)
+
+    ibad = np.array([11, 14, 18])  # lags 930, 1170, 1490
+    axis.errorbar(vel_corr[ibad], factor * xi_data[ibad], yerr=factor * xi_err[ibad], marker='x', ms=6, color='red', ecolor='red',
+                  capthick=2, capsize=4,mec='none', ls='none', label='masked', zorder=25)
+
     axis.plot(vel_corr, factor*xi_model_mean, linewidth=2.0, color='red', zorder=10, label='inferred model')
     if vel_mid_compare is not None:
         axis.plot(vel_mid_compare, factor * xi_mean_compare, linewidth=2.0, color='blue', zorder=10, label=label_compare)

@@ -123,7 +123,7 @@ nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 color_ls = ['r', 'g', 'c', 'orange', 'm', 'gray', 'deeppink', 'lime', 'r', 'g']
 ls_ls = ['-', '-', '-', '-', '-', '-', '-', '-', '--', '--']
 
-def init(redshift_bin='all', datapath='/Users/suksientie/Research/data_redux/', do_not_apply_any_mask=False, iqso_to_use=None):
+def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/', do_not_apply_any_mask=False, iqso_to_use=None):
     norm_good_flux_all = []
     norm_good_std_all = []
     norm_good_ivar_all = []
@@ -279,12 +279,13 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         noise = noise.reshape((1, len(noise)))
         fwhm = qso_fwhm[i]
 
+        """
         # J1120+0641
         if i == 9:
             signif_mask_nsigma = 3 #2.05
         else:
             signif_mask_nsigma = 3
-
+        """
         mgii_tot = MgiiFinder(vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)

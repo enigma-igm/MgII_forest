@@ -46,7 +46,7 @@ ymin = -0.05
 ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6, 0.6, 0.7]
 ymin_norm, ymax_norm = -0.05, 2.3
 
-savefig = True
+savefig = False #True
 
 good_zpix_all = []
 dx_all = []

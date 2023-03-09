@@ -326,7 +326,8 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
         norm_ivar_chunk = 1 / (norm_std_chunk ** 2)
         weights_in = norm_ivar_chunk
 
-        # new
+        # new (2/2023): applying CGM flux mask to simulated data to ensure simulated data are masked similarly
+        # applying the flux mask ensures the flux PDF of simulated matches real data
         m = (1 - flux_noise_ncopy) < 0.3 # 0.3 is the 1-F cutoff for masking CGM
         master_mask_chunk_tile = np.tile(master_mask_chunk, (nmock, 1, 1)) * m
 
@@ -391,6 +392,12 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
     print("====== xi_mean_ncopy2", np.shape(xi_mean_ncopy2))
     xi_mean2 = np.mean(xi_mean_ncopy2, axis=0)
     """
+    # new (3/2023): including mask to certain CF bins
+    lag_mask = mutils.cf_lags_to_mask()
+    covar = np.zeros((np.sum(lag_mask), np.sum(lag_mask)))
+    xi_mock_keep = np.zeros((nmock, np.sum(lag_mask)))
+    xi_mean = xi_mean[lag_mask]
+    vel_mid = vel_mid[lag_mask]
 
     start = time.process_time()
     for icovar in range(ncovar):
@@ -402,6 +409,7 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
             w.append(w_mock_ncopy[i][ran_imock[i]])
 
         xi_mock_icovar = np.average(xi, axis=0, weights=w)
+        xi_mock_icovar = xi_mock_icovar[lag_mask]
         delta_xi = xi_mock_icovar - xi_mean
         covar += np.outer(delta_xi, delta_xi)  # off-diagonal elements
 
@@ -475,7 +483,8 @@ def compute_model(args):
         mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
                         vel_lores_xshooter_interp, flux_lores_xshooter_interp, given_bins, seed=rand)
-    icovar = np.linalg.inv(covar)  # invert the covariance matrix
+    #icovar = np.linalg.inv(covar)  # invert the covariance matrix
+    icovar = np.zeros(covar.shape)
     sign, logdet = np.linalg.slogdet(covar)  # compute the sign and natural log of the determinant of the covariance matrix
     end = time.process_time()
     print("      mock_mean_covar done in .... ", (end - start))# / 60, " min")
@@ -489,7 +498,7 @@ def test_compute_model():
     xhi_path = '/Users/suksientie/Research/MgII_forest'
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
-    xHI = 0.50
+    xHI = 0.74
     ncovar = 10
     nmock = 10
     master_seed = 99991
@@ -551,8 +560,8 @@ def main():
 
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
-    outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/8qso/'
-    outpath = '/Users/suksientie/Research/MgII_forest/'
+    outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/10qso/'
+    #outpath = '/Users/suksientie/Research/MgII_forest/'
     outfilename = 'corr_func_models_{:s}'.format(redshift_bin) + '_ivarweights.fits'
     outfile = os.path.join(outpath, outfilename)
 
@@ -624,7 +633,7 @@ if __name__ == '__main__':
 
 
 ###################### old scripts ######################
-def init_dataset_old(nqso, redshift_bin, datapath):
+def old_init_dataset(nqso, redshift_bin, datapath):
 
     vel_data_allqso = []
     norm_flux_allqso = []
@@ -681,7 +690,7 @@ def init_dataset_old(nqso, redshift_bin, datapath):
     return vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, \
            master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso
 
-def mock_mean_covar_old(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
+def old_mock_mean_covar(ncovar, nmock_to_save, vel_data_allqso, norm_std_allqso, master_mask_allqso, instr_allqso, \
                     vel_lores_nires_interp, flux_lores_nires_interp, vel_lores_mosfire_interp, flux_lores_mosfire_interp, \
                     given_bins, seed=None):
 
