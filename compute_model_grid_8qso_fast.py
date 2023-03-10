@@ -451,32 +451,32 @@ def compute_model(args):
     # xshooter fwhm and sampling
     vel_lores_xshooter, flux_lores_xshooter = utils.create_mgii_forest(params, skewers, logZ, xshooter_fwhm, sampling=xshooter_sampling, mockcalc=True)
 
+    del skewers
+
     # interpolate flux lores to dv=40 (nyx); ~0.13 sec for 10,000 skewers on my Mac
     start = time.process_time()
     dv_coarse = 40
     vel_lores_nires_interp = np.arange(vel_lores_nires[0], vel_lores_nires[-1], dv_coarse)
     flux_lores_nires_interp = scipy.interpolate.interp1d(vel_lores_nires, flux_lores_nires, kind = 'cubic', \
                                                         bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
+    del vel_lores_nires
+    del flux_lores_nires
 
     vel_lores_mosfire_interp = np.arange(vel_lores_mosfire[0], vel_lores_mosfire[-1], dv_coarse)
     flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic', \
                                                            bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
 
+    del vel_lores_mosfire
+    del flux_lores_mosfire
+
     vel_lores_xshooter_interp = np.arange(vel_lores_xshooter[0], vel_lores_xshooter[-1], dv_coarse)
     flux_lores_xshooter_interp = scipy.interpolate.interp1d(vel_lores_xshooter, flux_lores_xshooter, kind='cubic', \
                                                             bounds_error=False, fill_value=np.nan)(vel_lores_xshooter_interp)
+    del vel_lores_xshooter
+    del flux_lores_xshooter
 
     end = time.process_time()
     print("      interpolating both mocks done in .... ", (end - start))# / 60, " min")
-
-    # delete arrays to save ram
-    del skewers
-    del vel_lores_nires
-    del vel_lores_mosfire
-    del flux_lores_nires
-    del flux_lores_mosfire
-    del vel_lores_xshooter
-    del flux_lores_xshooter
 
     start = time.process_time()
     xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso = \
