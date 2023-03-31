@@ -2,21 +2,38 @@ import mcmc_inference as mcmc
 import compute_cf_data as ccf
 from astropy.io import fits
 import numpy as np
+import mutils
 
 #modelfile = 'igm_cluster/8qso/corr_func_models_all.fits'
 #figpath = '/Users/suksientie/Research/MgII_forest/mcmc/8qso/npixweights/doublecheck/'
 
-modelfile = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/corr_func_models_all_ivarweights.fits'
-figpath = '/Users/suksientie/Research/MgII_forest/mcmc/10qso/xi_mask/'
-redshift_bin = 'all'
+mgii_dir = '/Users/suksientie/Research/MgII_forest/'
+modelfile = mgii_dir + 'igm_cluster/10qso/corr_func_models_high_ivarweights.fits'
+figpath = mgii_dir + 'mcmc/10qso/xi_mask_extract_subarr/'
+redshift_bin = 'high'
 given_bins = ccf.custom_cf_bin4(dv1=80)
 
-#cf = fits.open('plots/8qso-debug/cf_8qso_allz_ivarweights_globalfmean_everyn60_subtract-df.fits')
-#xi_mean_data = cf['xi_mean_mask'].data
-xi_mean_data = np.load('save_cf/xi_mean_mask_10qso_everyn60.npy')
+if redshift_bin == 'all':
+    cf = fits.open('save_cf/xi_mean_mask_10qso_everyn60.fits')
+    covar_fine_file = mgii_dir + 'igm_cluster/10qso/covar_fine_all_ivarweights_subarr.npy' #covar_fine_all_ivarweights_lagmask.npy
+    lag_mask = mutils.cf_lags_to_mask()
+
+elif redshift_bin == 'high':
+    cf = fits.open('save_cf/xi_mean_mask_10qso_everyn60_highz.fits')
+    covar_fine_file = mgii_dir + 'igm_cluster/10qso/covar_fine_high_ivarweights_subarr.npy'
+    lag_mask = mutils.cf_lags_to_mask_highz()
+
+elif redshift_bin == 'low':
+    cf = fits.open('save_cf/xi_mean_mask_10qso_everyn60_lowz.fits')
+    covar_fine_file = mgii_dir + 'igm_cluster/10qso/covar_fine_low_ivarweights_subarr.npy'
+    lag_mask = mutils.cf_lags_to_mask_lowz()
+
+xi_mean_data = cf['XI_MEAN_MASK'].data
+covar_array_fine = np.load(covar_fine_file)
 
 # initialize
-fine_out, coarse_out, data_out = mcmc.init(modelfile, redshift_bin, given_bins, figpath, xi_mean_data=xi_mean_data)
+fine_out, coarse_out, data_out = mcmc.init(modelfile, redshift_bin, given_bins, lag_mask=lag_mask, figpath=figpath, \
+                                           xi_mean_data=xi_mean_data, covar_array_fine=covar_array_fine)
 
 # log Z priors
 savefits_chain = figpath + redshift_bin + 'z_mcmc_chain.fits'
