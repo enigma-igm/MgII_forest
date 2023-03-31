@@ -682,7 +682,66 @@ def cf_lags_to_mask():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
-    ibad = np.array([11, 14, 18])  # corresponding to lags 930, 1170, 1490
+    ibad = np.array([9, 11, 14, 18])  # corresponding to lags 770, 930, 1170, 1490
     lag_mask[ibad] = 0
 
     return lag_mask
+
+def cf_lags_to_mask_highz():
+
+    given_bins = np.array(ccf.custom_cf_bin4(dv1=80))
+    v_lo, v_hi = given_bins
+    vel_mid = (v_hi + v_lo) / 2
+
+    lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
+
+    return lag_mask
+
+def cf_lags_to_mask_lowz():
+
+    given_bins = np.array(ccf.custom_cf_bin4(dv1=80))
+    v_lo, v_hi = given_bins
+    vel_mid = (v_hi + v_lo) / 2
+
+    lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
+    ibad = np.array([9, 11, 18])  # corresponding to lags 770, 930, 1490
+    lag_mask[ibad] = 0
+
+    return lag_mask
+
+import numpy.ma as ma
+def extract_subarr(lag_mask, xi_model_array, xi_mock_array, covar_array):
+
+    nhi, nlogZ, nmock, nbin = xi_mock_array.shape
+
+    # masking xi_model
+    lag_mask_tile = np.tile(lag_mask, (nhi, nlogZ, 1))
+    xi_model_array_masked = np.reshape(xi_model_array[lag_mask_tile], (nhi, nlogZ, np.sum(lag_mask)))
+
+    # masking xi_mock
+    lag_mask_tile = np.tile(lag_mask, (nhi, nlogZ, nmock, 1))
+    xi_mock_array_masked = np.reshape(xi_mock_array[lag_mask_tile], (nhi, nlogZ, nmock, np.sum(lag_mask)))
+
+    # masking covar_array
+    m1 = lag_mask.astype(int)
+    m1 = np.tile(m1, (1, 1))
+    m2 = np.transpose(m1)
+    lag_mask_2d = np.matmul(m2, m1)
+    lag_mask_tile = np.tile(lag_mask_2d, (nhi, nlogZ, 1, 1))
+    mx = ma.masked_array(covar_array, mask=lag_mask_tile)
+    #mx = covar_array * lag_mask_tile
+    new_covar_array = np.zeros((nhi, nlogZ, np.sum(lag_mask), np.sum(lag_mask)))
+
+    for ihi in range(nhi):
+        for ilogZ in range(nlogZ):
+            tmp = []
+            for ibin in range(nbin):
+                d = mx[ihi][ilogZ][ibin].data
+                m = mx[ihi][ilogZ][ibin].mask
+                if np.sum(m) > 0:
+                    tmp.append(d[m])
+            new_covar_array[ihi, ilogZ, :, :] = tmp
+
+    sign, new_lndet_array = np.linalg.slogdet(new_covar_array)
+
+    return xi_model_array_masked , xi_mock_array_masked, new_covar_array, new_lndet_array
