@@ -45,39 +45,6 @@ xylabel_fontsize = 20
 legend_fontsize = 16
 
 ########## global variables ##########
-"""
-fwhm = 90
-sampling = 3
-seed = None #4101877 # seed for generating random realizations of qso noise
-
-if seed != None:
-    rand = np.random.RandomState(seed)
-else:
-    rand = np.random.RandomState()
-
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
-qso_zlist = [7.642, 7.541, 7.001, 7.034, 7.1] # precise redshifts from Yang+2021
-everyn_break_list = [20, 20, 20, 20, 20] # placing a breakpoint at every 20-th array element (more docs in mutils.continuum_normalize)
-                                     # this results in dwave_breakpoint ~ 40 A --> 600 km/s
-exclude_restwave = 1216 - 1185 # excluding proximity zones; see mutils.qso_exclude_proximity_zone
-nqso_to_use = 5
-
-# chi PDF
-signif_thresh = 2.0 # 4.0
-signif_mask_dv = 300.0 # value used in Hennawi+2021
-signif_mask_nsigma = 3 #10 #8 # chi threshold
-one_minF_thresh = 0.3 # flux threshold
-nbins_chi = 101 #81
-sig_min = 1e-3 # 1e-2
-sig_max = 100.0
-dsig_bin = np.ediff1d(np.linspace(sig_min, sig_max, nbins_chi))
-#print(dsig_bin)
-
-# flux PDF
-nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
-color_ls = ['r', 'g', 'c', 'orange', 'm']
-"""
-
 #fwhm = 40
 #sampling = 3
 seed = None
@@ -236,7 +203,9 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     fwhm_avg = np.mean(qso_fwhm)
     sampling_avg = np.mean(qso_sampling)
     Wfactor = ((fwhm_avg / sampling_avg) * u.km / u.s / const.c).decompose() * wave_blue.value
-    print("Wfactor", Wfactor) # 0.28 A
+    print("fwhm_avg", fwhm_avg)
+    print("sampling_avg", sampling_avg)
+    print("Wfactor", Wfactor)
 
     Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
     ymin, ymax = 1e-3, 1.5
@@ -606,7 +575,7 @@ fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-1527/vel1_tellcorr_pad.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0038-0653/vel1_tellcorr_pad.fits']
 
-def init_old():
+def old_init():
     # masked
     norm_good_flux_all = []
     norm_good_std_all = []

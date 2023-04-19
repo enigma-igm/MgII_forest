@@ -9,8 +9,6 @@ args = parser.parse_args()
 plotpdf = args.plotpdf
 plotmaskedspec = args.plotmaskedspec
 
-#nqso_to_plot = 4
-#qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
 datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']

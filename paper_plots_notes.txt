@@ -1,0 +1,10 @@
+Figure 1 - 8:
+===> plot_spectra_new.py
+===> paper_plots/10qso/spec_*.pdf
+
+Table 1:
+===> plot_spectra_new.py
+
+Figure 9:
+===> plot_spectra_mgii_region.py
+===> paper_plots/10qso/spec_mg2forest.pdf
