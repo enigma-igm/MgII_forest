@@ -443,10 +443,11 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     s_mask = np.invert(mgii_tot.signif_gpm[0])
     fs_mask = np.invert(mgii_tot.fit_gpm[0])
 
-    f_mask_frac = np.sum(f_mask)/len(f_mask)
-    s_mask_frac = np.sum(s_mask)/len(s_mask)
-    fs_mask_frac = np.sum(fs_mask)/len(fs_mask)
-    print(f_mask_frac, s_mask_frac, fs_mask_frac)
+    # calculating the masked pixel fraction within unmasked regions only
+    f_mask_frac = np.sum(f_mask[pz_masks * other_masks])/len(f_mask)
+    s_mask_frac = np.sum(s_mask[pz_masks * other_masks])/len(s_mask)
+    fs_mask_frac = np.sum(fs_mask[pz_masks * other_masks])/len(fs_mask)
+    print(qso_namelist[iqso], f_mask_frac, s_mask_frac, fs_mask_frac)
 
     """
     # J1120+0641
@@ -515,8 +516,8 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
             ax2.axvline(x=vel_data[ired], color='red', linestyle=':', linewidth=2, zorder=1)
         """
         bluered_mask_gpm, abs_mask_gpm = bosman_J1120([4, 4, 3.5])
-        ax1.plot(vel_data[np.invert(abs_mask_gpm)], norm_good_flux[np.invert(abs_mask_gpm)], color='blue', markersize=7,
-                 markeredgewidth=3.5, linestyle='none', alpha=1.0, zorder=3, marker='|', label='Bosman et al. (2017)')
+        ax1.plot(vel_data[np.invert(abs_mask_gpm)], norm_good_flux[np.invert(abs_mask_gpm)], color='blue', markersize=15,
+                 markeredgewidth=8, linestyle='none', alpha=1.0, zorder=3, marker='|', label='Bosman et al. (2017)')
         ax1.legend(fontsize=legend_fontsize, loc=1)
         #ax2.fill_between(vel_data, neg, mgii_tot.signif[0], where=np.invert(abs_mask_gpm), step='mid', facecolor='blue', alpha=0.5)
 
