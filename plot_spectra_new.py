@@ -35,6 +35,7 @@ qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
+savefig = False #True
 
 # CGM masks
 good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, _, _ = \
@@ -45,8 +46,6 @@ xmin = 19500
 ymin = -0.05
 ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6, 0.6, 0.7]
 ymin_norm, ymax_norm = -0.05, 2.3
-
-savefig = False #True
 
 good_zpix_all = []
 dx_all = []
@@ -80,7 +79,7 @@ for i in range(nqso_to_plot):
     dx = mutils.abspath(zhigh, zlow)
     dx_all.append(dx)
     dz_all.append(zhigh-zlow)
-    print(zhigh-zlow, dx)
+    print("zlow, zhigh, zhigh-zlow, dx", zlow, zhigh, zhigh-zlow, dx)
 
     ymax = ymax_ls[i]
     xmax = wave.max()
@@ -138,14 +137,13 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        #plt.savefig('plots/8qso/everyn_bkpt_60_spec/spec_%s.pdf' % qso_namelist[i])
         plt.savefig('paper_plots/10qso/spec_%s.pdf' % qso_namelist[i])
         plt.close()
-    if savefig is False:
-        plt.show()
+    else:
+        #plt.show()
         plt.close()
 
 print("##############")
-print("good zpix = median:%0.3f, min: %0.3f, max: %0.3f" % (np.median(good_zpix_all), np.min(good_zpix_all), np.max(good_zpix_all)))
+print("good zpix = median: %0.3f, min: %0.3f, max: %0.3f" % (np.median(good_zpix_all), np.min(good_zpix_all), np.max(good_zpix_all)))
 print("dx total", np.sum(dx_all))
 print("dz total", np.sum(dz_all))

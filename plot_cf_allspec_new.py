@@ -49,17 +49,10 @@ xi_err_file = args.xi_err_file
 savefig = args.savefig
 save_cf_out = args.save_cf_out
 
-"""
-qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'unpublished \n new QSO']
-median_z = 6.554
-seed_list=[None, None, None, None, None]
-given_bins = ccf.custom_cf_bin4()
-"""
-#qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
+
 nqso = len(qso_namelist)
-nqso = 2
 #seed_list = [None] * nqso
 given_bins = ccf.custom_cf_bin4(dv1=80)
 #savefig = 'plots/cf_8qso_ivarweights_everyn60_globalfmean_df_%sz.png' % redshift_bin #'paper_plots/8qso/cf_%sz_%dqso_ivar.pdf' % (redshift_bin, nqso)
@@ -88,8 +81,6 @@ xi_std_unmask = np.std(xi_unmask, axis=0, ddof=1) # ddof=1 means std normalized 
 xi_std_mask = np.std(xi_mask, axis=0, ddof=1)
 
 if save_cf_out is not None:
-    #np.save(save_cf_out, xi_mean_mask)
-
     hdulist = fits.HDUList()
     hdulist.append(fits.ImageHDU(data=vel_mid, name='vel_mid'))
     hdulist.append(fits.ImageHDU(data=xi_mean_unmask, name='xi_mean_unmask'))
@@ -181,7 +172,7 @@ else:
 
 #yerr_cov = np.load('mcmc/8qso/xi_err.npy') * factor
 ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
-             fmt='o-', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20, label='all QSOs')
+             fmt='o-', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20)#, label='all QSOs')
 #ax2.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr_cov, lw=2.0, \
 #             fmt='o-', c='black', ecolor='red', capthick=2.0, capsize=2,  mec='none', zorder=20)
 #np.save('plot_cf_allspec_new_xi_std_mask.npy', xi_std_mask)
