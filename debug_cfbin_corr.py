@@ -17,6 +17,10 @@ import scipy
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 from astropy.io import fits
+import matplotlib as mpl
+
+mpl.rcParams['xtick.major.size'] = 5
+mpl.rcParams['ytick.major.size'] = 5
 
 def init_var(redshift_bin):
 
@@ -24,11 +28,11 @@ def init_var(redshift_bin):
     v_mid = (v_hi + v_lo) / 2.0
 
     if redshift_bin == 'all':
-        xi_file = fits.open('save_cf/xi_mean_mask_10qso_everyn60.fits')
+        xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
     elif redshift_bin == 'low':
-        xi_file = fits.open('save_cf/xi_mean_mask_10qso_everyn60_lowz.fits')
+        xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_lowz.fits')
     elif redshift_bin == 'high':
-        xi_file = fits.open('save_cf/xi_mean_mask_10qso_everyn60_highz.fits')
+        xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_highz.fits')
 
     xi_real_data = xi_file['XI_MEAN_MASK'].data
     xi_mask_allqso = xi_file['XI_MASK'].data
@@ -36,6 +40,7 @@ def init_var(redshift_bin):
 
     return v_mid, xi_real_data, xi_mask_allqso, xi_data_allmocks
 
+# https://www.astrobetter.com/blog/2014/02/10/visualization-fun-with-python-2d-histogram-with-1d-histograms-on-axes/
 def ellipse(ra,rb,ang,x0,y0,Nb=100):
     xpos,ypos=x0,y0
     radm,radn=ra,rb
@@ -65,6 +70,7 @@ def plot_cf_corr_sigma_ellipses1(x, y):
     ax_nstd.plot(X, Y, "g:", ms=1, linewidth=2.0)
     plt.show()
 
+# https://stackoverflow.com/questions/37031356/check-if-points-are-inside-ellipse-faster-than-contains-point-method
 def dist_to_ellcenter(xdata, ydata, xcenter, ycenter, ell_width, ell_height, ell_ang):
     # normalised distance of the point from the cell centre,
     # where a distance of 1 would be on the ellipse, less than 1 is inside, and more than 1 is outside.
@@ -83,22 +89,32 @@ def dist_to_ellcenter(xdata, ydata, xcenter, ycenter, ell_width, ell_height, ell
 
 def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=None, plot=False, saveplot=False):
 
+    #plot_w, plot_h = 13, 8 # 6x5
+    #nrow, ncol = 5, 6
+
+    scale_fac = 1e3
+    plot_w, plot_h = 9, 13
+    nrow, ncol = 7, 4
+
     nbin_outside_ell = 0
     if plot:
-        plt.figure(figsize=(13, 8))  # 6x5
+        #plt.figure(figsize=(plot_w, plot_h), sharex=True, sharey=True)
+        fig, axes = plt.subplots(nrows=nrow, ncols=ncol, figsize=(plot_w, plot_h), sharex=True, sharey=True)
+        fig.subplots_adjust(left=0.13, bottom=0.15, right=0.98, top=0.93, hspace=0.1, wspace=0.25)
+        ax_plot = axes.flatten()
         isubplot = 0
 
+    nsigma = 3
     for j in range(len(v_mid)):
-        #if plot:
-        #    ax = plt.subplot(5, 6, j + 1)
         if j != ibin:
-            x, y = xi_data_allmocks[:, ibin], xi_data_allmocks[:, j]
+            x, y = xi_data_allmocks[:, ibin] * scale_fac, xi_data_allmocks[:, j] * scale_fac
+
             xcenter = np.mean(x)
             ycenter = np.mean(y)
             ra = np.std(x)
             rb = np.std(y)
             ang = 0
-            rad_cc = dist_to_ellcenter(xi_real_data[ibin], xi_real_data[j], xcenter, ycenter, 2*(3 * ra), 2*(3 * rb), ang)
+            rad_cc = dist_to_ellcenter(xi_real_data[ibin] * scale_fac, xi_real_data[j] * scale_fac, xcenter, ycenter, 2*(nsigma * ra), 2*(nsigma * rb), ang)
 
             if rad_cc > 1:
                 nbin_outside_ell += 1
@@ -107,32 +123,44 @@ def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=N
                 data_marker = 'g+'
 
             if plot:
-                isubplot += 1
-                ax = plt.subplot(5, 6, isubplot)
-                ax.plot(x, y, 'kx')
+                #isubplot += 1
+                #ax = plt.subplot(nrow, ncol, isubplot)
+                ax = ax_plot[isubplot]
+                ax.plot(x, y, 'kx', alpha=0.5)
 
                 X, Y = ellipse(ra, rb, ang, xcenter, ycenter) # 1-sigma
-                ax.plot(X, Y, "b:", ms=1, linewidth=1.5)
+                ax.plot(X, Y, "b-", ms=1, linewidth=2)
                 X, Y = ellipse(2 * ra, 2 * rb, ang, xcenter, ycenter) # 2-sigma
-                ax.plot(X, Y, "b--", ms=1, linewidth=1.5)
+                ax.plot(X, Y, "b-", ms=1, linewidth=2)
                 X, Y = ellipse(3 * ra, 3 * rb, ang, xcenter, ycenter) # 3-sigma
                 ax.plot(X, Y, "b-", ms=1, linewidth=1.5)
 
-                ax.plot(xi_real_data[ibin], xi_real_data[j], data_marker, ms=10, markeredgewidth=2)
+                ax.plot(xi_real_data[ibin] * scale_fac, xi_real_data[j] * scale_fac, data_marker, ms=12, markeredgewidth=3)
 
                 if xi_mask_allqso is not None:
                     for iqso in range(len(xi_mask_allqso)):
                         ax.scatter(xi_mask_allqso[iqso][ibin], xi_mask_allqso[iqso][j], label=iqso, s=10, zorder=10)
 
-                ax.set_xlabel(r'$\xi$(dv=%d)' % v_mid[ibin])
-                ax.set_ylabel(r'$\xi$(dv=%d)' % v_mid[j])
+                if isubplot in (24, 25, 26, 27):
+                    ax.set_xlabel(r'$\xi (dv=%d) \times 10^3$' % v_mid[ibin], fontsize=10)
+                    #ax.set_xlabel(r'$\xi \times 10^3$' + '\n' + r'$(dv=%d)$' % v_mid[ibin])
 
-    plt.tight_layout()
+                #if isubplot in (0, 4, 8, 13, 17, 21, 25):
+                if isubplot % 4 == 0:
+                    ax.set_ylabel(r'$\xi (dv=%d) \times 10^3$' % v_mid[j], fontsize=10)
+                else:
+                    plt.setp(ax.get_yticklabels(), visible=False)
+                    ax.set_ylabel(r'$\xi (dv=%d) \times 10^3$' % v_mid[j] % v_mid[j], labelpad=6, fontsize=10)
+
+
+                isubplot += 1
+
+    #plt.tight_layout()
     if saveplot:
-        plt.savefig('paper_plots/10qso/debug/allz/cf_corr_dv%d.png' % v_mid[ibin])
+        plt.savefig('paper_plots/10qso/debug/allz2/cf_corr_dv%d.png' % v_mid[ibin])
         plt.close()
-    #else:
-    #    plt.show()
+    else:
+        plt.show()
 
     print(v_mid[ibin], nbin_outside_ell)
     return v_mid[ibin], nbin_outside_ell
@@ -140,18 +168,19 @@ def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=N
 def cfbin_corr_all(xi_real_data, xi_data_allmocks, v_mid, xi_mask_allqso=None, plot=False, saveplot=False):
 
     mask_bin = []
+    mask_ibin = []
     mask_bin_noutside = []
 
     for ibin in range(len(v_mid)):
         v_mid_ibin, nbin_outside_ell= cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, \
                                                      xi_mask_allqso=xi_mask_allqso, plot=plot, saveplot=saveplot)
 
-        if nbin_outside_ell > round(len(v_mid)*0.9):
+        if nbin_outside_ell >= 20: # definition adopted for paper
             mask_bin.append(v_mid_ibin)
+            mask_ibin.append(ibin)
             mask_bin_noutside.append(nbin_outside_ell)
 
-    return mask_bin, mask_bin_noutside
-
+    return mask_bin, mask_bin_noutside, mask_ibin
 
 def old_plot_cf_corr_new(xi_real_data, xi_data_allmocks, ibin, v_mid, saveplot=False, xi_mask_allqso=None):
 
@@ -327,6 +356,6 @@ def plot_cf_corr_new2(xi_real_data, xi_data_allmocks, ibin, v_mid, saveplot=Fals
     plt.tight_layout()
     #plt.legend()
     if saveplot:
-        plt.savefig('paper_plots/10qso/debug/new/cf_corr_dv%d.png' % v_mid[ibin])
+        plt.savefig('paper_plots/10qso/debug/allz2/cf_corr_dv%d.png' % v_mid[ibin])
     #else:
     #    plt.show()
