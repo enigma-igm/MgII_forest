@@ -117,7 +117,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/re
         pz_masks_all.append(redshift_mask * pz_mask * zbin_mask)
         other_masks_all.append(mask * telluric_mask)
 
-        print(np.sum(masks_for_cgm_masking), len(wave), np.sum(masks_for_cgm_masking)/len(wave))
+        #print(np.sum(masks_for_cgm_masking), len(wave), np.sum(masks_for_cgm_masking)/len(wave))
 
         # masks quantities
         norm_good_flux = (flux/fluxfit)[masks_for_cgm_masking]
@@ -472,8 +472,8 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     ax1.plot(vel_data, norm_good_flux, drawstyle='steps-mid', color='k', linewidth=1.5, zorder=1)
     ax1.plot(vel_data, norm_good_std, drawstyle='steps-mid', color='k', linewidth=1.0, alpha=0.5)
     ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=2, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))
-    ax1.plot(vel_data[s_mask], norm_good_flux[s_mask], color='magenta', markersize=7, markeredgewidth=2.5, linestyle='none', alpha=0.7, zorder=2, marker='|')
-    ax1.plot(vel_data[f_mask], norm_good_flux[f_mask], color = 'green', markersize = 7, markeredgewidth = 2.5, linestyle = 'none', alpha = 0.7, zorder = 3, marker = '|')
+    ax1.plot(vel_data[s_mask], norm_good_flux[s_mask], color='magenta', markersize=10, markeredgewidth=3, linestyle='none', alpha=0.7, zorder=2, marker='|')
+    ax1.plot(vel_data[f_mask], norm_good_flux[f_mask], color = 'green', markersize = 15, markeredgewidth = 6, linestyle = 'none', alpha = 0.7, zorder = 3, marker = '|')
     ax1.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
     #ax1.set_xlim([vel_data.min(), vel_data.max()])
     ax1.set_xlim([vel_data[pz_masks].min(), vel_data[pz_masks].max()])
@@ -631,7 +631,7 @@ def bosman_J1120(dwave_ls, wave=None, norm_flux=None, datapath='/Users/suksienti
         dwave = dwave_ls[i_babs]
         wave_blue = 2796 * (1 + babs)
         wm_blue = (wave <= wave_blue + dwave) * (wave >= wave_blue - dwave)
-        flux_mask_blue = norm_flux < 1 #norm_flux[wm] < 1
+        flux_mask_blue = norm_flux < 1
         rest_wb = wave / (1 + babs) #wave[wm][flux_mask_blue] / (1 + babs)
         ew_blue = integrate.simps(1.0 - norm_flux[wm_blue * flux_mask_blue], rest_wb[wm_blue * flux_mask_blue]) #integrate.simps(1.0 - norm_flux[wm][flux_mask_blue], rest_wb)
         #blue_mask_all.append(wm * flux_mask_blue)

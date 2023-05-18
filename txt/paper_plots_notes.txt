@@ -1,3 +1,4 @@
+############### done ###############
 Figure 1 - 8:
 ===> plot_spectra_new.py
 ===> paper_plots/10qso/spec_*.pdf
@@ -11,6 +12,49 @@ Figure 9:
 
 Figure 10:
 ===> plot_masking_pdf.py --plotpdf
+===> paper_plots/10qso/flux_pdf.pdf, chi_pdf.pdf
 
 Figure 11:
 ===> plot_masking_pdf.py --plotmaskedspec
+===> paper_plots/10qso/masked*.pdf
+
+Figure 12 - 14:
+>> mcmc_fits_full = 'mcmc/10qso/paper/xi_fullarr/allz_mcmc_chain.fits'
+>> mcmc_fits_subarr = 'mcmc/10qso/paper/xi_mask_extract_subarr2/allz_mcmc_chain.fits'
+>> xi_out = mutils.xi_err_master(mcmc_fits_full, mcmc_fits_subarr, 'allz_xi_err_paper.npy')
+
+===> allz_xi_err_paper.npy, lowz_xi_err_paper.npy, highz_xi_err_paper.npy
+===> python plot_cf_allspec_new.py --zbin all --ivarweights --xi_err_file allz_xi_err_paper.npy --savefig paper_plots/10qso/cf_allz_ivar_covarerr.pdf
+===> python plot_cf_allspec_new.py --zbin low --ivarweights --xi_err_file lowz_xi_err_paper.npy --savefig paper_plots/10qso/cf_lowz_ivar_covarerr.pdf
+===> python plot_cf_allspec_new.py --zbin high --ivarweights --xi_err_file highz_xi_err_paper.npy --savefig paper_plots/10qso/cf_highz_ivar_covarerr.pdf
+
+Figure 15:
+===> plot_cf_allspec_models_new.py
+===> paper_plots/10qso/cf_masked_models.py
+
+Figure 16:
+===> plot_forward_model_8qso.py
+===> paper_plots/10qso/forward_model_specs_allz.pdf
+
+Figure 17 - 19:
+1. Do "run_mcmc.py" for all redshift bins with "subarr_flag = False" to get results for full array for all velocity lags
+2. Then, do "run_mcmc.py" for all redshift bins with "subarr_flag = True"
+
+===> mcmc/10qso/paper/xi_mask_extract_subarr2/allz_corner_plot.pdf, allz_corr_func_data.pdf
+===> mcmc/10qso/paper/xi_mask_extract_subarr2/highz_corner_plot.pdf, highz_corr_func_data.pdf
+===> mcmc/10qso/paper/xi_mask_extract_subarr2/lowz_corner_plot.pdf, lowz_corr_func_data.pdf
+===> mcmc/10qso/paper/xi_mask_extract_subarr2/Untitled (upper limits)
+
+Figure 21, 22:
+>> import debug_cfbin_corr as d
+>> v_mid, xi_real_data, xi_mask_allqso, xi_data_allmocks = d.init_var('all')
+>> d.cfbin_corr_all(xi_real_data, xi_data_allmocks, v_mid, plot=True, saveplot=True)
+
+############### in progress ###############
+Figure 20:
+===> plot_logZ_evol.py
+(using inkscape to modify figure)
+===> paper_plots/10qso/evol_final.pdf
+
+
+

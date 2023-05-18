@@ -36,7 +36,6 @@ qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 exclude_restwave = 1216 - 1185
-median_z = 6.50 # (8qso)
 corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
 nqso_to_use = len(qso_namelist)
 
@@ -394,6 +393,8 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
     """
     # new (3/2023): including mask to certain CF bins
     lag_mask = mutils.cf_lags_to_mask()
+    lag_mask = np.ones_like(vel_mid, dtype=bool)
+
     covar = np.zeros((np.sum(lag_mask), np.sum(lag_mask)))
     xi_mock_keep = np.zeros((nmock, np.sum(lag_mask)))
     xi_mean = xi_mean[lag_mask]
@@ -450,7 +451,6 @@ def compute_model(args):
 
     # xshooter fwhm and sampling
     vel_lores_xshooter, flux_lores_xshooter = utils.create_mgii_forest(params, skewers, logZ, xshooter_fwhm, sampling=xshooter_sampling, mockcalc=True)
-
     del skewers
 
     # interpolate flux lores to dv=40 (nyx); ~0.13 sec for 10,000 skewers on my Mac
@@ -498,11 +498,11 @@ def test_compute_model():
     xhi_path = '/Users/suksientie/Research/MgII_forest'
     #xhi_path = '/mnt/quasar/joe/reion_forest/Nyx_output/z75/xHI/' # on IGM cluster
     zstr = 'z75'
-    xHI = 0.74
-    ncovar = 10
-    nmock = 10
+    xHI = 0.50 #0.74
+    ncovar = 1000000
+    nmock = 1000
     master_seed = 99991
-    logZ = -3.5
+    logZ = -4.50
     redshift_bin = 'all'
 
     vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(nqso_to_use, redshift_bin, datapath)

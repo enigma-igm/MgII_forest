@@ -90,6 +90,7 @@ for i in range(nqso_to_plot):
     ax1.plot(wave, flux, c='k', drawstyle='steps-mid')
     ax1.plot(wave, fluxfit, c='r', drawstyle='steps-mid') #, label='continuum fit')
     ax1.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid')#, label='sigma')
+
     ind_masked = np.where(mask * strong_abs_gpm == False)[0]
     for j in range(len(ind_masked)):  # bad way to plot masked pixels
         ax1.axvline(wave[ind_masked[j]], color='k', alpha=0.1, lw=2)

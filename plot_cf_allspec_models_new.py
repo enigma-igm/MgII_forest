@@ -30,65 +30,33 @@ xylabel_fontsize = 20
 legend_fontsize = 12
 black_shaded_alpha = 0.15
 
-savefig_unmasked = None #'paper_plots/cf_masked_models.pdf'
+savefig_unmasked = 'paper_plots/10qso/cf_masked_models.pdf'
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-nqso = len(qso_namelist)
-median_z = 6.50
-seed_list = [None] * nqso
-given_bins = ccf.custom_cf_bin4() #None #if using given_bins, see ccf.custom_cf_bin2() for vmin_corr, vmax_corr, dv_corr
-
+given_bins = np.array(ccf.custom_cf_bin4(dv1=80))
 factor = 1e5
 vmin, vmax = 0, 3500
-ymin, ymax = -0.0007 * factor, 0.0012 * factor
-
-####### running allspec() and plotting the CFs for low-z bin, high-z bin, and all-z bin
-lowz_cgm_fit_gpm, highz_cgm_fit_gpm, allz_cgm_fit_gpm = ccf.init_cgm_fit_gpm()
-
-vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask_all, xi_noise_mask_all, xi_unmask_all, xi_mask_all = \
-    ccf.allspec(nqso, 'all', allz_cgm_fit_gpm, seed_list=seed_list, given_bins=given_bins)
-xi_std_unmask = np.std(xi_unmask_all, axis=0)
-xi_std_mask = np.std(xi_mask_all, axis=0)
-
-#####
-"""
-nqso, nreal, nvel = xi_noise_mask_all.shape
-
-xi_noise_mask = np.reshape(xi_noise_mask_all, (nqso*nreal, nvel))
-xi_noise_mask_mean = np.mean(xi_noise_mask, axis=0)
-xi_noise_mask_std = np.std(xi_noise_mask, axis=0)
-"""
-
-"""
-# Create upper axis in cMpc
-lit_h = 0.67038
-Om0 = 0.3192
-Ob0 = 0.04964
-cosmo = FlatLambdaCDM(H0=100.0 * lit_h, Om0=Om0, Ob0=Ob0)
-z = params['z'][0]
-Hz = (cosmo.H(z))
-a = 1.0 / (1.0 + z)
-rmin = (vmin*u.km/u.s/a/Hz).to('Mpc').value
-rmax = (vmax*u.km/u.s/a/Hz).to('Mpc').value
-"""
+ymin, ymax = -0.00017 * factor, 0.00021 * factor
 
 ####### plot masked CF #######
 #### models
-fwhm = 120 #90 # 83
-sampling = 3
+# using mosfire specs since measurement dominated by mosfire quasars
+fwhm = 83.05
+sampling = 2.78
 
 xhi_models = [0.50]
-logZ_models = [-3.0, -3.2, -3.5]
+logZ_models = [-3.2, -3.5, -4.0] #[-3.0, -3.2, -3.5]
 
-#xhi_models = [0.2, 0.50]
-#logZ_models = [-3.0, -3.5]
+cf = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
+vel_mid = cf['vel_mid'].data
+xi_mean_mask = cf['XI_MEAN_MASK'].data
+#xi_err = np.load('mcmc/10qso/paper/tmp/allz_xi_err.npy')
+xi_err = np.load('allz_xi_err_paper.npy')
 
 xi_mean_models = []
 for xhi in xhi_models:
     filename = 'ran_skewers_z75_OVT_xHI_%0.2f_tau.fits' % xhi
     params = Table.read(filename, hdu=1)
     skewers = Table.read(filename, hdu=2)
-    #skewers = skewers[0:100]
 
     xi_mean_models_logZ = []
     for logZ in logZ_models:
@@ -99,8 +67,11 @@ for xhi in xhi_models:
         mean_flux_nless = np.mean(flux_lores)
         delta_f_nless = (flux_lores - mean_flux_nless) / mean_flux_nless
 
-        (vel_mid_log, xi_nless_log, npix, xi_nless_zero_lag) = reion_utils.compute_xi(delta_f_nless, vel_lores, 0, 0, 0, \
-                                                                                      given_bins=given_bins)
+        #(vel_mid_log, xi_nless_log, npix, xi_nless_zero_lag) = reion_utils.compute_xi(delta_f_nless, vel_lores, 0, 0, 0, \
+        #                                                                              given_bins=given_bins)
+
+        (vel_mid_log, xi_nless_log, npix, xi_nless_zero_lag) = reion_utils.compute_xi_weights(delta_f_nless, vel_lores, 0, 0, 0, given_bins=given_bins)
+
         xi_mean_log = np.mean(xi_nless_log, axis=0)
         xi_mean_models_logZ.append(xi_mean_log)
     xi_mean_models.append(xi_mean_models_logZ)
@@ -109,8 +80,8 @@ fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
 fig.subplots_adjust(left=0.12, bottom=0.15, right=0.98, top=0.93, wspace=0, hspace=0.)
 
 #yerr = xi_noise_mask_std * factor
-yerr = (xi_std_unmask / np.sqrt(nqso)) * factor
-ax1.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr, lw=2.0, \
+yerr = xi_err #(xi_std_unmask / np.sqrt(nqso)) * factor
+ax1.errorbar(vel_mid, xi_mean_mask * factor, yerr=yerr * factor, lw=2.0, \
              fmt='o', c='black', ecolor='black', capthick=2.0, capsize=2,  mec='none', zorder=20) #, alpha=0.8)
 
 for ixhi, xhi in enumerate(xhi_models):

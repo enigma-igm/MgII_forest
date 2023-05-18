@@ -30,15 +30,6 @@ xylabel_fontsize = 20
 legend_fontsize = 12
 black_shaded_alpha = 0.15
 
-"""
-savefig_unmasked = None #'paper_plots/cf_masked_models.pdf'
-
-qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-nqso = len(qso_namelist)
-median_z = 6.50
-seed_list = [None] * nqso
-"""
-
 factor = 1e5
 vmin, vmax = 0, 3500
 ymin, ymax = -0.0007 * factor, 0.0012 * factor

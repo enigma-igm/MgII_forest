@@ -33,7 +33,6 @@ qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
-#corr_all = [1, 1, 1, 0.73, 0.697, 0.653, 0.667, 0.72, 1, 1]
 corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64] #xi_mean_mask_10qso_everyn60_corr.fits
 vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
 

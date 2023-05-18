@@ -2,6 +2,8 @@ import mutils
 import numpy as np
 import mask_cgm_pdf
 
+##### March 2023: No longer need this code; see plot_cf_allspec_new.py #####
+
 """
 datapath='/Users/suksientie/Research/data_redux/'
 fitsfile_list = [datapath + 'wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
@@ -26,14 +28,13 @@ fitsfile_list = [datapath + 'J0411-0907_dv40_coadd_tellcorr.fits', \
                      datapath + 'J0038-1527_dv40_coadd_tellcorr.fits', \
                      datapath + 'J0252-0503_dv40_coadd_tellcorr.fits', \
                      datapath + 'J1342+0928_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits', \
                      datapath + 'J1007+2115_dv40_coadd_tellcorr.fits', \
                      datapath + 'J1120+0641_dv40_coadd_tellcorr.fits']
 
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
-everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
+everyn_break_list = (np.ones(len(qso_namelist)) * 60).astype('int')
 exclude_restwave = 1216 - 1185
 redshift_bin = 'all'
 
@@ -42,7 +43,7 @@ median_snr_all = []
 dx_all = []
 
 # CGM masks
-good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all = \
+good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all = \
     mask_cgm_pdf.init(redshift_bin=redshift_bin, do_not_apply_any_mask=True, datapath=datapath)
 mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None)
 

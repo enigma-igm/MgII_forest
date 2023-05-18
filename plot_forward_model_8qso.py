@@ -79,7 +79,7 @@ xshooter_sampling = 3.7
 
 ###################### flexible data variables ######################
 iqso_to_use = [0, 1, 4, 5, 6, 7, 8, 9] # omitting new qso in the plotting
-logZ = -5.0 # choosing model with no signal
+logZ = -4.50 # choosing model with no signal
 ncovar = 5 # just mocking for plots
 
 ###################### forward models ######################

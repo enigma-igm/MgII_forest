@@ -11,6 +11,8 @@ import sys
 sys.path.append('/Users/suksientie/codes/enigma')
 from enigma.reion_forest import utils
 import scipy
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
 
 def npix_vs_ivar():
     given_bins = ccf.custom_cf_bin4(dv1=80)
@@ -194,20 +196,21 @@ def get_df_velspec_onespec(iqso, redshift_bin):
 
 def remove_qso(cgm_mask):
     nqso = 10
-    redshift_bin = 'all'
+    redshift_bin = 'high'
     given_bins = ccf.custom_cf_bin4(dv1=80)
     ivar_weights = True
     #iqso_remove_ls = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, [4, 5, 6]]
 
-    #iqso_to_use_ls = [[0], [0, 1], [0, 1, 2], [0, 1, 2, 3], [0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5, 6]]
-    iqso_to_use_ls = [[4], [5], [6], [4, 5], [4, 6], [5, 6], [4, 5, 6]]
-    #iqso_to_use_ls = [[0, 1, 2, 3], [0, 1, 2, 3, 5, 6], [0, 1, 2, 3, 5, 6, 7, 8, 9]]
+    iqso_to_use_ls = [[0], [0, 1], [0, 1, 2], [0, 1, 2, 3], [0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5, 6],
+                      [0, 1, 2, 3, 4, 5, 6, 7], [0, 1, 2, 3, 4, 5, 6, 7, 8]]
+    #iqso_to_use_ls = [[4], [5], [6], [4, 5], [4, 6], [5, 6], [4, 5, 6]]
+    iqso_to_use_ls = [[2, 3, 4, 5, 6, 7, 8, 9]]
 
     xi_mean_mask_remove = []
     xi_mean_unmask_remove = []
     for elem in iqso_to_use_ls:
-        #iqso_to_use = elem #np.delete(np.arange(nqso), elem)
-        iqso_to_use = np.delete(np.arange(nqso), elem)
+        iqso_to_use = elem
+        #iqso_to_use = np.delete(np.arange(nqso), elem)
         vel_mid, xi_mean_unmask, xi_mean_mask, xi_noise_unmask, xi_noise_mask, xi_unmask, xi_mask, w_masked, w_unmasked = \
             ccf.allspec(nqso, redshift_bin, cgm_mask, given_bins=given_bins, iqso_to_use=iqso_to_use,
                     ivar_weights=ivar_weights, \
@@ -216,6 +219,32 @@ def remove_qso(cgm_mask):
         xi_mean_mask_remove.append(xi_mean_mask)
         xi_mean_unmask_remove.append(xi_mean_unmask)
     return xi_mean_mask_remove, xi_mean_unmask_remove, iqso_to_use_ls
+
+def plot_remove_qso(xi_mean_mask_remove, iqso_to_use_ls, redshift_bin):
+
+    if redshift_bin == 'all':
+        fitsfile = fits.open('save_cf/xi_mean_mask_10qso_everyn60.fits')
+    elif redshift_bin == 'high':
+        fitsfile = fits.open('save_cf/xi_mean_mask_10qso_everyn60_highz.fits')
+    elif redshift_bin == 'low':
+        fitsfile = fits.open('save_cf/xi_mean_mask_10qso_everyn60_lowz.fits')
+
+    xi_mean_ori = fitsfile['XI_MEAN_MASK'].data
+    vel_mid = fitsfile['VEL_MID'].data
+
+    plt.figure(figsize=(10,6))
+    ibad = np.array([11, 14, 18])
+    #for elem in ibad:
+    #    plt.axvline(vel_mid[elem], ls='--')
+
+    for i in range(len(iqso_to_use_ls)):
+        plt.plot(vel_mid, xi_mean_mask_remove[i], 'o', alpha=1, ms=5, label=iqso_to_use_ls[i])
+    plt.plot(vel_mid, xi_mean_ori, 'k+', mew=2)
+
+    plt.xlabel('vel lags (km/s)')
+    plt.ylabel('CF')
+    plt.legend()
+    plt.show()
 
 def contfit_effect():
     # paper_plots/10qso/cf_compare_everyn_v2.png
@@ -240,10 +269,6 @@ def contfit_effect():
     plt.tight_layout()
     plt.show()
 
-
-
-
-
 ##### MCMC #####
 import mcmc_inference as mcmc
 from enigma.reion_forest.utils import find_closest
@@ -255,7 +280,8 @@ def mockdata_lnlike_max(xhi_guess, logZ_guess):
     # ~1 sec per mock computing time
     start = time.process_time()
     modelfile = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/corr_func_models_all_ivarweights.fits'
-    nmock = 500 #1000
+
+    nmock = 1000 #500
 
     lnl_fine_max = []
     xi_data_allmocks = []
@@ -272,6 +298,7 @@ def mockdata_lnlike_max(xhi_guess, logZ_guess):
     end = time.process_time()
     print((end-start))
 
+    xi_data_allmocks = np.array(xi_data_allmocks)
     return lnl_fine_max, xi_data_allmocks
 
 def plot_cf_corr(xi_real_data, xi_data_allmocks, ibin, v_mid, neg_lags, saveplot=False, xi_mask_allqso=None):
@@ -287,18 +314,20 @@ def plot_cf_corr(xi_real_data, xi_data_allmocks, ibin, v_mid, neg_lags, saveplot
         if j != ibin:
             plt.plot(xi_data_allmocks[:, ibin], xi_data_allmocks[:, j], 'kx')
             if j in ibin_neg:
-                plt.plot(xi_real_data[ibin], xi_real_data[j], 'r+', ms=10, markeredgewidth = 2)
+                plt.plot(xi_real_data[ibin], xi_real_data[j], 'r+', ms=10, markeredgewidth=2)
             else:
-                plt.plot(xi_real_data[ibin], xi_real_data[j], 'g+', ms=10, markeredgewidth = 2)
+                #plt.plot(xi_real_data[ibin], xi_real_data[j], 'g+', ms=10, markeredgewidth = 2)
+                plt.plot(xi_real_data[ibin], xi_real_data[j], 'r+', ms=10, markeredgewidth=2)
 
             if xi_mask_allqso is not None:
                 for iqso in range(len(xi_mask_allqso)):
-                    plt.scatter(xi_mask_allqso[iqso][ibin], xi_mask_allqso[iqso][j], label=iqso, zorder=10)
+                    plt.scatter(xi_mask_allqso[iqso][ibin], xi_mask_allqso[iqso][j], label=iqso, s=10, zorder=10)
 
             plt.xlabel('xi(dv=%d)' % v_mid[ibin])
             plt.ylabel('xi(dv=%d)' % v_mid[j])
 
     plt.tight_layout()
+    plt.legend()
     if saveplot:
         plt.savefig('paper_plots/10qso/debug/cf_corr_dv%d.png' % v_mid[ibin])
     plt.show()
@@ -383,6 +412,7 @@ def check_fm2(vel_data, norm_std, master_mask, nmock, rand, std_corr, instr, out
     return vel_lores, flux_noise_ncopy, flux_noiseless_ncopy, master_mask_chunk
 
 def check_fm3(out1, plot=True):
+    # makes this plot: MgII_forest/paper_plots/10qso/debug/compare_fowardmodels.png
 
     qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                     'J1342+0928', 'J1007+2115', 'J1120+0641']

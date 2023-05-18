@@ -11,7 +11,7 @@ __pycache__
 *old*
 *.csv
 notes.txt
-log.txt
+*txt
 paper_plots/
 mcmc/
 *.log
