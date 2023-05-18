@@ -64,12 +64,16 @@ def obswave_to_vel_2(wave_arr):
     """
     return vel
 
-def extract_data(fitsfile):
+def extract_data(fitsfile, wavetype='wave'):
     # 'fitsfile' = name of fitsfile containing Pypeit 1d spectrum
 
     data = fits.open(fitsfile)[1].data
-    #wave_arr = data['wave_grid_mid'].astype('float64') # midpoint values of wavelength bin
-    wave_arr = data['wave'].astype('float64')
+
+    if wavetype == 'wave':
+        wave_arr = data['wave'].astype('float64')
+    elif wavetype == 'wavegridmid':
+        wave_arr = data['wave_grid_mid'].astype('float64') # midpoint values of wavelength bin
+
     flux_arr = data['flux'].astype('float64')
     ivar_arr = data['ivar'].astype('float64')
     mask_arr = data['mask'].astype('bool')
@@ -257,10 +261,10 @@ def custom_mask_J0410(fitsfile, plot=False):
     return strong_abs_gpm
 
 ######################################################
-def extract_and_norm(fitsfile, everyn_bkpt, qso_name, plot=False):
+def extract_and_norm(fitsfile, everyn_bkpt, qso_name, wavetype='wave', plot=False):
 
     # combine extract_data() and continuum_normalize_new() including by-eye masking of strong absorbers
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
 
     if qso_name == 'J0313-1806':
         print('using custom mask for %s' % qso_name)
@@ -531,11 +535,19 @@ def plot_onespec_pdf(iqso, seed=None, title=None):
 
     chi = (1 - norm_flux) / norm_std # expected to be a Gaussian with unit variance
     corr_factor = mad_std(chi) # median absolute std
+    #corr_factor = 1
     print(corr_factor)
     #corr_factor = mad_std(norm_flux)/np.median(norm_std)
 
     rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
     gaussian_data = rand.normal(np.median(norm_flux), norm_std * corr_factor)
+
+    plt.figure(figsize=(8, 5))
+    bins = np.arange(-0.2, 1.5, 0.03)
+    plt.hist(norm_flux, bins=bins, histtype='step', color='k')
+    plt.hist(gaussian_data, bins=bins, histtype='step', color='r')
+    plt.tight_layout()
+    plt.show()
 
     plt.figure(figsize=(8, 5))
     if title != None:
@@ -556,54 +568,62 @@ def plot_onespec_pdf(iqso, seed=None, title=None):
     plt.xscale('log')
     plt.yscale('log')
     plt.ylabel('PDF')
-
     plt.tight_layout()
     plt.show()
 
-def plot_allspec_pdf(redshift_bin, seed_list=[None, None, None, None, None]):
+def plot_allspec_pdf(seed_list=[None, None, None, None, None, None, None, None, None, None], plot=False):
 
-    qso_namelist = ['J0313-1806', 'J1342+0928', 'J0252-0503', 'J0038-1527', 'J0038-0653']
-    plt.figure(figsize=(12, 8))
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
 
+    if plot:
+        plt.figure(figsize=(10, 18))
+
+    corr_all = []
     for iqso in range(len(qso_namelist)):
         seed = seed_list[iqso]
         #redshift_bin = 'high'
-        raw_out, masked_out, masks_out = init_onespec(iqso, redshift_bin)
+        raw_out, masked_out, masks_out = init_onespec(iqso, 'all')
         wave, flux, ivar, mask, std, tell, fluxfit = raw_out
-        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = masks_out
+        #strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = masks_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = masks_out
 
         norm_flux = flux/fluxfit
         norm_std = std/fluxfit
-        norm_flux = norm_flux[mask * redshift_mask * pz_mask * zbin_mask]
-        norm_std = norm_std[mask * redshift_mask * pz_mask * zbin_mask]
+        norm_flux = norm_flux[mask * redshift_mask * pz_mask * zbin_mask * telluric_mask]
+        norm_std = norm_std[mask * redshift_mask * pz_mask * zbin_mask * telluric_mask]
 
         chi = (1 - norm_flux) / norm_std
         corr_factor = mad_std(chi)
         print(corr_factor)
+        corr_all.append(np.round(corr_factor, 3))
         #corr_all = [0.687, 0.635, 0.617, 0.58]
         #corr_factor = corr_all[iqso]
         rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
         gaussian_data = rand.normal(np.median(norm_flux), norm_std * corr_factor)
 
-        plt.subplot(3, 2,iqso+1)
-        plt.title(qso_namelist[iqso])
-        nbins, oneminf_min, oneminf_max = 71, 1e-5, 1.0
-        flux_bins, flux_pdf_data = utils.pdf_calc(1.0 - norm_flux, oneminf_min, oneminf_max, nbins)
-        flux_bins, flux_pdf_data_symm = utils.pdf_calc(- (1 - norm_flux), oneminf_min, oneminf_max, nbins)
-        flux_bins, flux_pdf_gaussian = utils.pdf_calc(1 - gaussian_data, oneminf_min, oneminf_max, nbins)
+        if plot:
+            plt.subplot(10, 2, iqso+1)
+            plt.title(qso_namelist[iqso])
+            nbins, oneminf_min, oneminf_max = 71, 1e-5, 1.0
+            flux_bins, flux_pdf_data = utils.pdf_calc(1.0 - norm_flux, oneminf_min, oneminf_max, nbins)
+            flux_bins, flux_pdf_data_symm = utils.pdf_calc(- (1 - norm_flux), oneminf_min, oneminf_max, nbins)
+            flux_bins, flux_pdf_gaussian = utils.pdf_calc(1 - gaussian_data, oneminf_min, oneminf_max, nbins)
 
-        plt.plot(flux_bins, flux_pdf_data, drawstyle='steps-mid', alpha=1.0, lw=2, label='1 - F')
-        plt.plot(flux_bins, flux_pdf_data_symm, drawstyle='steps-mid', alpha=1.0, lw=2, label='F - 1')
-        plt.plot(flux_bins, flux_pdf_gaussian, drawstyle='steps-mid', alpha=1.0, lw=1, \
-                 label=r'gaussian ($\sigma = \sigma_{\rm{ipix}}$ * corr), corr=%0.2f' % corr_factor) # + '\n' +  r'corr = mad_std(1 - $F_{\rm{ipix}}$)/$\sigma_{\rm{ipix}}$')
+            plt.plot(flux_bins, flux_pdf_data, drawstyle='steps-mid', alpha=1.0, lw=2, label='1 - F')
+            plt.plot(flux_bins, flux_pdf_data_symm, drawstyle='steps-mid', alpha=1.0, lw=2, label='F - 1')
+            plt.plot(flux_bins, flux_pdf_gaussian, drawstyle='steps-mid', alpha=1.0, lw=1, \
+                     label=r'gaussian ($\sigma = \sigma_{\rm{ipix}}$ * corr), corr=%0.2f' % corr_factor) # + '\n' +  r'corr = mad_std(1 - $F_{\rm{ipix}}$)/$\sigma_{\rm{ipix}}$')
 
-        plt.legend()
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.ylabel('PDF')
+            plt.legend()
+            plt.xscale('log')
+            plt.yscale('log')
+            plt.ylabel('PDF')
 
-    plt.tight_layout()
-    plt.show()
+    if plot:
+        plt.tight_layout()
+        plt.show()
+
+    return corr_all
 
 ######################################################
 def lya_spikes(fitsfile, zlow, zhigh):
@@ -682,10 +702,10 @@ def cf_lags_to_mask():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
-    ibad = np.array([9, 11, 14, 18])  # corresponding to lags 770, 930, 1170, 1490
+    ibad = np.array([7, 9, 11, 14, 18])  # corresponding to lags 770, 930, 1170, 1490
     lag_mask[ibad] = 0
 
-    return lag_mask
+    return lag_mask, ibad
 
 def cf_lags_to_mask_highz():
 
@@ -694,8 +714,10 @@ def cf_lags_to_mask_highz():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
+    ibad = np.array([0]) # corresponding to lags 50
+    lag_mask[ibad] = 0
 
-    return lag_mask
+    return lag_mask, ibad
 
 def cf_lags_to_mask_lowz():
 
@@ -707,7 +729,7 @@ def cf_lags_to_mask_lowz():
     ibad = np.array([9, 11, 18])  # corresponding to lags 770, 930, 1490
     lag_mask[ibad] = 0
 
-    return lag_mask
+    return lag_mask, ibad
 
 import numpy.ma as ma
 def extract_subarr(lag_mask, xi_model_array, xi_mock_array, covar_array):
@@ -745,3 +767,27 @@ def extract_subarr(lag_mask, xi_model_array, xi_mock_array, covar_array):
     sign, new_lndet_array = np.linalg.slogdet(new_covar_array)
 
     return xi_model_array_masked , xi_mock_array_masked, new_covar_array, new_lndet_array
+
+def xi_err_master(mcmc_fits_full, mcmc_fits_subarr, saveout=None):
+
+    mcmc_full = fits.open(mcmc_fits_full)
+    mcmc_subarr = fits.open(mcmc_fits_subarr)
+
+    vel_corr_full = mcmc_full['vel_corr'].data
+    vel_corr_subarr = mcmc_subarr['vel_corr'].data
+    xi_err_full = mcmc_full['xi_err'].data
+    xi_err_subarr = mcmc_subarr['xi_err'].data
+
+    xi_err_out = []
+
+    for i in range(len(vel_corr_full)):
+        if vel_corr_full[i] in vel_corr_subarr:
+            j = np.argwhere(vel_corr_subarr == vel_corr_full[i]).squeeze()
+            xi_err_out.append(xi_err_subarr[j])
+        else:
+            xi_err_out.append(xi_err_full[i])
+
+    if saveout is not None:
+        np.save(saveout, xi_err_out)
+
+    return xi_err_out
