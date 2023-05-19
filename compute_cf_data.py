@@ -572,11 +572,11 @@ def custom_cf_bin3():
 
     return v_lo, v_hi
 
-def custom_cf_bin4(dv1=40, check=False):
+def custom_cf_bin4(dv1=40, dv2=200, check=False):
 
     v_end = 1500
     v_end2 = 3500
-    dv2 = 200
+    #dv2 = 200
 
     v_bins1 = np.arange(10, v_end + dv1, dv1)
     v_bins2 = np.arange(v_bins1[-1] + dv2, v_end2 + dv2, dv2)
@@ -817,7 +817,7 @@ def fmean_dataset2(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mas
 
 def fmean_dataset3(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mask_allqso_mask_cgm):
 
-    nqso = 10
+    nqso = len(norm_flux_allqso) #10
 
     # normalized quantities
     f_all = []

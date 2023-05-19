@@ -655,9 +655,15 @@ def abspath(z1, z2, cosmo=None):
     calculate pathlength between z1 and z2.
     """
     if cosmo is None:
-        f = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
-        par = Table.read(f, hdu=1)
-        lit_h, m0, b0, l0 = par['lit_h'][0], par['Om0'][0], par['Ob0'][0], par['Ode0'][0]
+        #f = 'ran_skewers_z75_OVT_xHI_0.50_tau.fits'
+        #par = Table.read(f, hdu=1)
+        #lit_h, m0, b0, l0 = par['lit_h'][0], par['Om0'][0], par['Ob0'][0], par['Ode0'][0]
+
+        # using the params explicitly, but basically pulling these values from the file above
+        lit_h = 0.670386
+        m0 = 0.319181
+        b0 = 0.049648
+        l0 = 0.680819
         cosmo = FlatLambdaCDM(H0=lit_h*100, Om0=m0, Ob0=b0, Tcmb0=2.725)
 
     return cosmo.absorption_distance(z1)-cosmo.absorption_distance(z2)
