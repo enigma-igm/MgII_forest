@@ -45,16 +45,14 @@ Figure 17 - 19:
 ===> mcmc/10qso/paper/xi_mask_extract_subarr2/lowz_corner_plot.pdf, lowz_corr_func_data.pdf
 ===> mcmc/10qso/paper/xi_mask_extract_subarr2/Untitled (upper limits)
 
-Figure 21, 22:
->> import debug_cfbin_corr as d
->> v_mid, xi_real_data, xi_mask_allqso, xi_data_allmocks = d.init_var('all')
->> d.cfbin_corr_all(xi_real_data, xi_data_allmocks, v_mid, plot=True, saveplot=True)
-
-############### in progress ###############
 Figure 20:
 ===> plot_logZ_evol.py
 (using inkscape to modify figure)
 ===> paper_plots/10qso/evol_final.pdf
 
+Figure 21, 22:
+>> import debug_cfbin_corr as d
+>> v_mid, xi_real_data, xi_mask_allqso, xi_data_allmocks = d.init_var('all')
+>> d.cfbin_corr_all(xi_real_data, xi_data_allmocks, v_mid, plot=True, saveplot=True)
 
 
