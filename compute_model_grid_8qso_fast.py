@@ -14,7 +14,6 @@ sys.path.append('/Users/suksientie/codes/enigma') # comment out this line if run
 from enigma.reion_forest.mgii_find import MgiiFinder
 from enigma.reion_forest import utils
 from astropy.table import Table, hstack, vstack
-from IPython import embed
 from multiprocessing import Pool
 from tqdm import tqdm
 import mutils

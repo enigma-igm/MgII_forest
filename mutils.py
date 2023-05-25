@@ -74,17 +74,17 @@ def extract_data(fitsfile, wavetype='wave'):
     elif wavetype == 'wavegridmid':
         wave_arr = data['wave_grid_mid'].astype('float64') # midpoint values of wavelength bin
 
-    """
-    flux_arr = data['flux'].astype('float64')
-    ivar_arr = data['ivar'].astype('float64')
-    mask_arr = data['mask'].astype('bool')
-    std_arr = np.sqrt(putils.inverse(ivar_arr))
-    """
-    # jwst nirspec
-    flux_arr = data['F_lam'].astype('float64')
-    mask_arr = data['mask'].astype('bool')
-    std_arr = data['sigma_lam'].astype('float64')
-    ivar_arr = 1/std_arr**2
+    # hack for jwst nirspec
+    try:
+        flux_arr = data['F_lam'].astype('float64')
+        mask_arr = data['mask'].astype('bool')
+        std_arr = data['sigma_lam'].astype('float64')
+        ivar_arr = 1 / std_arr ** 2
+    except KeyError:
+        flux_arr = data['flux'].astype('float64')
+        ivar_arr = data['ivar'].astype('float64')
+        mask_arr = data['mask'].astype('bool')
+        std_arr = np.sqrt(putils.inverse(ivar_arr))
 
     try:
         tell_arr = data['telluric'].astype('float64')

@@ -52,6 +52,7 @@ dx_all = []
 dz_all = []
 
 for i in range(nqso_to_plot):
+    print("====== %s ======" % qso_namelist[i])
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
     strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
@@ -66,7 +67,7 @@ for i in range(nqso_to_plot):
     else:
         fs_mask = mgii_tot.fit_gpm[0]
 
-    print("====== %s ======" % qso_namelist[i])
+    #print("====== %s ======" % qso_namelist[i])
     all_masks = master_mask * fs_mask
     print("masked fraction", 1 - np.sum(all_masks) / len(all_masks))
 
