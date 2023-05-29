@@ -47,6 +47,7 @@ parser.add_argument('--modelfile', type=str)
 args = parser.parse_args()
 
 seed = 711019 #args.seed
+seed = None
 if seed == None:
     seed = np.random.randint(0, 1000000)
     print(seed)
@@ -54,7 +55,7 @@ if seed == None:
 rand = np.random.RandomState(seed)
 nqso = 10
 
-def init(modelfile, redshift_bin, given_bins, lag_mask=None, figpath=None, xi_mean_data=None, covar_array_fine=None):
+def init(modelfile, redshift_bin, given_bins, lag_mask=None, figpath=None, xi_mean_data=None, covar_array_fine=None, lnlike_fine_in=None):
     """
     redshift_bin: 'all', 'low', 'high'
     xi_mean_data: data measurement (if not provided, then calculate on the fly)
@@ -134,18 +135,22 @@ def init(modelfile, redshift_bin, given_bins, lag_mask=None, figpath=None, xi_me
 
     xi_model_fine = inference.interp_model(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, xi_model_array)
 
-    if covar_array_fine is not None:
-        print("using interpolated covariance matrix to compute lnL")
-        lndet_array_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lndet_array)
-        lnlike_fine = np.zeros((nhi_fine, nlogZ_fine,))
-
-        for ixhi, xhi in enumerate(xhi_fine):
-            for iZ, logZ in enumerate(logZ_fine):
-                lnlike_fine[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_fine[ixhi, iZ, :],
-                                                                lndet_array_fine[ixhi, iZ],
-                                                                covar_array_fine[ixhi, iZ, :, :])
+    if lnlike_fine_in is not None:
+        print("using input lnlike_fine")
+        lnlike_fine = lnlike_fine_in
     else:
-        lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
+        if covar_array_fine is not None:
+            print("using interpolated covariance matrix to compute lnL")
+            lndet_array_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lndet_array)
+            lnlike_fine = np.zeros((nhi_fine, nlogZ_fine,))
+
+            for ixhi, xhi in enumerate(xhi_fine):
+                for iZ, logZ in enumerate(logZ_fine):
+                    lnlike_fine[ixhi, iZ] = inference.lnlike_calc(xi_data, xi_mask, xi_model_fine[ixhi, iZ, :],
+                                                                    lndet_array_fine[ixhi, iZ],
+                                                                    covar_array_fine[ixhi, iZ, :, :])
+        else:
+            lnlike_fine = inference.interp_lnlike(xhi_fine, logZ_fine, xhi_coarse, logZ_coarse, lnlike_coarse, kx=3, ky=3)
 
     # Make a 2d surface plot of the likelhiood
     logZ_fine_2d, xhi_fine_2d = np.meshgrid(logZ_fine, xhi_fine)
@@ -321,7 +326,8 @@ def new_init(modelfile, redshift_bin, given_bins, lag_mask=None, figpath=None, x
     return fine_out, coarse_out, data_out
 
 def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=100000, burnin=1000, nwalkers=40, \
-             linearZprior=False, savefits_chain=None, actual_data=True, input_xi_err=None, inferred_model='mean', lag_mask=None):
+             linearZprior=False, savefits_chain=None, actual_data=True, input_xi_err=None, inferred_model='mean', \
+             lag_mask=None, plotcorrfunc=True):
 
     xhi_fine, logZ_fine, lnlike_fine, xi_model_fine = fine_out
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
@@ -438,14 +444,15 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
         logZ_95 = np.percentile(param_samples[ixhi_prior,1], 95.0)
         print('Obtained 95% upper limit of {:6.4f}'.format(logZ_95))
 
-    if actual_data:
-        corrfunc_plot_new(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
-                      corrfile, redshift_bin, nrand=200, rand=rand, input_xi_err=input_xi_err, inferred_model=inferred_model, lag_mask=lag_mask)
-    else:
-        save_xi_err = None
-        #inference.corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, xhi_data, logZ_data, corrfile, rand=rand)
-        corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
-                      corrfile, redshift_bin, nrand=300, rand=rand, save_xi_err=save_xi_err, inferred_model=inferred_model)
+    if plotcorrfunc:
+        if actual_data:
+            corrfunc_plot_new(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
+                          corrfile, redshift_bin, nrand=200, rand=rand, input_xi_err=input_xi_err, inferred_model=inferred_model, lag_mask=lag_mask)
+        else:
+            save_xi_err = None
+            #inference.corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, xhi_data, logZ_data, corrfile, rand=rand)
+            corrfunc_plot(xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array,
+                          corrfile, redshift_bin, nrand=300, rand=rand, save_xi_err=save_xi_err, inferred_model=inferred_model)
 
     extra_out = xi_data, param_samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, corrfile, redshift_bin, rand
     return sampler, param_samples, flat_samples, extra_out
@@ -623,6 +630,7 @@ def old_corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
             label = 'posterior draws' if ind == 0 else None
             axis.plot(vel_corr, factor*xi_model_rand[ind, :], linewidth=0.5, color='cornflowerblue', alpha=0.7, zorder=0, label=label)
 
+    """
     # (Mar 2023) HACK: plotting masked data points
     xi_mean_data = np.load('save_cf/xi_mean_mask_10qso_everyn60.npy')
     v_lo, v_hi = given_bins
@@ -632,7 +640,7 @@ def old_corrfunc_plot(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
     #axis.errorbar(vel_corr[ibad], factor * xi_data[ibad], yerr=factor * xi_err[ibad], marker='x', ms=6, color='red', ecolor='red',
     #              capthick=2, capsize=4,mec='none', ls='none', label='masked', zorder=25)
     axis.plot(vel_corr_masked, factor * xi_mean_data[ibad], 'kx', ms=8, mew=2, label='masked', zorder=-10)
-
+    """
     axis.tick_params(right=True, which='both')
     axis.minorticks_on()
     axis.set_xlim((vmin, vmax))
@@ -878,11 +886,12 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
         ymax = factor * np.max(xi_data + 1.6 * xi_err)
 
         # (Mar 2023) HACK for plotting masked data points
-        cf = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
-        xi_mean_data = cf['XI_MEAN_MASK'].data
-        _, ibad = mutils.cf_lags_to_mask()
-        vel_mid = params['vel_mid'].flatten()
-        vel_corr_bad = vel_mid[ibad]
+        #cf = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
+        #xi_mean_data = cf['XI_MEAN_MASK'].data
+        #_, ibad = mutils.cf_lags_to_mask()
+        #vel_mid = params['vel_mid'].flatten()
+        #vel_corr_bad = vel_mid[ibad]
+        ibad, vel_corr_bad = [], []
 
     elif redshift_bin == 'high':
         vmin, vmax = 0.1 * vel_corr.min(), 1.02 * vel_corr.max()
@@ -940,11 +949,12 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
     axis.errorbar(vel_corr, factor * xi_data, yerr=factor * xi_err, marker='o', ms=6, color='black', ecolor='black',
                   capthick=2, capsize=4, mec='none', ls='none', label='data', zorder=20)
 
-    if input_xi_err is not None:
-        axis.errorbar(vel_corr_bad, factor * xi_mean_data[ibad], yerr=factor * input_xi_err[ibad], marker='x', mew=2, ms=6, color='black', ecolor='black',
-                      capthick=2, capsize=4, mec='black', ls='none', label='masked', zorder=20, alpha=0.5)
-    else:
-        axis.plot(vel_corr_bad, factor * xi_mean_data[ibad], 'kx', ms=8, mew=2, label='masked', zorder=0)
+    # (Mar 2023) HACK for plotting masked data points
+    #if input_xi_err is not None:
+    #    axis.errorbar(vel_corr_bad, factor * xi_mean_data[ibad], yerr=factor * input_xi_err[ibad], marker='x', mew=2, ms=6, color='black', ecolor='black',
+    #                  capthick=2, capsize=4, mec='black', ls='none', label='masked', zorder=20, alpha=0.5)
+    #else:
+    #    axis.plot(vel_corr_bad, factor * xi_mean_data[ibad], 'kx', ms=8, mew=2, label='masked', zorder=0)
 
     axis.tick_params(right=True, which='both')
     axis.minorticks_on()
@@ -987,7 +997,7 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
     fx.savefig(corrfile)
     plt.close()
 
-def corrfunc_plot_jwst(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
+def corrfunc_plot_jwst_prop(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fine, xhi_coarse, logZ_coarse, covar_array, \
                   corrfile, nrand=50, rand=None, save_xi_err=None, vel_mid_compare=None, xi_mean_compare=None, \
                   label_compare=None, plot_draws=True, inferred_model='mean'):
 
