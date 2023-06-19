@@ -233,10 +233,6 @@ def init_dataset(nqso, redshift_bin, datapath):
         norm_good_ivar = norm_good_ivar.reshape((1, len(norm_good_ivar)))
         fwhm = qso_fwhm[iqso]
 
-        # J1120+0641
-        #if iqso == 9:
-        #    signif_mask_nsigma = 2.05
-
         mgii_tot = MgiiFinder(good_vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
@@ -373,26 +369,8 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
     covar = np.zeros((ncorr, ncorr))
     xi_mock_keep = np.zeros((nmock, ncorr))
 
-    """
-    xi_mean_ncopy2 = []
-    for icovar in range(ncovar):
-        xi_mock_ncopy_noiseless2 = []  # (nqso, ncopy, ncorr)
-        w_mock_ncopy_noiseless2 = []
-
-        ran_imock = rand.choice(nmock, replace=True, size=8)
-        for i in range(8):
-            xi_mock_ncopy_noiseless2.append(xi_mock_ncopy_noiseless[i][ran_imock[i]])
-            w_mock_ncopy_noiseless2.append(w_mock_ncopy_noiseless[i][ran_imock[i]])
-
-        xitmp = np.average(xi_mock_ncopy_noiseless2, axis=0, weights=w_mock_ncopy_noiseless2)
-        xi_mean_ncopy2.append(xitmp) # ncovar, corr
-
-    print("====== xi_mean_ncopy2", np.shape(xi_mean_ncopy2))
-    xi_mean2 = np.mean(xi_mean_ncopy2, axis=0)
-    """
-    # new (3/2023): including mask to certain CF bins
-    lag_mask = mutils.cf_lags_to_mask()
-    lag_mask = np.ones_like(vel_mid, dtype=bool)
+    #lag_mask = mutils.cf_lags_to_mask()
+    lag_mask = np.ones_like(vel_mid, dtype=bool) # apply the masking by extracting sub-arrays
 
     covar = np.zeros((np.sum(lag_mask), np.sum(lag_mask)))
     xi_mock_keep = np.zeros((nmock, np.sum(lag_mask)))
