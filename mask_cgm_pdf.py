@@ -45,8 +45,6 @@ xylabel_fontsize = 20
 legend_fontsize = 16
 
 ########## global variables ##########
-#fwhm = 40
-#sampling = 3
 seed = None
 
 if seed != None:
@@ -54,11 +52,9 @@ if seed != None:
 else:
     rand = np.random.RandomState()
 
-#qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
-#everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
 exclude_restwave = 1216 - 1185
 nqso_to_use = len(qso_namelist)
 
@@ -109,15 +105,13 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/re
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = all_masks_out
         vel_data = mutils.obswave_to_vel_2(wave)
 
-        if do_not_apply_any_mask:
+        if do_not_apply_any_mask: # do not apply any masks before CGM masking
             masks_for_cgm_masking = np.ones_like(wave, dtype=bool)
-        else:
+        else: # apply these masks before CGM masking
             masks_for_cgm_masking = mask * redshift_mask * pz_mask * zbin_mask * telluric_mask
 
         pz_masks_all.append(redshift_mask * pz_mask * zbin_mask)
         other_masks_all.append(mask * telluric_mask)
-
-        #print(np.sum(masks_for_cgm_masking), len(wave), np.sum(masks_for_cgm_masking)/len(wave))
 
         # masks quantities
         norm_good_flux = (flux/fluxfit)[masks_for_cgm_masking]
@@ -134,7 +128,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/re
 
         if do_not_apply_any_mask:
             noise_all.append(np.ones(len(norm_good_std)) * 100)
-        else:
+        else: # same as mutils.plot_onespec_pdf()
             chi = (1 - norm_good_flux) / norm_good_std
             corr_factor = mad_std(chi)
             print("-----correction factor", corr_factor)
@@ -144,6 +138,7 @@ def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/re
     return good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all
 
 def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
+    # plot the flux PDF
 
     all_transmission = []
     all_noise = []
@@ -224,6 +219,7 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     plt.show()
 
 def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None):
+    # plot the chi PDF and returns the mgii_finder object
 
     all_chi = []
     all_chi_noise = []
@@ -248,13 +244,6 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         noise = noise.reshape((1, len(noise)))
         fwhm = qso_fwhm[i]
 
-        """
-        # J1120+0641
-        if i == 9:
-            signif_mask_nsigma = 3 #2.05
-        else:
-            signif_mask_nsigma = 3
-        """
         mgii_tot = MgiiFinder(vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                               signif_mask_nsigma=signif_mask_nsigma,
                               signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
@@ -303,6 +292,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
     return mgii_tot_all
 
 def chi_pdf_onespec(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, ispec, plot=False):
+    # same as chi_pdf() but doing it for one spec
 
     i = ispec
     vel_data = vel_data_all[i]
@@ -448,14 +438,6 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     s_mask_frac = np.sum(s_mask[pz_masks * other_masks])/len(s_mask)
     fs_mask_frac = np.sum(fs_mask[pz_masks * other_masks])/len(fs_mask)
     print(qso_namelist[iqso], f_mask_frac, s_mask_frac, fs_mask_frac)
-
-    """
-    # J1120+0641
-    if iqso == 9:
-        signif_mask_nsigma = 2.05
-    else:
-        signif_mask_nsigma = 3
-    """
 
     if saveout is not None:
         i_abs_found = np.argwhere(s_mask == True).squeeze()
