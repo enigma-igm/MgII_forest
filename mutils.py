@@ -46,8 +46,6 @@ def obswave_to_vel_2(wave_arr):
     # Input: 'wave_arr' = numpy array
     # Output: velocity array
 
-    # (01/20/2022) use this, not obswave_to_vel()
-
     c_kms = const.c.to('km/s').value
     log10_wave = np.log10(wave_arr)
     diff_log10_wave = np.diff(log10_wave) # d(log10_lambda)
@@ -55,13 +53,7 @@ def obswave_to_vel_2(wave_arr):
     dv = c_kms * np.log(10) * diff_log10_wave
 
     vel = np.cumsum(dv) #  first pixel is dv; vel = [dv, 2*dv, 3*dv, ....]
-    """
-    dv_all = np.arange(len(wave_arr) + 1) * dv[0]
-    vlo = dv_all[0:-1]
-    vhi  = dv_all[1:]
-    v_mid = (vlo + vhi)/2
-    return v_mid
-    """
+
     return vel
 
 def extract_data(fitsfile, wavetype='wave'):
@@ -270,7 +262,8 @@ def custom_mask_J0410(fitsfile, plot=False):
 ######################################################
 def extract_and_norm(fitsfile, everyn_bkpt, qso_name, wavetype='wave', plot=False):
 
-    # combine extract_data() and continuum_normalize_new() including by-eye masking of strong absorbers
+    # combine extract_data() and continuum_normalize_new()
+    # continuum normalize after masking strong absorbers identified by eye
     wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
 
     if qso_name == 'J0313-1806':
@@ -354,64 +347,6 @@ def telluric_mask(wave):
         telluric_gpm *= np.invert(bpm)
 
     return telluric_gpm
-
-def final_qso_pathlength(fitsfile, qso_name, qso_z, exclude_rest=1216-1185, cgm_gpm=None):
-
-    wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, 20, qso_name)
-    redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_z, exclude_rest)
-
-    # only using data and PZ masks
-    if type(cgm_gpm) == type(None):
-        master_mask = mask * redshift_mask * pz_mask
-        good_wave = wave[master_mask]
-
-        # (4/25/2022)
-        # In[96]: np.median(gz_all), np.min(gz_all), np.max(gz_all)
-        # Out[96]: (6.572035934151384, 5.983190982278802, 7.545849071317116)
-
-    # including CGM masks (negligible effect because not many pixels are masked by CGM maks)
-    else:
-        #master_mask = mask * redshift_mask * pz_mask
-        #good_wave = wave[master_mask][cgm_gpm]
-        master_mask = mask * redshift_mask * pz_mask * cgm_gpm
-        good_wave = wave[master_mask]
-
-        # (4/25/2022)
-        # In[90]: np.median(gz_all), np.min(gz_all), np.max(gz_all)
-        # Out[90]: (6.57430945878276, 5.983190982278802, 7.545849071317116)
-
-    good_z = good_wave / 2800 - 1
-    dz_pathlength = good_z.max() - good_z.min()
-    print(qso_name, np.min(good_z), np.max(good_z), np.median(good_z), dz_pathlength)
-    print("percent pixels excluded", 100*np.sum(np.invert(master_mask))/len(wave))
-
-    return good_z
-
-def init_onespec_fluxfit(iqso):
-    datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-    fitsfile_list = [datapath + 'J0411-0907_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J0319-1008_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J0410-0139_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J0038-0653_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J0313-1806_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J0038-1527_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J0252-0503_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J1007+2115_dv40_coadd_tellcorr.fits', \
-                     datapath + 'J1120+0641_dv40_coadd_tellcorr.fits']
-    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
-                    'J1342+0928', 'J1007+2115', 'J1120+0641']
-
-    everyn_ls = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
-    fluxfit_ls = []
-    for everyn in everyn_ls:
-        wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile_list[iqso], everyn, qso_namelist[iqso])
-        fluxfit_ls.append(fluxfit)
-
-    mean_fluxfit = np.mean(fluxfit_ls, axis=0)
-    np.save('mean_fluxfit_' + qso_namelist[iqso] + '.npy', mean_fluxfit)
-    return mean_fluxfit
-
 
 def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
 
@@ -526,6 +461,31 @@ def old_init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/da
 
     #return vel_data, master_mask, std, fluxfit, outmask, norm_good_std, norm_std, norm_good_flux, good_vel_data, good_ivar, norm_flux, ivar
     return raw_data_out, masked_data_out, all_masks_out
+
+def old_init_onespec_fluxfit(iqso):
+    datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+    fitsfile_list = [datapath + 'J0411-0907_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0319-1008_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0410-0139_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0038-0653_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0313-1806_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0038-1527_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J0252-0503_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1342+0928_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1007+2115_dv40_coadd_tellcorr.fits', \
+                     datapath + 'J1120+0641_dv40_coadd_tellcorr.fits']
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+                    'J1342+0928', 'J1007+2115', 'J1120+0641']
+
+    everyn_ls = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+    fluxfit_ls = []
+    for everyn in everyn_ls:
+        wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile_list[iqso], everyn, qso_namelist[iqso])
+        fluxfit_ls.append(fluxfit)
+
+    mean_fluxfit = np.mean(fluxfit_ls, axis=0)
+    np.save('mean_fluxfit_' + qso_namelist[iqso] + '.npy', mean_fluxfit)
+    return mean_fluxfit
 
 ######################################################
 # determining the correction factors for each QSO
@@ -676,7 +636,7 @@ def abspath(z1, z2, cosmo=None):
     return cosmo.absorption_distance(z1)-cosmo.absorption_distance(z2)
 
 def reweight_factors(nqso, redshift_bin):
-    # (12/8/2022) old stuffs
+    # old stuffs as of 12/8/2022
     dx_all = []
 
     for iqso in range(nqso):
@@ -691,21 +651,6 @@ def reweight_factors(nqso, redshift_bin):
 
     weight = dx_all / np.sum(dx_all)
     return weight
-
-def mosfire_nires_fwhm():
-    c_kms = const.c.to('km/s').value
-
-    nires_mean_res = 2700
-    nires_sampling = 2.7
-    nires_fwhm = c_kms/nires_mean_res
-    nires_fwhm = np.round(nires_fwhm, 2)
-
-    mosfire_Kband_res = 3610
-    mosfire_sampling = 2.78
-    mosfire_fwhm = c_kms/mosfire_Kband_res
-    mosfire_fwhm = np.round(mosfire_fwhm, 2)
-
-    return nires_fwhm, mosfire_fwhm
 
 ######################################################
 def cf_lags_to_mask():
@@ -746,6 +691,8 @@ def cf_lags_to_mask_lowz():
 
 import numpy.ma as ma
 def extract_subarr(lag_mask, xi_model_array, xi_mock_array, covar_array):
+
+    # mask xi_model, xi_mock, and covar arrays according to lag_mask
 
     nhi, nlogZ, nmock, nbin = xi_mock_array.shape
 
@@ -804,3 +751,16 @@ def xi_err_master(mcmc_fits_full, mcmc_fits_subarr, saveout=None):
         np.save(saveout, xi_err_out)
 
     return xi_err_out
+
+def order_paper_table(list_to_order):
+    # order the input "list_to_order" according to Table 1 of paper,
+    # since the analysis ordering is different from the paper ordering
+    here_qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
+    table_qso_namelist = ['J0313-1806', 'J1342+0928', 'J1007+2115', 'J1120+0641', 'J0252-0503', 'J0038-1527', 'J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653']
+
+    i = [here_qso_namelist.index(qso) for qso in table_qso_namelist]
+    assert np.array_equal(np.array(here_qso_namelist)[i], np.array(table_qso_namelist))
+
+    return np.array(list_to_order)[i]
+
+
