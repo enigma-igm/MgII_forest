@@ -614,6 +614,68 @@ def plot_allspec_pdf(cgm_fit_gpm=None, seed_list=[None, None, None, None, None, 
 
     return corr_all
 
+def plot_allspec_pdf_try(cgm_fit_gpm, seed_list=[None, None, None, None, None, None, None, None, None, None], plot=False):
+
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
+
+    if plot:
+        plt.figure(figsize=(10, 18))
+
+    corr_all = []
+    n_all = []
+    d_all = []
+    for iqso in range(len(qso_namelist)):
+        seed = seed_list[iqso]
+        #redshift_bin = 'high'
+        raw_out, masked_out, masks_out = init_onespec(iqso, 'all')
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_out
+        #strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = masks_out
+        strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = masks_out
+
+        norm_flux = flux/fluxfit
+        norm_std = std/fluxfit
+
+        norm_flux = norm_flux[mask * redshift_mask * pz_mask * zbin_mask * telluric_mask]
+        norm_std = norm_std[mask * redshift_mask * pz_mask * zbin_mask * telluric_mask]
+        chi = (1 - norm_flux) / norm_std
+        corr_factor = mad_std(chi)
+
+        plt.figure()
+        plt.title(qso_namelist[iqso])
+        plt.hist(chi, bins=50)#np.arange(-3, 3, 0.1))
+
+        norm_flux = flux / fluxfit
+        norm_std = std / fluxfit
+        norm_flux = norm_flux[mask * redshift_mask * pz_mask * zbin_mask * telluric_mask * cgm_fit_gpm[iqso]]
+        norm_std = norm_std[mask * redshift_mask * pz_mask * zbin_mask * telluric_mask * cgm_fit_gpm[iqso]]
+        chi = (1 - norm_flux) / norm_std
+        corr_factor = mad_std(chi)
+        plt.hist(chi, bins=50, histtype='step', lw=2)#np.arange(-3, 3, 0.1), histtype='step', lw=2)
+
+        if plot:
+            plt.subplot(10, 2, iqso+1)
+            plt.title(qso_namelist[iqso])
+            nbins, oneminf_min, oneminf_max = 71, 1e-5, 1.0
+            flux_bins, flux_pdf_data = utils.pdf_calc(1.0 - norm_flux, oneminf_min, oneminf_max, nbins)
+            flux_bins, flux_pdf_data_symm = utils.pdf_calc(- (1 - norm_flux), oneminf_min, oneminf_max, nbins)
+            flux_bins, flux_pdf_gaussian = utils.pdf_calc(1 - gaussian_data, oneminf_min, oneminf_max, nbins)
+
+            plt.plot(flux_bins, flux_pdf_data, drawstyle='steps-mid', alpha=1.0, lw=2, label='1 - F')
+            plt.plot(flux_bins, flux_pdf_data_symm, drawstyle='steps-mid', alpha=1.0, lw=2, label='F - 1')
+            plt.plot(flux_bins, flux_pdf_gaussian, drawstyle='steps-mid', alpha=1.0, lw=1, \
+                     label=r'gaussian ($\sigma = \sigma_{\rm{ipix}}$ * corr), corr=%0.2f' % corr_factor) # + '\n' +  r'corr = mad_std(1 - $F_{\rm{ipix}}$)/$\sigma_{\rm{ipix}}$')
+
+            plt.legend()
+            plt.xscale('log')
+            plt.yscale('log')
+            plt.ylabel('PDF')
+
+    if plot:
+        plt.tight_layout()
+        plt.show()
+
+    return corr_all, n_all, d_all
+
 ######################################################
 def lya_spikes(fitsfile, zlow, zhigh):
     # fitsfile = '/Users/suksientie/Research/highz_absorbers/J0313m1806_fire_mosfire_nires_tellcorr_contfit.fits'
@@ -802,3 +864,13 @@ def pz_Mpc():
     d_comov_end = d_comov - (pz_Mpc * (1 + zmean_qso))
     z_pz_end = d_comov_end.to(cu.redshift, cu.redshift_distance(cosmo, kind="comoving"))
     print(z_pz_end, zmean_qso)
+
+def get_wave_grid_min(wave, want_wave_grid_min, dv):
+
+    from astropy import constants
+    c_kms = constants.c.to('km/s').value
+    dloglam_pix = dv / c_kms / np.log(10.0)
+    dist_dloglam = np.log10(want_wave_grid_min) - np.log10(wave.min())
+    ngrid = np.round(dist_dloglam/dloglam_pix)
+    wm = 10 ** (np.log10(want_wave_grid_min) - ngrid * dloglam_pix)
+    return wm
