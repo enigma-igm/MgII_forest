@@ -55,7 +55,6 @@ else:
 qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
-exclude_restwave = 1216 - 1185
 nqso_to_use = len(qso_namelist)
 
 nires_fwhm = 111.03
@@ -71,9 +70,9 @@ qso_sampling = [nires_sampling, nires_sampling, nires_sampling, mosfire_sampling
                 mosfire_sampling, mosfire_sampling, nires_sampling, xshooter_sampling]
 
 # chi PDF
-signif_thresh = 2 # 4.0
+signif_thresh = 2
 signif_mask_dv = 300.0 # value used in Hennawi+2021
-signif_mask_nsigma = 3 #10 #8 # chi threshold
+signif_mask_nsigma = 3
 
 one_minF_thresh = 0.3 # flux threshold
 nbins_chi = 101 #81
@@ -86,7 +85,7 @@ nbins_flux, oneminf_min, oneminf_max = 101, 1e-5, 1.0  # gives d(oneminf) = 0.01
 color_ls = ['r', 'g', 'c', 'orange', 'm', 'gray', 'deeppink', 'lime', 'r', 'g']
 ls_ls = ['-', '-', '-', '-', '-', '-', '-', '-', '--', '--']
 
-def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/', do_not_apply_any_mask=False, iqso_to_use=None):
+def init(redshift_bin='all', datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/', do_not_apply_any_mask=False, iqso_to_use=None):
     norm_good_flux_all = []
     norm_good_std_all = []
     norm_good_ivar_all = []
@@ -190,16 +189,19 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     plt.yscale('log')
     plt.xlabel('1$-$F', fontsize=xylabel_fontsize)
     plt.ylabel('PDF', fontsize=xylabel_fontsize)
-    plt.gca().tick_params(axis="x", labelsize=xytick_size)
-    plt.gca().tick_params(axis="y", labelsize=xytick_size)
+    plt.gca().tick_params(axis="x", labelsize=xytick_size + 4)
+    plt.gca().tick_params(axis="y", labelsize=xytick_size + 4)
 
     strong_lines = LineList('Strong', verbose=False)
     wave_blue = strong_lines['MgII 2796']['wrest']
-    fwhm_avg = np.mean(qso_fwhm)
-    sampling_avg = np.mean(qso_sampling)
-    Wfactor = ((fwhm_avg / sampling_avg) * u.km / u.s / const.c).decompose() * wave_blue.value
-    print("fwhm_avg", fwhm_avg)
-    print("sampling_avg", sampling_avg)
+    #fwhm_avg = np.mean(qso_fwhm)
+    #sampling_avg = np.mean(qso_sampling)
+    #Wfactor = ((fwhm_avg / sampling_avg) * u.km / u.s / const.c).decompose() * wave_blue.value
+    #print("fwhm_avg", fwhm_avg)
+    #print("sampling_avg", sampling_avg)
+    #print("Wfactor", Wfactor)
+    dvpix = 40
+    Wfactor = (dvpix * u.km / u.s / const.c).decompose() * wave_blue.value
     print("Wfactor", Wfactor)
 
     Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
@@ -282,7 +284,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         plt.ylim(top=0.8)
         plt.xlabel(r'$\chi$', fontsize=xylabel_fontsize)
         plt.ylabel('PDF', fontsize=xylabel_fontsize)
-        plt.gca().tick_params(axis="both", labelsize=xytick_size)
+        plt.gca().tick_params(axis="both", labelsize=xytick_size + 4)
 
         plt.tight_layout()
         if savefig != None:
@@ -527,7 +529,8 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     if savefig != None:
         plt.savefig(savefig)
     else:
-        plt.show()
+        #plt.show()
+        plt.close
 
 def do_allqso_allzbin(datapath, do_not_apply_any_mask=False):
     # get mgii_tot_all for all qso and for all redshift bins
@@ -551,7 +554,48 @@ def do_allqso_allzbin(datapath, do_not_apply_any_mask=False):
 
     return lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all
 
+def bosman_J1120(dwave_ls, wave=None, norm_flux=None, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'):
+
+    if wave is None and norm_flux is None:
+        raw_data_out, _, all_masks_out = mutils.init_onespec(9, 'all', datapath=datapath)
+        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
+        norm_flux = flux / fluxfit
+
+    bosman_abs = [6.1711, 6.21845, 6.40671]
+    bosman_ew = [0.258, 0.139, 0.094] # [4, 4, 3.5] approximately reproduces Bosman EW = [0.235, 0.13, 0.11]
+
+    #blue_mask_all = []
+    #red_mask_all = []
+    bluered_mask_all = []
+
+    for i_babs, babs in enumerate(bosman_abs):
+        dwave = dwave_ls[i_babs]
+        wave_blue = 2796 * (1 + babs)
+        wm_blue = (wave <= wave_blue + dwave) * (wave >= wave_blue - dwave)
+        flux_mask_blue = norm_flux < 1
+        rest_wb = wave / (1 + babs) #wave[wm][flux_mask_blue] / (1 + babs)
+        ew_blue = integrate.simps(1.0 - norm_flux[wm_blue * flux_mask_blue], rest_wb[wm_blue * flux_mask_blue]) #integrate.simps(1.0 - norm_flux[wm][flux_mask_blue], rest_wb)
+        #blue_mask_all.append(wm * flux_mask_blue)
+
+        wave_red = 2804 * (1 + babs)
+        wm_red = (wave <= wave_red + dwave) * (wave >= wave_red - dwave)
+        flux_mask_red = norm_flux < 1 #norm_flux[wm] < 1
+        rest_wr = wave / (1 + babs) #wave[wm][flux_mask_red] / (1 + babs)
+        ew_red = integrate.simps(1.0 - norm_flux[wm_red * flux_mask_red], rest_wr[wm_red * flux_mask_red])  #integrate.simps(1.0 - norm_flux[wm][flux_mask_red], rest_wr)
+        #red_mask_all.append(wm * flux_mask_red)
+
+        bluered_mask_all.append(np.ma.mask_or(wm_blue * flux_mask_blue, wm_red * flux_mask_red))
+        # print(np.sum(flux_mask_blue), np.sum(flux_mask_red))
+        print(ew_blue + ew_red, bosman_ew[i_babs])
+
+    abs_mask_all = np.sum(bluered_mask_all, axis=0).astype(bool)
+    abs_mask_gpm = np.invert(abs_mask_all)
+    bluered_mask_gpm = np.invert(bluered_mask_all)
+
+    return bluered_mask_gpm, abs_mask_gpm
+
 ######################## old stuffs ########################
+"""
 fitsfile_list = ['/Users/suksientie/Research/data_redux/wavegrid_vel/J0313-1806/vel1234_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J1342+0928/vel123_coadd_tellcorr.fits', \
                  '/Users/suksientie/Research/data_redux/wavegrid_vel/J0252-0503/vel12_coadd_tellcorr.fits', \
@@ -595,46 +639,6 @@ def old_init():
 
     return norm_good_flux_all, norm_good_std_all, good_ivar_all, vel_data_all, good_wave_all, noise_all
 
-def bosman_J1120(dwave_ls, wave=None, norm_flux=None, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'):
-
-    if wave is None and norm_flux is None:
-        raw_data_out, _, all_masks_out = mutils.init_onespec(9, 'all', datapath=datapath)
-        wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
-        norm_flux = flux / fluxfit
-
-    bosman_abs = [6.1711, 6.21845, 6.40671]
-    bosman_ew = [0.258, 0.139, 0.094] # [4, 4, 3.5] approximately reproduces Bosman EW = [0.235, 0.13, 0.11]
-
-    #blue_mask_all = []
-    #red_mask_all = []
-    bluered_mask_all = []
-
-    for i_babs, babs in enumerate(bosman_abs):
-        dwave = dwave_ls[i_babs]
-        wave_blue = 2796 * (1 + babs)
-        wm_blue = (wave <= wave_blue + dwave) * (wave >= wave_blue - dwave)
-        flux_mask_blue = norm_flux < 1
-        rest_wb = wave / (1 + babs) #wave[wm][flux_mask_blue] / (1 + babs)
-        ew_blue = integrate.simps(1.0 - norm_flux[wm_blue * flux_mask_blue], rest_wb[wm_blue * flux_mask_blue]) #integrate.simps(1.0 - norm_flux[wm][flux_mask_blue], rest_wb)
-        #blue_mask_all.append(wm * flux_mask_blue)
-
-        wave_red = 2804 * (1 + babs)
-        wm_red = (wave <= wave_red + dwave) * (wave >= wave_red - dwave)
-        flux_mask_red = norm_flux < 1 #norm_flux[wm] < 1
-        rest_wr = wave / (1 + babs) #wave[wm][flux_mask_red] / (1 + babs)
-        ew_red = integrate.simps(1.0 - norm_flux[wm_red * flux_mask_red], rest_wr[wm_red * flux_mask_red])  #integrate.simps(1.0 - norm_flux[wm][flux_mask_red], rest_wr)
-        #red_mask_all.append(wm * flux_mask_red)
-
-        bluered_mask_all.append(np.ma.mask_or(wm_blue * flux_mask_blue, wm_red * flux_mask_red))
-        # print(np.sum(flux_mask_blue), np.sum(flux_mask_red))
-        print(ew_blue + ew_red, bosman_ew[i_babs])
-
-    abs_mask_all = np.sum(bluered_mask_all, axis=0).astype(bool)
-    abs_mask_gpm = np.invert(abs_mask_all)
-    bluered_mask_gpm = np.invert(bluered_mask_all)
-
-    return bluered_mask_gpm, abs_mask_gpm
-
 def bosman_J1120_old(npix_ls, plot=False):
     # npix_ls = list of npix to select around absorbers; must match length of "bosman_abs", i.e. one for each abs
 
@@ -651,18 +655,18 @@ def bosman_J1120_old(npix_ls, plot=False):
 
         wave_blue = 2796 * (1 + babs)
         wave_red = 2804 * (1 + babs)
-        """
-        npix = npix_ls[i_babs]
-        wm = (wave <= wave_blue + npix) * (wave >= wave_blue - npix)
-        flux_mask_blue = norm_flux[wm] < 1
-        flux_mask_red = norm_flux[wm] < 1
+        
+        #npix = npix_ls[i_babs]
+        #wm = (wave <= wave_blue + npix) * (wave >= wave_blue - npix)
+        #flux_mask_blue = norm_flux[wm] < 1
+        #flux_mask_red = norm_flux[wm] < 1
 
-        rest_wb = wave[wm][flux_mask_blue]/(1 + babs)
-        rest_wr = wave[wm][flux_mask_red] / (1 + babs)
+        #rest_wb = wave[wm][flux_mask_blue]/(1 + babs)
+        #rest_wr = wave[wm][flux_mask_red] / (1 + babs)
 
-        ew_blue = integrate.simps(1.0 - norm_flux[wm][flux_mask_blue], rest_wb)
-        ew_red = integrate.simps(1.0 - norm_flux[wm][flux_mask_red], rest_wr)
-        """
+        #ew_blue = integrate.simps(1.0 - norm_flux[wm][flux_mask_blue], rest_wb)
+        #ew_red = integrate.simps(1.0 - norm_flux[wm][flux_mask_red], rest_wr)
+        
         iblue = np.argmin(np.abs(wave - wave_blue))
         ired = np.argmin(np.abs(wave - wave_red))
 
@@ -691,3 +695,4 @@ def bosman_J1120_old(npix_ls, plot=False):
         plt.show()
 
     return iblue_all, ired_all
+"""

@@ -58,7 +58,7 @@ def obswave_to_vel_2(wave_arr):
 
     return vel
 
-def extract_data(fitsfile, wavetype='wavegridmid'):
+def extract_data(fitsfile, wavetype='wavegridmid', wavemin=None):
     # 'fitsfile' = name of fitsfile containing Pypeit 1d spectrum
 
     data = fits.open(fitsfile)[1].data
@@ -92,6 +92,16 @@ def extract_data(fitsfile, wavetype='wavegridmid'):
     std_arr = std_arr.squeeze()
     if tell_arr is not None:
         tell_arr = tell_arr.squeeze()
+
+    if wavemin is not None:
+        wavemin_mask = wave_arr >= wavemin
+
+        wave_arr = wave_arr[wavemin_mask]
+        flux_arr = flux_arr[wavemin_mask]
+        ivar_arr = ivar_arr[wavemin_mask]
+        mask_arr = mask_arr[wavemin_mask]
+        std_arr = std_arr[wavemin_mask]
+        tell_arr = tell_arr[wavemin_mask]
 
     return wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, tell_arr
 
@@ -134,9 +144,9 @@ def continuum_normalize_new(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbk
     return cont_fit, cont_fit_mask, sset, outmask
 
 ################## by-eye strong absorbers masks for each QSO ##################
-def custom_mask_J0313(fitsfile, wavetype='wavegridmid', plot=False):
+def custom_mask_J0313(fitsfile, wavetype='wavegridmid', wavemin=None, plot=False):
 
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     mask_wave1 = [19815, 19825]
     mask_wave2 = [19863, 19875] #[19865, 19870]
@@ -164,9 +174,9 @@ def custom_mask_J0313(fitsfile, wavetype='wavegridmid', plot=False):
 
     return strong_abs_gpm
 
-def custom_mask_J1342(fitsfile, wavetype='wavegridmid', plot=False):
+def custom_mask_J1342(fitsfile, wavetype='wavegridmid', wavemin=None, plot=False):
 
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     # visually-identified strong absorbers
     mask_wave1 = [21920, 21940]
@@ -195,11 +205,11 @@ def custom_mask_J1342(fitsfile, wavetype='wavegridmid', plot=False):
 
     return strong_abs_gpm
 
-def custom_mask_J0252(fitsfile, wavetype='wavegridmid', plot=False):
+def custom_mask_J0252(fitsfile, wavetype='wavegridmid', wavemin=None, plot=False):
 
     # no strong absorbers that I can identify by eye
     # placeholder function in case want to add strong absorbers
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype, wavemin=wavemin)
     strong_abs_gpm = np.ones(wave.shape, dtype=bool)
 
     if plot:
@@ -210,9 +220,9 @@ def custom_mask_J0252(fitsfile, wavetype='wavegridmid', plot=False):
 
     return strong_abs_gpm
 
-def custom_mask_J0038(fitsfile, wavetype='wavegridmid', plot=False):
+def custom_mask_J0038(fitsfile, wavetype='wavegridmid', wavemin=None, plot=False):
 
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype, wavemin=wavemin)
     # visually-identified strong absorbers
     mask_wave1 = [19777, 19804] # [19777, 19796]
     mask_wave2 = [19828, 19855]
@@ -235,9 +245,9 @@ def custom_mask_J0038(fitsfile, wavetype='wavegridmid', plot=False):
 
     return strong_abs_gpm
 
-def custom_mask_J0410(fitsfile, wavetype='wavegridmid', plot=False):
+def custom_mask_J0410(fitsfile, wavetype='wavegridmid', wavemin=None, plot=False):
 
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype, wavemin=wavemin)
     # visually-identified strong absorbers
     mask_wave1 = [20638, 20653]
     mask_wave2 = [20688, 20705]
@@ -261,31 +271,31 @@ def custom_mask_J0410(fitsfile, wavetype='wavegridmid', plot=False):
 
     return strong_abs_gpm
 
-def extract_and_norm(fitsfile, everyn_bkpt, qso_name, wavetype='wavegridmid', plot=False):
+def extract_and_norm(fitsfile, everyn_bkpt, qso_name, wavetype='wavegridmid', plot=False, wavemin=None):
 
     # combine extract_data() and continuum_normalize_new()
     # continuum normalize after masking strong absorbers identified by eye
-    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype)
+    wave, flux, ivar, mask, std, tell = extract_data(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     if qso_name == 'J0313-1806':
         print('using custom mask for %s' % qso_name)
-        strong_abs_gpm = custom_mask_J0313(fitsfile, wavetype=wavetype)
+        strong_abs_gpm = custom_mask_J0313(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     elif qso_name == 'J1342+0928':
         print('using custom mask for %s' % qso_name)
-        strong_abs_gpm = custom_mask_J1342(fitsfile, wavetype=wavetype)
+        strong_abs_gpm = custom_mask_J1342(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     elif qso_name == 'J0252-0503':
         print('using custom mask for %s' % qso_name)
-        strong_abs_gpm = custom_mask_J0252(fitsfile, wavetype=wavetype)
+        strong_abs_gpm = custom_mask_J0252(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     elif qso_name == 'J0038-1527':
         print('using custom mask for %s' % qso_name)
-        strong_abs_gpm = custom_mask_J0038(fitsfile, wavetype=wavetype)
+        strong_abs_gpm = custom_mask_J0038(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     elif qso_name == 'J0410-0139':
         print('using custom mask for %s' % qso_name)
-        strong_abs_gpm = custom_mask_J0410(fitsfile, wavetype=wavetype)
+        strong_abs_gpm = custom_mask_J0410(fitsfile, wavetype=wavetype, wavemin=wavemin)
 
     else:
         print('using custom mask for %s' % qso_name)
@@ -303,7 +313,7 @@ def qso_redshift_and_pz_mask(wave, qso_z, exclude_rest=2800-2728.62, mg2forest_w
     mg2_wave = 2800
 
     pz_velsize = exclude_rest/mg2_wave * c_kms
-    print("PZ size is %0.2f km/s" % pz_velsize)
+    #print("PZ size is %0.2f km/s" % pz_velsize)
 
     redshift_mask = (wave <= (mg2_wave * (1 + qso_z))) * (wave >= mg2forest_wavemin)
     obs_wave_max = (mg2_wave - exclude_rest) * (1 + qso_z)
@@ -330,9 +340,9 @@ def telluric_mask(wave):
 
     return telluric_gpm
 
-def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'):
+def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/', \
+                 wavetype='wavegridmid', wavemin=19500):
 
-    wavetype = 'wavegridmid'
     fitsfile_list = [datapath + 'J0411-0907_coadd_dv40_tellcorr.fits', \
                      datapath + 'J0319-1008_NIRES_coadd_SST_tellcorr.fits', \
                      datapath + 'J0410-0139_coadd_dv40_tellcorr.fits', \
@@ -355,8 +365,8 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
     mg2_wave = 2800 # approximated to be midpoint of blue (2796 A) and red (2804 A)
 
     fitsfile = fitsfile_list[iqso]
-    wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso], wavetype=wavetype)
-    redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_zlist[iqso], exclude_restwave=exclude_restwave)
+    wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso], wavetype=wavetype, wavemin=wavemin)
+    redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_zlist[iqso], exclude_rest=exclude_restwave)
     telluric_gpm = telluric_mask(wave)
 
     if redshift_bin == 'low':
@@ -439,18 +449,15 @@ def plot_onespec_pdf(iqso, seed=None, title=None):
 
 def plot_allspec_pdf(cgm_fit_gpm=None, seed_list=[None, None, None, None, None, None, None, None, None, None], plot=False):
 
-    qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
-
+    qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
     if plot:
         plt.figure(figsize=(10, 18))
 
     corr_all = []
     for iqso in range(len(qso_namelist)):
         seed = seed_list[iqso]
-        #redshift_bin = 'high'
         raw_out, masked_out, masks_out = init_onespec(iqso, 'all')
         wave, flux, ivar, mask, std, tell, fluxfit = raw_out
-        #strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, master_mask = masks_out
         strong_abs_gpm, redshift_mask, pz_mask, obs_wave_max, zbin_mask, telluric_mask, master_mask = masks_out
 
         norm_flux = flux/fluxfit
@@ -467,8 +474,7 @@ def plot_allspec_pdf(cgm_fit_gpm=None, seed_list=[None, None, None, None, None, 
         corr_factor = mad_std(chi)
         print(corr_factor)
         corr_all.append(np.round(corr_factor, 3))
-        #corr_all = [0.687, 0.635, 0.617, 0.58]
-        #corr_factor = corr_all[iqso]
+
         rand = np.random.RandomState(seed) if seed != None else np.random.RandomState()
         gaussian_data = rand.normal(np.median(norm_flux), norm_std * corr_factor)
 
