@@ -165,8 +165,7 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
         for i in range(nqso):
             norm_good_flux, noise = norm_good_flux_all[i], noise_all[i]
             flux_bins, flux_pdf_tot = utils.pdf_calc(1.0 - norm_good_flux, oneminf_min, oneminf_max, nbins_flux)
-            plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], ls=ls_ls[i],
-                     label=qso_namelist[i])
+            plt.plot(flux_bins, flux_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], ls=ls_ls[i])#, label=qso_namelist[i])
 
             all_transmission.extend(norm_good_flux)
             all_noise.extend(noise)
@@ -183,14 +182,18 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
         plt.axvline(one_minF_thresh, color='k', ls='--', lw=2)
         plt.axvspan(one_minF_thresh, oneminf_max, facecolor='k', alpha=0.2, label='masked')
 
+    xytick_size = 16 + 8
+    xylabel_fontsize = 20 + 8
+    legend_fontsize = 16 + 8
+
     plt.legend(loc=2, fontsize=legend_fontsize)
     plt.xlim([1e-4, 1.0])
     plt.xscale('log')
     plt.yscale('log')
     plt.xlabel('1$-$F', fontsize=xylabel_fontsize)
     plt.ylabel('PDF', fontsize=xylabel_fontsize)
-    plt.gca().tick_params(axis="x", labelsize=xytick_size + 4)
-    plt.gca().tick_params(axis="y", labelsize=xytick_size + 4)
+    plt.gca().tick_params(axis="x", labelsize=xytick_size)
+    plt.gca().tick_params(axis="y", labelsize=xytick_size)
 
     strong_lines = LineList('Strong', verbose=False)
     wave_blue = strong_lines['MgII 2796']['wrest']
@@ -254,7 +257,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         if plot:
             # plotting chi PDF of each QSO
             sig_bins, sig_pdf_tot = utils.pdf_calc(mgii_tot.signif, sig_min, sig_max, nbins_chi)
-            plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], ls=ls_ls[i], label=qso_namelist[i])
+            plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], ls=ls_ls[i])#, label=qso_namelist[i])
 
             # chi PDF of pure noise
             mgii_noise = MgiiFinder(vel_data, 1.0 + noise, norm_good_ivar, fwhm, signif_thresh,
@@ -277,6 +280,10 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
         plt.axvspan(signif_mask_nsigma, sig_max, facecolor='k', alpha=0.2, label='masked')
 
+        xytick_size = 16 + 8
+        xylabel_fontsize = 20 + 8
+        legend_fontsize = 16 + 8
+
         plt.legend(loc=2, fontsize=legend_fontsize)
         plt.xscale('log')
         plt.yscale('log')
@@ -284,7 +291,7 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
         plt.ylim(top=0.8)
         plt.xlabel(r'$\chi$', fontsize=xylabel_fontsize)
         plt.ylabel('PDF', fontsize=xylabel_fontsize)
-        plt.gca().tick_params(axis="both", labelsize=xytick_size + 4)
+        plt.gca().tick_params(axis="both", labelsize=xytick_size)
 
         plt.tight_layout()
         if savefig != None:
