@@ -61,7 +61,7 @@ nires_fwhm = 111.03
 mosfire_fwhm = 83.05
 nires_sampling = 2.7
 mosfire_sampling = 2.78
-xshooter_fwhm = 42.8 # R=7000 in NIR arm based on telluric lines (Bosman+2017); nominal is 5300 for 0.9" slit
+xshooter_fwhm = 150# 42.8 # R=7000 in NIR arm based on telluric lines (Bosman+2017); nominal is 5300 for 0.9" slit
 xshooter_sampling = 3.7 # https://www.eso.org/sci/facilities/paranal/instruments/xshooter/inst.html
 
 qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, \
@@ -300,6 +300,85 @@ def chi_pdf(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plo
 
     return mgii_tot_all
 
+def chi_pdf2(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all, plot=False, savefig=None):
+    # same as chi_pdf() but uses gpm in MgiiFinder
+    all_chi = []
+    all_chi_noise = []
+    mgii_tot_all = []
+    nqso = len(norm_good_flux_all)
+
+    if plot:
+        #fig = plt.figure(figsize=(9, 6.7))
+        fig = plt.figure(figsize=(12, 9))
+        fig.subplots_adjust(left=0.12, bottom=0.1, right=0.97, top=0.88)
+
+    # PDF for each qso
+    for i in range(nqso):
+        vel_data = vel_data_all[i]
+        norm_good_flux = norm_good_flux_all[i]
+        norm_good_ivar = norm_good_ivar_all[i]
+        noise = noise_all[i]
+        gpm = pz_masks_all[i] * other_masks_all[i]
+
+        # reshaping to be compatible with MgiiFinder
+        norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
+        norm_good_ivar = norm_good_ivar.reshape((1, len(norm_good_ivar)))
+        noise = noise.reshape((1, len(noise)))
+        gpm = gpm.reshape((1, len(gpm)))
+        fwhm = qso_fwhm[i]
+
+        mgii_tot = MgiiFinder(vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
+                              gpm=gpm,
+                              signif_mask_nsigma=signif_mask_nsigma,
+                              signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+        mgii_tot_all.append(mgii_tot)
+
+        if plot:
+            # plotting chi PDF of each QSO
+            sig_bins, sig_pdf_tot = utils.pdf_calc(mgii_tot.signif, sig_min, sig_max, nbins_chi)
+            plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', alpha=0.5, color=color_ls[i], ls=ls_ls[i])#, label=qso_namelist[i])
+
+            # chi PDF of pure noise
+            mgii_noise = MgiiFinder(vel_data, 1.0 + noise, norm_good_ivar, fwhm, signif_thresh,
+                                    signif_mask_nsigma=signif_mask_nsigma,
+                                    signif_mask_dv=signif_mask_dv, one_minF_thresh=one_minF_thresh)
+
+            all_chi.extend(mgii_tot.signif[0])
+            all_chi_noise.extend(mgii_noise.signif[0])
+
+    if plot:
+        # plot PDF of all qso
+        all_chi = np.array(all_chi)
+        all_chi_noise = np.array(all_chi_noise)
+
+        sig_bins, sig_pdf_tot = utils.pdf_calc(all_chi, sig_min, sig_max, nbins_chi)
+        _, sig_pdf_noise = utils.pdf_calc(all_chi_noise, sig_min, sig_max, nbins_chi)
+
+        plt.plot(sig_bins, sig_pdf_noise, drawstyle='steps-mid', color='b', alpha=1.0, label='all gaussian noise')
+        plt.plot(sig_bins, sig_pdf_tot, drawstyle='steps-mid', color='k', alpha=1.0, lw=4, label='all spectra')
+        plt.axvline(signif_mask_nsigma, color='k', ls='--', lw=2)
+        plt.axvspan(signif_mask_nsigma, sig_max, facecolor='k', alpha=0.2, label='masked')
+
+        xytick_size = 16 + 8
+        xylabel_fontsize = 20 + 8
+        legend_fontsize = 16 + 8
+
+        plt.legend(loc=2, fontsize=legend_fontsize)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xlim([1e-3, 50])
+        plt.ylim(top=0.8)
+        plt.xlabel(r'$\chi$', fontsize=xylabel_fontsize)
+        plt.ylabel('PDF', fontsize=xylabel_fontsize)
+        plt.gca().tick_params(axis="both", labelsize=xytick_size)
+
+        plt.tight_layout()
+        if savefig != None:
+            plt.savefig(savefig)
+        plt.show()
+
+    return mgii_tot_all
+
 def chi_pdf_onespec(vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, ispec, plot=False):
     # same as chi_pdf() but doing it for one spec
 
@@ -429,6 +508,7 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
 
     pz_masks = pz_masks_all[iqso]
     other_masks = other_masks_all[iqso]
+    gpm = pz_masks * other_masks
 
     mgii_tot = mgii_tot_all[iqso]
     vel_data = vel_data_all[iqso]
@@ -458,13 +538,12 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     flux_min, flux_max = -0.05, 1.8
     chi_min = -3.0 #, chi_max = -3.0, 8.4
 
-    #ax1.annotate(qso_name + '\n', xy=(vel_data.min()+500, flux_max-0.3), fontsize=18)
     ax1.annotate(qso_name, xy=(vel_data.min() + 500, flux_max * 0.88), bbox=dict(boxstyle='round', ec="k", fc="white"), fontsize=18)
     ax1.plot(vel_data, norm_good_flux, drawstyle='steps-mid', color='k', linewidth=1.5, zorder=1)
     ax1.plot(vel_data, norm_good_std, drawstyle='steps-mid', color='k', linewidth=1.0, alpha=0.5)
     ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=2, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))
-    ax1.plot(vel_data[s_mask], norm_good_flux[s_mask], color='magenta', markersize=10, markeredgewidth=3, linestyle='none', alpha=0.7, zorder=2, marker='|')
-    ax1.plot(vel_data[f_mask], norm_good_flux[f_mask], color = 'green', markersize = 15, markeredgewidth = 6, linestyle = 'none', alpha = 0.7, zorder = 3, marker = '|')
+    ax1.plot(vel_data[s_mask * gpm], norm_good_flux[s_mask * gpm], color='magenta', markersize=10, markeredgewidth=3, linestyle='none', alpha=0.7, zorder=2, marker='|')
+    ax1.plot(vel_data[f_mask * gpm], norm_good_flux[f_mask * gpm], color = 'green', markersize = 15, markeredgewidth = 6, linestyle = 'none', alpha = 0.7, zorder = 3, marker = '|')
     ax1.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize)
     #ax1.set_xlim([vel_data.min(), vel_data.max()])
     ax1.set_xlim([vel_data[pz_masks].min(), vel_data[pz_masks].max()])
@@ -477,7 +556,7 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     neg = np.zeros_like(vel_data) - 100
     ax2.plot(vel_data, mgii_tot.signif[0], drawstyle='steps-mid', color='k')
     ax2.axhline(y=signif_mask_nsigma, color='magenta', linestyle='dashed', linewidth=2, label=r'$\chi$ = %d (%0.2f pixels masked)' % (signif_mask_nsigma, s_mask_frac))
-    ax2.fill_between(vel_data, neg, mgii_tot.signif[0], where=s_mask, step = 'mid', facecolor = 'magenta', alpha = 0.5)
+    ax2.fill_between(vel_data, neg, mgii_tot.signif[0], where=s_mask * gpm, step = 'mid', facecolor = 'magenta', alpha = 0.5)
     ax2.set_xlabel('v (km/s)', fontsize=xylabel_fontsize)
     ax2.set_ylabel(r'$\chi$', fontsize=xylabel_fontsize)
     #ax2.set_xlim([vel_data.min(), vel_data.max()])
@@ -536,7 +615,7 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
     if savefig != None:
         plt.savefig(savefig)
     else:
-        #plt.show()
+        plt.show()
         plt.close
 
 def do_allqso_allzbin(datapath, do_not_apply_any_mask=False):

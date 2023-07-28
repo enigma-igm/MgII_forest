@@ -22,6 +22,7 @@ from IPython import embed
 import compute_cf_data as ccf
 import time
 import scipy
+from scipy import stats
 import warnings
 warnings.filterwarnings(action='ignore')#, message='divide by zero encountered in true_divide (compute_model_grid_8qso_fast.py:311)')
 #import xi_cython
@@ -34,15 +35,15 @@ datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
-exclude_restwave = 1216 - 1185
-corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
+#corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
+corr_all = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 nqso_to_use = len(qso_namelist)
 
 nires_fwhm = 111.03
 mosfire_fwhm = 83.05
 nires_sampling = 2.7
 mosfire_sampling = 2.78
-xshooter_fwhm = 42.8 # R=7000 quoted in Bosman+2017
+xshooter_fwhm = 150#42.8 # R=7000 quoted in Bosman+2017
 xshooter_sampling = 3.7 #https://www.eso.org/sci/facilities/paranal/instruments/xshooter/inst.html
 
 qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, nires_fwhm, xshooter_fwhm]
@@ -401,6 +402,120 @@ def mock_mean_covar(ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask
 
     # weights = np.array(w_mock_ncopy / np.sum(w_mock_ncopy, axis=0))
     return xi_mock_keep, covar, vel_mid, xi_mean, w_mock_ncopy, w_mock_ncopy_noiseless, w_mock_nskew_ncopy_allqso
+
+def inverse(array):
+    """
+
+    Calculate and return the inverse of the input array, enforcing
+    positivity and setting values <= 0 to zero.  The input array should
+    be a quantity expected to always be positive, like a variance or an
+    inverse variance. The quantity::
+
+        out = (array > 0.0)/(np.abs(array) + (array == 0.0))
+
+    is returned.
+
+    Args:
+        a (np.ndarray):
+
+    Returns:
+        np.ndarray:
+
+    """
+    return (array > 0.0)/(np.abs(array) + (array == 0.0))
+
+def rebin_spectra(wave_grid, wave, flux_in, ivar_in, gpm = None, telluric = None):
+    """
+    Rebins spectra onto a new wavelength grid specified by wave_grid.
+
+    Args:
+        wave_grid (float ndarray):
+            Wavelength grid midpoints to rebin the wavelengths onto, shape = (nrebin)
+        wave (float ndarray):
+            Input wavelengths, shape=(nobj, nspec) or shape=(nspec,). If wave.ndim == 1 then this wavelength
+            will be assumed to apply to all input spectra.
+        flux (float ndarray):
+            Input flux,  shape=(nobj, nspec)
+        ivar (float ndarray):
+            Input inverse variance (i.e. 1/Var(flux)), shape=(nobj, nspec)
+        gpm (bool ndarray):
+            Input good pixel mask, optional, shape = (nobj, nspec)
+        telluric (ndarray):
+            Telluric transmission, optional, shape = (nobj, nspec). This is from telluric model fiits. If passed
+            then the telluric transmission will be combined in identical fashion to the input flux allowing one
+            to assess how telluric absorption impacts the rebinned spectrum.
+
+    Returns:
+        flux_rebin (float ndarray):
+           Rebinned flux, shape = (nobj, nrebin)
+        ivar_rebin (float ndarray):
+           Rebinned error vector, shape = (nobj, nrebin)
+        gpm_rebin (float ndarray):
+           Good pixel mask of rebinned spectrum, shape =(nobj, nrebin)
+        count_rebin (float ndarray):
+           Number of pixels in original spectrum contributing to each wavelength bin, shape = (nobj, nrebin)
+        telluric_rebin
+           Rebinned telluric transmission, shape = (nobj, nrebin). This
+
+    """
+    flux = np.atleast_2d(flux_in)
+    ivar = np.atleast_2d(ivar_in)
+    gpm0 = np.atleast_2d(gpm) if gpm is not None else (ivar > 0.0)
+    if telluric is not None:
+        telluric0 = np.atleast_2d(telluric)
+    nobj, nspec = flux.shape
+
+    wave_out = wave if wave.ndim == 2 else np.broadcast_to(wave, shape=flux.shape)
+    gpm_out = gpm0 & (ivar > 0.0) & (wave_out > 1.0) & np.isfinite(flux) & np.isfinite(ivar) & np.isfinite(wave_out)
+
+
+    nrebin = wave_grid.shape[0]
+
+    flux_rebin = np.zeros((nobj, nrebin))
+    ivar_rebin = np.zeros((nobj, nrebin))
+    count_rebin = np.zeros((nobj, nrebin), dtype=int)
+    gpm_rebin = np.zeros((nobj, nrebin), dtype=bool)
+    if telluric is not None:
+        telluric_rebin = np.zeros((nobj, nrebin))
+
+    # Create a set of bins in loglam centered around the desired wavelength positions
+    loglam_grid = np.log10(wave_grid)
+    loglam_edges = np.zeros(nrebin+1)
+    diff = np.diff(loglam_grid)
+    dloglam = np.hstack((diff, [diff[-1]]))
+    loglam_edges[1:] = loglam_grid + dloglam/2.0
+    loglam_edges[0] = loglam_grid[0] - dloglam[0]/2.0
+    for iobj in range(nobj):
+        gpm_iobj = gpm_out[iobj, :]
+        if np.any(gpm_iobj):
+            loglam_iobj = np.log10(wave_out[iobj, gpm_iobj])
+            flux_rebin[iobj,:], loglam_edges_out, _ = stats.binned_statistic(loglam_iobj, flux[iobj, gpm_iobj],
+                                                                             bins=loglam_edges, statistic='mean')
+            if telluric is not None:
+                telluric_rebin[iobj, :], loglam_edges_out, _ = stats.binned_statistic(loglam_iobj, telluric0[iobj, gpm_iobj],
+                                                                                      bins=loglam_edges, statistic='mean')
+            var_iobj = inverse(ivar[iobj, gpm_iobj])
+            var_tot_iobj, _, _ = stats.binned_statistic(loglam_iobj, var_iobj, bins=loglam_edges, statistic='sum')
+            count_rebin[iobj, :], _, _ = stats.binned_statistic(loglam_iobj, None, bins=loglam_edges, statistic='count')
+            gpm_rebin[iobj,:] = (count_rebin[iobj, :] > 0.0) & (var_tot_iobj > 0.0) & np.isfinite(flux_rebin[iobj,:])
+            # Set the bad flux values to a nonsense float. The nan's would need to be masked at each step. I'd prefer to
+            # have crazy numbers in there so that if we are accidentally not masking them we will know.
+            flux_rebin[iobj,np.logical_not(gpm_rebin[iobj,:])] = -1e10
+            ivar_rebin[iobj, gpm_rebin[iobj, :]] = inverse(var_tot_iobj[gpm_rebin[iobj,:]]/count_rebin[iobj, gpm_rebin[iobj,:]]**2)
+        else:
+            raise ValueError('No good pixels in input spectrum iobj={:d}'.format(iobj))
+
+    if telluric is not None:
+        return flux_rebin, ivar_rebin, gpm_rebin, count_rebin, telluric_rebin
+    else:
+        return flux_rebin, ivar_rebin, gpm_rebin, count_rebin
+
+def rebin_nyx_skewers(vel_lores, flux_lores, dv_want):
+
+    vel_rebin = np.arange(vel_lores[0], vel_lores[-1], dv_want)
+    flux_rebin, ivar_rebin, gpm_rebin, count_rebin = rebin_spectra(vel_rebin, vel_lores, flux_lores, np.ones(flux_lores.shape))
+
+    return vel_rebin, flux_rebin
 
 ########################## running the grid #############################
 def compute_model(args):
