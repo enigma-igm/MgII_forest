@@ -143,6 +143,70 @@ def continuum_normalize_new(wave_arr, flux_arr, ivar_arr, mask_arr, std_arr, nbk
 
     return cont_fit, cont_fit_mask, sset, outmask
 
+# Define some global constants that will be used in this module
+c_light = (const.c.to('km/s')).value
+from pypeit.utils import fast_running_median
+from pypeit.core.wavecal import wvutils
+
+def inverse(array):
+    return (array > 0.0)/(np.abs(array) + (array == 0.0))
+
+def fit_continuum(wave, flux, ivar, gpm, dv_bkpt, upper=3.0, lower=3.0, maxiter=10, nord=4, grow=0, sticky=False,
+                  maxrej=None, plot=False, maxdev=None, use_mad=False):
+
+    # Definte the full set of breakpoints
+    fullbkpt, wave_grid_mid, dsamp = wvutils.get_wave_grid(waves = [wave], gpms=[gpm], wave_method='log10', dv=dv_bkpt)
+
+    # Loop over the breakpoints and
+    bkpt_gpm = np.ones_like(fullbkpt, dtype=bool)
+    nbkpt = fullbkpt.size
+    n_inside = np.zeros(nbkpt-1, dtype=int)
+    for i in range(nbkpt-1):
+        n_inside[i] = np.sum((wave >= fullbkpt[i]) & (wave < fullbkpt[i+1]))
+        if n_inside[i] == 0:
+            bkpt_gpm[i] = False
+    fullbkpt = fullbkpt[bkpt_gpm]
+
+    kwargs_reject = dict(maxrej=maxrej, grow=grow, sticky=sticky, maxdev=maxdev, use_mad=use_mad)
+
+    sset, out_gpm = iterfit(wave, flux, invvar=ivar, inmask=gpm, upper=upper, lower=lower, x2=None,
+                              maxiter=maxiter, nord=nord, bkpt=None, fullbkpt=fullbkpt, kwargs_reject=kwargs_reject)
+
+    wave_gpm = wave > 1.0
+    cont_fit = np.zeros_like(wave)
+    cont_fit_gpm = np.zeros_like(wave, dtype=bool)
+    cont_fit[wave_gpm], cont_fit_gpm[wave_gpm] = sset.value(wave[wave_gpm])
+
+    if plot:
+        goodbk = sset.mask
+        # This is approximate
+        yfit_bkpt = np.interp(sset.breakpoints[goodbk], wave, cont_fit)
+        sigma = np.sqrt(inverse(ivar))
+
+        flux_sm = fast_running_median(flux[gpm], 100)
+        sigma_sm = fast_running_median(sigma[gpm], 100)
+        plt.figure(figsize=(12, 5))
+        ax = plt.gca()
+        was_fit_and_masked = gpm & np.logical_not(out_gpm)
+        print("Was fit and masked ={}".format(np.sum(was_fit_and_masked)))
+        ax.plot(wave[gpm], flux[gpm], color='k', marker='o', markersize=0.4, mfc='k', fillstyle='full',
+                linestyle='-', label='Pixels that were fit')
+        ax.plot(wave[gpm], sigma[gpm], color='orange', drawstyle='steps-mid', linestyle='-', label='Noise')
+        ax.plot(wave[was_fit_and_masked], flux[was_fit_and_masked], color='red', marker='x', markersize=5.0, mfc='red',
+                fillstyle='full', linestyle='None', label='Pixels masked by fit')
+        ax.plot(wave, cont_fit, color='cornflowerblue', label='B-spline fit')
+        ax.plot(sset.breakpoints[goodbk], yfit_bkpt, color='lawngreen', marker='o', markersize=4.0, mfc='lawngreen',
+                fillstyle='full', linestyle='None', label='Good B-spline breakpoints')
+        #ax.set_ylim((0.99 * cont_fit.min(), 1.01 * cont_fit.max()))
+        ax.set_ylim((-1.0*sigma_sm.max(), 1.2*flux_sm.max()))
+        plt.ylabel('Flux')
+        plt.xlabel('Wave (Ang)')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    return cont_fit, cont_fit_gpm, sset, out_gpm
+
 ################## by-eye strong absorbers masks for each QSO ##################
 def custom_mask_J0313(fitsfile, wavetype='wavegridmid', wavemin=None, plot=False):
 
@@ -302,7 +366,8 @@ def extract_and_norm(fitsfile, everyn_bkpt, qso_name, wavetype='wavegridmid', pl
         strong_abs_gpm = np.ones(wave.shape, dtype=bool) # dummy mask
 
     inmask = mask * strong_abs_gpm
-    fluxfit, fluxfit_mask, sset, bspline_mask = continuum_normalize_new(wave, flux, ivar, inmask, std, everyn_bkpt, plot=plot)
+    #fluxfit, fluxfit_mask, sset, bspline_mask = continuum_normalize_new(wave, flux, ivar, inmask, std, everyn_bkpt, plot=plot)
+    fluxfit, fluxfit_mask, sset, bspline_mask = fit_continuum(wave, flux, ivar, inmask, everyn_bkpt*40)
 
     return wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm
 
@@ -365,6 +430,10 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
     mg2_wave = 2800 # approximated to be midpoint of blue (2796 A) and red (2804 A)
 
     fitsfile = fitsfile_list[iqso]
+    #if iqso == 9:
+    #    print("==== switching ====")
+    #    fitsfile = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/J1120+0641_dv40_coadd_tellcorr.fits'
+    #    wavetype = 'wave'
     wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm = extract_and_norm(fitsfile, everyn_break_list[iqso], qso_namelist[iqso], wavetype=wavetype, wavemin=wavemin)
     redshift_mask, pz_mask, obs_wave_max = qso_redshift_and_pz_mask(wave, qso_zlist[iqso], exclude_rest=exclude_restwave)
     telluric_gpm = telluric_mask(wave)
@@ -553,7 +622,7 @@ def cf_lags_to_mask():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
-    ibad = np.array([7, 9, 11, 14, 18])  # corresponding to lags 770, 930, 1170, 1490
+    ibad = np.array([7, 9, 11, 14, 18])  # corresponding to lags 610, 770, 930, 1170, 1490
     lag_mask[ibad] = 0
 
     return lag_mask, ibad

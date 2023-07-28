@@ -28,19 +28,20 @@ xytick_size = 16
 xylabel_fontsize = 20
 legend_fontsize = 14
 
-datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
-savefig = False #True
+savefig = False#True
 
 # CGM masks
-good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, _, _ = \
+good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all = \
     mask_cgm_pdf.init(redshift_bin=redshift_bin, do_not_apply_any_mask=True, datapath=datapath)
 mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None)
+#mgii_tot_all = mask_cgm_pdf.chi_pdf2(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all, plot=False, savefig=None)
 
 xmin = 19500
 ymin = -0.05
@@ -52,6 +53,7 @@ dx_all = []
 dz_all = []
 
 for i in range(nqso_to_plot):
+#for i in [9]:
     print("====== %s ======" % qso_namelist[i])
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -112,7 +114,10 @@ for i in range(nqso_to_plot):
     plot_masks = [mask, pz_mask, telluric_mask, fs_mask]
     plot_masks_color = ['g', 'k', 'b', 'r']
     for im in range(len(plot_masks)):
-        ind_masked = np.where(plot_masks[im] == False)[0]
+        if im == len(plot_masks) - 1: # only plot masked absorbers outside of PZ region
+            ind_masked = np.where(plot_masks[im][pz_mask] == False)[0]
+        else:
+            ind_masked = np.where(plot_masks[im] == False)[0]
         for j in range(len(ind_masked)):  # bad way to plot masked pixels
             ax2.axvline(wave[ind_masked[j]], c=plot_masks_color[im], alpha=0.1, lw=2)
 
@@ -139,10 +144,10 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('paper_plots/10qso/spec_%s.pdf' % qso_namelist[i])
+        plt.savefig('paper_plots/10qso/spec_%s_joecontfit.pdf' % qso_namelist[i])
         plt.close()
     else:
-        #plt.show()
+        plt.show()
         plt.close()
 
 print("##############")
