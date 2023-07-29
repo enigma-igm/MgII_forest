@@ -28,15 +28,19 @@ def init_var(redshift_bin):
     v_mid = (v_hi + v_lo) / 2.0
 
     if redshift_bin == 'all':
-        xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
+        #xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
+        xi_file = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_allz.fits')
     elif redshift_bin == 'low':
-        xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_lowz.fits')
+        #xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_lowz.fits')
+        xi_file = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_lowz.fits')
     elif redshift_bin == 'high':
-        xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_highz.fits')
+        #xi_file = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_highz.fits')
+        xi_file = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_highz.fits')
 
     xi_real_data = xi_file['XI_MEAN_MASK'].data
     xi_mask_allqso = xi_file['XI_MASK'].data
-    xi_data_allmocks = np.load('xi_mock_keep_%sz_0.50_-4.50.npy' % redshift_bin) # computed using cmg8.test_compute_model()
+    #xi_data_allmocks = np.load('xi_mock_keep_%sz_0.50_-4.50.npy' % redshift_bin) # computed using cmg8.test_compute_model()
+    xi_data_allmocks = np.load('xi_mock_keep_%sz_0.50_-4.50_new_interp.npy' % redshift_bin)
 
     return v_mid, xi_real_data, xi_mask_allqso, xi_data_allmocks
 
@@ -157,7 +161,8 @@ def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=N
 
     #plt.tight_layout()
     if saveplot:
-        plt.savefig('paper_plots/10qso/debug/allz2/cf_corr_dv%d.png' % v_mid[ibin])
+        #plt.savefig('paper_plots/10qso/debug/allz2/cf_corr_dv%d.png' % v_mid[ibin])
+        plt.savefig('paper_plots/10qso/cfbin_masking/allz/cf_corr_dv%d.png' % v_mid[ibin])
         plt.close()
     else:
         plt.show()
