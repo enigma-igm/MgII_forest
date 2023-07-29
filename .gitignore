@@ -16,3 +16,16 @@ paper_plots/
 mcmc/
 *.log
 *tmp*
+build/
+cf_chunk_check.py
+check_rebin_interp.py
+coadd_chk_noise.py
+joe_compute_model_grid.py
+jwst_prop_plots/
+mcmc_cf_bump_check.py
+new_rebin_spec.py
+plot_cf_allspec_new_debug.py
+run_mcmc_corrfunc_plot.py
+test_compute_model_8qso.sh
+timeit_compute_model_grid.py
+try_inf_test.py
