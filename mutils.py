@@ -366,8 +366,8 @@ def extract_and_norm(fitsfile, everyn_bkpt, qso_name, wavetype='wavegridmid', pl
         strong_abs_gpm = np.ones(wave.shape, dtype=bool) # dummy mask
 
     inmask = mask * strong_abs_gpm
-    #fluxfit, fluxfit_mask, sset, bspline_mask = continuum_normalize_new(wave, flux, ivar, inmask, std, everyn_bkpt, plot=plot)
-    fluxfit, fluxfit_mask, sset, bspline_mask = fit_continuum(wave, flux, ivar, inmask, everyn_bkpt*40)
+    fluxfit, fluxfit_mask, sset, bspline_mask = continuum_normalize_new(wave, flux, ivar, inmask, std, everyn_bkpt, plot=plot)
+    #fluxfit, fluxfit_mask, sset, bspline_mask = fit_continuum(wave, flux, ivar, inmask, everyn_bkpt*40)
 
     return wave, flux, ivar, mask, std, tell, fluxfit, strong_abs_gpm
 
@@ -426,7 +426,7 @@ def init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/MgII_f
 
     everyn_break_list = (np.ones(len(qso_namelist)) * 60).astype('int')
     exclude_restwave = 2800 - 2728.62
-    median_z = 6.519 # for 10 qso; #6.500 (8qso) see allqso_pathlength_snr.py
+    median_z = 6.469 #6.519 # for 10 qso; #6.500 (8qso) see allqso_pathlength_snr.py
     mg2_wave = 2800 # approximated to be midpoint of blue (2796 A) and red (2804 A)
 
     fitsfile = fitsfile_list[iqso]
@@ -623,6 +623,7 @@ def cf_lags_to_mask():
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
     ibad = np.array([7, 9, 11, 14, 18])  # corresponding to lags 610, 770, 930, 1170, 1490
+    #ibad = np.array([4, 5, 14, 18]) # 370.0, 450.0, 1170.0, 1490.0s
     lag_mask[ibad] = 0
 
     return lag_mask, ibad
@@ -635,6 +636,7 @@ def cf_lags_to_mask_highz():
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
     ibad = np.array([0]) # corresponding to lags 50
+    #ibad = np.array([0, 13]) # 50.0, 1090.0
     lag_mask[ibad] = 0
 
     return lag_mask, ibad
@@ -647,6 +649,7 @@ def cf_lags_to_mask_lowz():
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
     ibad = np.array([9, 11, 18])  # corresponding to lags 770, 930, 1490
+    # ibad = np.array([0, 1, 3, 4, 5, 9, 11, 18]) #50.0, 130.0, 290.0, 370.0, 450.0, 770.0, 930.0, 1490.0
     lag_mask[ibad] = 0
 
     return lag_mask, ibad
@@ -780,6 +783,77 @@ def check_wgm():
         vel.append(obswave_to_vel_2(wave))
 
     return outwave, vel
+
+def plot_new_old_cf():
+    cf_allz_old = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
+    cf_lowz_old = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_lowz.fits')
+    cf_highz_old = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_highz.fits')
+
+    cf_allz = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_allz.fits')
+    cf_lowz = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_lowz.fits')
+    cf_highz = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_highz.fits')
+
+    vel_mid = cf_allz_old['vel_mid'].data
+
+    xi_unmask_allz_old = cf_allz_old['xi_mean_unmask'].data
+    xi_unmask_lowz_old = cf_lowz_old['xi_mean_unmask'].data
+    xi_unmask_highz_old = cf_highz_old['xi_mean_unmask'].data
+
+    xi_mask_allz_old = cf_allz_old['xi_mean_mask'].data
+    xi_mask_lowz_old = cf_lowz_old['xi_mean_mask'].data
+    xi_mask_highz_old = cf_highz_old['xi_mean_mask'].data
+
+    xi_unmask_allz = cf_allz['xi_mean_unmask'].data
+    xi_unmask_lowz = cf_lowz['xi_mean_unmask'].data
+    xi_unmask_highz = cf_highz['xi_mean_unmask'].data
+
+    xi_mask_allz = cf_allz['xi_mean_mask'].data
+    xi_mask_lowz = cf_lowz['xi_mean_mask'].data
+    xi_mask_highz = cf_highz['xi_mean_mask'].data
+
+    plt.figure(figsize=(12, 6))
+    plt.suptitle('All z')
+    plt.subplot(211)
+    plt.plot(vel_mid, xi_unmask_allz_old, 'ko')
+    plt.plot(vel_mid, xi_unmask_allz, 'rx', label='new')
+    plt.axhline(0, linestyle='--')
+    plt.legend()
+
+    plt.subplot(212)
+    plt.plot(vel_mid, xi_mask_allz_old, 'ko')
+    plt.plot(vel_mid, xi_mask_allz, 'rx', label='new')
+    plt.axhline(0, linestyle='--')
+    plt.legend()
+
+    plt.figure(figsize=(12, 6))
+    plt.suptitle('Low z')
+    plt.subplot(211)
+    plt.plot(vel_mid, xi_unmask_lowz_old, 'ko')
+    plt.plot(vel_mid, xi_unmask_lowz, 'rx', label='new')
+    plt.axhline(0, linestyle='--')
+    plt.legend()
+
+    plt.subplot(212)
+    plt.plot(vel_mid, xi_mask_lowz_old, 'ko')
+    plt.plot(vel_mid, xi_mask_lowz, 'rx', label='new')
+    plt.axhline(0, linestyle='--')
+    plt.legend()
+
+    plt.figure(figsize=(12, 6))
+    plt.suptitle('High z')
+    plt.subplot(211)
+    plt.plot(vel_mid, xi_unmask_highz_old, 'ko')
+    plt.plot(vel_mid, xi_unmask_highz, 'rx', label='new')
+    plt.axhline(0, linestyle='--')
+    plt.legend()
+
+    plt.subplot(212)
+    plt.plot(vel_mid, xi_mask_highz_old, 'ko')
+    plt.plot(vel_mid, xi_mask_highz, 'rx', label='new')
+    plt.axhline(0, linestyle='--')
+    plt.legend()
+
+    plt.show()
 
 ####################################### OLD stuffs
 def old_init_onespec(iqso, redshift_bin, datapath='/Users/suksientie/Research/data_redux/'):

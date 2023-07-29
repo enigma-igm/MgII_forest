@@ -61,7 +61,7 @@ nires_fwhm = 111.03
 mosfire_fwhm = 83.05
 nires_sampling = 2.7
 mosfire_sampling = 2.78
-xshooter_fwhm = 150# 42.8 # R=7000 in NIR arm based on telluric lines (Bosman+2017); nominal is 5300 for 0.9" slit
+xshooter_fwhm = 150#42.8 # R=7000 in NIR arm based on telluric lines (Bosman+2017); nominal is 5300 for 0.9" slit
 xshooter_sampling = 3.7 # https://www.eso.org/sci/facilities/paranal/instruments/xshooter/inst.html
 
 qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, \

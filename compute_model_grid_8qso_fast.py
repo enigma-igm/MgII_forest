@@ -29,21 +29,24 @@ warnings.filterwarnings(action='ignore')#, message='divide by zero encountered i
 import mask_cgm_pdf
 
 ###################### global variables ######################
-datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-#datapath = '/mnt/quasar/sstie/MgII_forest/z75/rebinned_spectra/'
+datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
+#datapath = '/mnt/quasar/sstie/MgII_forest/z75/rebinned_spectra2/'
 
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
+
 #corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
-corr_all = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+#corr_all = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+corr_all = [0.93, 0.898, 0.88, 1.051, 0.972, 1.055, 1.086, 0.956, 0.908, 1.059] # after masking strong absorbers
+
 nqso_to_use = len(qso_namelist)
 
 nires_fwhm = 111.03
 mosfire_fwhm = 83.05
 nires_sampling = 2.7
 mosfire_sampling = 2.78
-xshooter_fwhm = 150#42.8 # R=7000 quoted in Bosman+2017
+xshooter_fwhm = 42.8 # R=7000 quoted in Bosman+2017
 xshooter_sampling = 3.7 #https://www.eso.org/sci/facilities/paranal/instruments/xshooter/inst.html
 
 qso_fwhm = [nires_fwhm, nires_fwhm, nires_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, mosfire_fwhm, nires_fwhm, xshooter_fwhm]
@@ -232,7 +235,12 @@ def init_dataset(nqso, redshift_bin, datapath):
         # reshaping to be compatible with MgiiFinder
         norm_good_flux = norm_good_flux.reshape((1, len(norm_good_flux)))
         norm_good_ivar = norm_good_ivar.reshape((1, len(norm_good_ivar)))
-        fwhm = qso_fwhm[iqso]
+
+        if iqso == 9: #setting larger fwhm for xshooter for cgm masking
+            print("===> using larger fwhm for xshooter")
+            fwhm = 150
+        else:
+            fwhm = qso_fwhm[iqso]
 
         mgii_tot = MgiiFinder(good_vel_data, norm_good_flux, norm_good_ivar, fwhm, signif_thresh,
                               signif_mask_nsigma=signif_mask_nsigma,
@@ -458,6 +466,7 @@ def rebin_spectra(wave_grid, wave, flux_in, ivar_in, gpm = None, telluric = None
            Rebinned telluric transmission, shape = (nobj, nrebin). This
 
     """
+
     flux = np.atleast_2d(flux_in)
     ivar = np.atleast_2d(ivar_in)
     gpm0 = np.atleast_2d(gpm) if gpm is not None else (ivar > 0.0)
@@ -548,22 +557,23 @@ def compute_model(args):
     # interpolate flux lores to dv=40 (nyx); ~0.13 sec for 10,000 skewers on my Mac
     start = time.process_time()
     dv_coarse = 40
+    #vel_lores_nires_interp, flux_lores_nires_interp = rebin_nyx_skewers(vel_lores_nires, flux_lores_nires, dv_coarse)
     vel_lores_nires_interp = np.arange(vel_lores_nires[0], vel_lores_nires[-1], dv_coarse)
-    flux_lores_nires_interp = scipy.interpolate.interp1d(vel_lores_nires, flux_lores_nires, kind = 'cubic', \
-                                                        bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
+    flux_lores_nires_interp = scipy.interpolate.interp1d(vel_lores_nires, flux_lores_nires, kind = 'cubic', bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
     del vel_lores_nires
     del flux_lores_nires
 
+    #vel_lores_mosfire_interp, flux_lores_mosfire_interp = rebin_nyx_skewers(vel_lores_mosfire, flux_lores_mosfire, dv_coarse)
     vel_lores_mosfire_interp = np.arange(vel_lores_mosfire[0], vel_lores_mosfire[-1], dv_coarse)
-    flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic', \
-                                                           bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
+    flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic', bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
 
     del vel_lores_mosfire
     del flux_lores_mosfire
 
+    #vel_lores_xshooter_interp, flux_lores_xshooter_interp = rebin_nyx_skewers(vel_lores_xshooter, flux_lores_xshooter, dv_coarse)
     vel_lores_xshooter_interp = np.arange(vel_lores_xshooter[0], vel_lores_xshooter[-1], dv_coarse)
-    flux_lores_xshooter_interp = scipy.interpolate.interp1d(vel_lores_xshooter, flux_lores_xshooter, kind='cubic', \
-                                                            bounds_error=False, fill_value=np.nan)(vel_lores_xshooter_interp)
+    flux_lores_xshooter_interp = scipy.interpolate.interp1d(vel_lores_xshooter, flux_lores_xshooter, kind='cubic', bounds_error=False, fill_value=np.nan)(vel_lores_xshooter_interp)
+
     del vel_lores_xshooter
     del flux_lores_xshooter
 
@@ -595,7 +605,8 @@ def test_compute_model():
     nmock = 1000
     master_seed = 99991
     logZ = -4.50
-    redshift_bin = 'all'
+    redshift_bin = 'low'
+    print(redshift_bin)
 
     vel_data_allqso, norm_flux_allqso, norm_std_allqso, norm_ivar_allqso, master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = init_dataset(nqso_to_use, redshift_bin, datapath)
     args = ihi, iZ, xHI, logZ, master_seed, xhi_path, zstr, redshift_bin, ncovar, nmock, vel_data_allqso, norm_std_allqso, master_mask_allqso_mask_cgm, instr_allqso
@@ -652,7 +663,7 @@ def main():
 
     # Some file paths and then read in the params table to get the redshift
     zstr = 'z75'
-    outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/10qso/'
+    outpath = '/mnt/quasar/sstie/MgII_forest/' + zstr + '/10qso/rebin/'
     #outpath = '/Users/suksientie/Research/MgII_forest/'
     outfilename = 'corr_func_models_{:s}'.format(redshift_bin) + '_ivarweights.fits'
     outfile = os.path.join(outpath, outfilename)

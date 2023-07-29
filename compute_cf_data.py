@@ -33,11 +33,17 @@ qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
-corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64] #xi_mean_mask_10qso_everyn60_corr.fits
 vmin_corr, vmax_corr, dv_corr = 10, 3500, 40 # dummy values because we're now using custom binning
 
+#corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64] #xi_mean_mask_10qso_everyn60_corr.fits
+#corr_all = [0.669, 0.673, 0.692, 1.07, 1.01, 1.06, 1.07, 1.00, 0.64, 0.64]
+
+#corr_all = [0.964, 0.975, 1.045, 1.078, 1.01, 1.053, 1.084, 1.006, 0.914, 1.128]
+corr_all = [0.93, 0.898, 0.88, 1.051, 0.972, 1.055, 1.086, 0.956, 0.908, 1.059] # after masking strong absorbers
+#corr_all = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
 #################################
-def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/', do_not_apply_any_mask=False):
+def init_cgm_fit_gpm(datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/', do_not_apply_any_mask=False):
     # initialize the GPM masks from the cgm masking for all redshift bins
 
     lowz_mgii_tot_all, highz_mgii_tot_all, allz_mgii_tot_all = mask_cgm.do_allqso_allzbin(datapath, do_not_apply_any_mask)
@@ -192,8 +198,16 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
 
     # everyn = 60 (all-z, high-z, low-z), nqso=10
     # normalized ivar, weighted fmean of dataset
-    fmean_global_unmask = [0.9952775044785822, 0.998804106985206, 0.9927064690772747]
-    fmean_global_mask = [1.001426984289517, 1.0018512443910101, 1.0011034891413138]
+    #fmean_global_unmask = [0.9952775044785822, 0.998804106985206, 0.9927064690772747]
+    #fmean_global_mask = [1.001426984289517, 1.0018512443910101, 1.0011034891413138]
+
+    # 7/28/2023: new rebinned spectra, joe's contfit, xshooter fwhm=150 in cgm masking
+    #fmean_global_unmask = [0.9942310808994878, 0.9977878806975714, 0.9916679773002758]
+    #fmean_global_mask = [1.0024918695120622, 1.0010133171937157, 1.003679032855304]
+
+    # 7/28/2023: new rebinned spectra, my contfit, xshooter fwhm=150 in cgm masking
+    fmean_global_unmask = [0.9946550102864571, 0.9977495119854285, 0.992422115121291]
+    fmean_global_mask = [1.0014764052901743, 1.0009900106471348, 1.0018462960427013]
 
     if redshift_bin == 'all':
         i_fmean = 0
@@ -500,83 +514,6 @@ def compute_neff(weights_allqso):
     neff = (np.sum(weights_allqso, axis=0)) ** 2 / np.sum(weights_allqso ** 2, axis=0)
     return neff
 
-def fmean_dataset(nqso=8):
-    # old
-    import compute_model_grid_8qso_fast as cmg8
-
-    z_bin = ['all', 'high', 'low']
-    datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-
-    fmean_unmask = []
-    fmean_mask = []
-    fmean_unmask_onespec = []
-    fmean_mask_onespec = []
-
-    for redshift_bin in z_bin:
-        vel_data_allqso, norm_flux_allqso, norm_std_allqso, ivar_allqso, \
-        master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = cmg8.init_dataset(nqso, redshift_bin, datapath)
-
-        # normalized quantities
-        f_all = []
-        f_all_mask_cgm = []
-        ivar_all = []
-        ivar_all_mask_cgm = []
-        f_all_onespec = []
-        f_all_mask_cgm_onespec = []
-
-        for iqso in range(nqso):
-            f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
-            f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
-            ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
-            ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
-
-            f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
-            f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
-
-        # weighted global mean flux
-        fmean_unmask.append(np.average(f_all, weights=ivar_all))
-        fmean_mask.append(np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm))
-        #fmean_zbin.append(np.mean(f_all))
-        #fmean_zbin_mask_cgm.append(np.mean(f_all_mask_cgm))
-
-        fmean_unmask_onespec.append(f_all_onespec)
-        fmean_mask_onespec.append(f_all_mask_cgm_onespec)
-
-    return fmean_unmask, fmean_mask, fmean_unmask_onespec, fmean_mask_onespec
-
-def fmean_dataset2(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mask_allqso_mask_cgm, iqso_remove=None):
-    # old
-    nqso = 10
-    if iqso_remove is not None:
-        iqso_to_use = np.delete(np.arange(nqso), iqso_remove)
-    else:
-        iqso_to_use = np.arange(nqso)
-
-    # normalized quantities
-    f_all = []
-    f_all_mask_cgm = []
-    ivar_all = []
-    ivar_all_mask_cgm = []
-    f_all_onespec = []
-    f_all_mask_cgm_onespec = []
-
-    for iqso in iqso_to_use:
-        f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
-        f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
-        ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
-        ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
-
-        f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
-        f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
-
-    fmean_unmask = np.average(f_all, weights=ivar_all)
-    fmean_mask = np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm)
-
-    return fmean_unmask, fmean_mask
-
-    #fractional diff of fmean remains unaffected within ~0.1% when iteratively removing qso
-    #iqso_remove_ls = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, [4, 5, 6]]
-
 def fmean_dataset3(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mask_allqso_mask_cgm):
 
     nqso = len(norm_flux_allqso) #10
@@ -609,6 +546,87 @@ def fmean_dataset3(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mas
 
     #fmean_unmask20, fmean_unmask40, fmean_unmask60
     #(0.9951233615221605, 0.9950089122951656, 0.9952775044785822)
+
+def weighted_var(xi_allqso, weights_allqso):
+    # https://stackoverflow.com/questions/2413522/weighted-standard-deviation-in-numpy
+    # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance
+    # http://seismo.berkeley.edu/~kirchner/Toolkits/Toolkit_12.pdf
+    xi_average = np.average(xi_allqso, axis=0, weights=weights_allqso)
+    variance = np.average((xi_allqso - xi_average)**2, axis=0, weights=weights_allqso)
+
+    v1 = np.sum(weights_allqso, axis=0)
+    v2 = np.sum(weights_allqso ** 2, axis=0)
+    bias = 1 - (v2/v1**2)
+
+    unbiased_var = variance / bias
+
+    return unbiased_var
+
+def perform_weighted_bootstrap(data, weights, num_bootstraps):
+
+    bootstrap_means = []
+    n = len(data)
+
+    for _ in range(num_bootstraps):
+        # Generate bootstrap sample indices with replacement based on the weights
+        bootstrap_indices = np.random.choice(range(n), size=n, replace=True)#, p=weights)
+
+        # Create bootstrap sample using the indices
+        bootstrap_data = [data[i] for i in bootstrap_indices]
+        bootstrap_weights = [weights[i] for i in bootstrap_indices]
+        # Calculate the weighted mean of the bootstrap sample
+        bootstrap_mean = np.sum(np.multiply(bootstrap_data, bootstrap_weights)) / np.sum(bootstrap_weights)
+        bootstrap_means.append(bootstrap_mean)
+
+    # Calculate the standard deviation of the bootstrap means
+    bootstrap_errors = np.std(bootstrap_means)
+
+    return bootstrap_errors
+
+def perform_weighted_bootstrap2(data, weights, num_bootstraps):
+
+    bootstrap_means = []
+    n = len(data)
+
+    total_weights_all = []
+    bs_indices_all = []
+    for _ in range(num_bootstraps):
+        total_weights = 0
+        bs_indices = []
+        while total_weights < 1.0:
+            i = np.random.randint(n)
+            bs_indices.append(i)
+            total_weights += weights[i]
+
+        if total_weights <= 1.1:
+            total_weights_all.append(total_weights)
+            bs_indices_all.append(bs_indices)
+
+    return total_weights_all, bs_indices_all
+
+def perform_weighted_bootstrap3(data, weights, num_bootstraps):
+
+    bootstrap_means = []
+    n = len(data)
+
+    for _ in range(num_bootstraps):
+        # Generate bootstrap sample indices with replacement based on the weights
+        bootstrap_indices = np.random.choice(range(n), size=n, replace=True)
+
+        # Create bootstrap sample using the indices
+        bootstrap_data = np.array([data[i] for i in bootstrap_indices])
+        bootstrap_weights = np.array([weights[i] for i in bootstrap_indices])
+
+        # Calculate the weighted mean of the bootstrap sample
+
+        bootstrap_mean = np.average(bootstrap_data, axis=0, weights=bootstrap_weights)
+        bootstrap_means.append(bootstrap_mean)
+
+    # Calculate the standard deviation of the bootstrap means
+    bootstrap_means = np.array(bootstrap_means)
+    bootstrap_errors = np.std(bootstrap_means, axis=0)
+
+    return bootstrap_errors, bootstrap_means
 
 ######################################## old stuffs
 def check_onespec(iqso, redshift_bin, given_bins):
@@ -776,3 +794,80 @@ def old_onespec(iqso, redshift_bin, cgm_fit_gpm, plot=False, std_corr=1.0, given
 
     # return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
     return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask, meanflux_tot, meanflux_tot_mask
+
+def fmean_dataset(nqso=8):
+    # old
+    import compute_model_grid_8qso_fast as cmg8
+
+    z_bin = ['all', 'high', 'low']
+    datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
+
+    fmean_unmask = []
+    fmean_mask = []
+    fmean_unmask_onespec = []
+    fmean_mask_onespec = []
+
+    for redshift_bin in z_bin:
+        vel_data_allqso, norm_flux_allqso, norm_std_allqso, ivar_allqso, \
+        master_mask_allqso, master_mask_allqso_mask_cgm, instr_allqso = cmg8.init_dataset(nqso, redshift_bin, datapath)
+
+        # normalized quantities
+        f_all = []
+        f_all_mask_cgm = []
+        ivar_all = []
+        ivar_all_mask_cgm = []
+        f_all_onespec = []
+        f_all_mask_cgm_onespec = []
+
+        for iqso in range(nqso):
+            f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
+            f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+            ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
+            ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+
+            f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
+            f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
+
+        # weighted global mean flux
+        fmean_unmask.append(np.average(f_all, weights=ivar_all))
+        fmean_mask.append(np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm))
+        #fmean_zbin.append(np.mean(f_all))
+        #fmean_zbin_mask_cgm.append(np.mean(f_all_mask_cgm))
+
+        fmean_unmask_onespec.append(f_all_onespec)
+        fmean_mask_onespec.append(f_all_mask_cgm_onespec)
+
+    return fmean_unmask, fmean_mask, fmean_unmask_onespec, fmean_mask_onespec
+
+def fmean_dataset2(norm_flux_allqso, master_mask_allqso, ivar_allqso, master_mask_allqso_mask_cgm, iqso_remove=None):
+    # old
+    nqso = 10
+    if iqso_remove is not None:
+        iqso_to_use = np.delete(np.arange(nqso), iqso_remove)
+    else:
+        iqso_to_use = np.arange(nqso)
+
+    # normalized quantities
+    f_all = []
+    f_all_mask_cgm = []
+    ivar_all = []
+    ivar_all_mask_cgm = []
+    f_all_onespec = []
+    f_all_mask_cgm_onespec = []
+
+    for iqso in iqso_to_use:
+        f_all.extend(norm_flux_allqso[iqso][master_mask_allqso[iqso]])
+        f_all_mask_cgm.extend(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+        ivar_all.extend(ivar_allqso[iqso][master_mask_allqso[iqso]])
+        ivar_all_mask_cgm.extend(ivar_allqso[iqso][master_mask_allqso_mask_cgm[iqso]])
+
+        f_all_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso[iqso]]))
+        f_all_mask_cgm_onespec.append(np.mean(norm_flux_allqso[iqso][master_mask_allqso_mask_cgm[iqso]]))
+
+    fmean_unmask = np.average(f_all, weights=ivar_all)
+    fmean_mask = np.average(f_all_mask_cgm, weights=ivar_all_mask_cgm)
+
+    return fmean_unmask, fmean_mask
+
+    #fractional diff of fmean remains unaffected within ~0.1% when iteratively removing qso
+    #iqso_remove_ls = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, [4, 5, 6]]
