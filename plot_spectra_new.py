@@ -26,7 +26,8 @@ mpl.rcParams['ytick.minor.size'] = 4
 
 xytick_size = 16
 xylabel_fontsize = 20
-legend_fontsize = 14
+legend_fontsize = 16
+
 
 datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
@@ -35,7 +36,7 @@ qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
-savefig = False#True
+savefig = True
 
 # CGM masks
 good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all = \
@@ -53,7 +54,7 @@ dx_all = []
 dz_all = []
 
 for i in range(nqso_to_plot):
-#for i in [9]:
+#for i in [5]:
     print("====== %s ======" % qso_namelist[i])
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -87,16 +88,20 @@ for i in range(nqso_to_plot):
     ymax = ymax_ls[i]
     xmax = wave.max()
 
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
-    fig.subplots_adjust(left=0.1, bottom=0.1, right=0.96, top=0.9, wspace=0, hspace=0.)
-    ax1.annotate(qso_namelist[i], xy=(xmin + 100, ymax * 0.88), fontsize=18, bbox=dict(boxstyle='round', ec="k", fc="white"))
+    #fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 7), sharex=True)
+    #fig.subplots_adjust(left=0.1, bottom=0.12, right=0.96, top=0.9, wspace=0, hspace=0.)
+    fig.subplots_adjust(left=0.085, bottom=0.11, right=0.95, top=0.89, wspace=0, hspace=0.)
+
+    # xy=(xmin + 100, ymax * 0.88)
+    ax1.annotate(qso_namelist[i], xy=(xmin + 90, ymax * 0.83), fontsize=legend_fontsize+5, bbox=dict(boxstyle='round', ec="k", fc="white"))
     ax1.plot(wave, flux, c='k', drawstyle='steps-mid')
     ax1.plot(wave, fluxfit, c='r', drawstyle='steps-mid') #, label='continuum fit')
     ax1.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid')#, label='sigma')
 
     ind_masked = np.where(mask * strong_abs_gpm == False)[0]
     for j in range(len(ind_masked)):  # bad way to plot masked pixels
-        ax1.axvline(wave[ind_masked[j]], color='k', alpha=0.1, lw=2)
+        ax1.axvline(wave[ind_masked[j]], color='k', alpha=0.15, lw=1)
 
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
     ax1.yaxis.set_minor_locator(AutoMinorLocator())
@@ -111,6 +116,7 @@ for i in range(nqso_to_plot):
     ax2.plot(wave, std / fluxfit, c='k', alpha=0.5, drawstyle='steps-mid')
     ax2.plot(wave, tell * 2, alpha=0.5, drawstyle='steps-mid')  # telluric
 
+    # plotting the various masks individually
     plot_masks = [mask, pz_mask, telluric_mask, fs_mask]
     plot_masks_color = ['g', 'k', 'b', 'r']
     for im in range(len(plot_masks)):
@@ -118,14 +124,19 @@ for i in range(nqso_to_plot):
             ind_masked = np.where(plot_masks[im][pz_mask] == False)[0]
         else:
             ind_masked = np.where(plot_masks[im] == False)[0]
-        for j in range(len(ind_masked)):  # bad way to plot masked pixels
-            ax2.axvline(wave[ind_masked[j]], c=plot_masks_color[im], alpha=0.1, lw=2)
 
-    """
-    ind_masked = np.where(all_masks == False)[0]
-    for j in range(len(ind_masked)):  # bad way to plot masked pixels
-        ax2.axvline(wave[ind_masked[j]], color='k', alpha=0.1, lw=2)
-    """
+        if im == len(plot_masks) - 1:
+            telluric_bpm = np.invert(telluric_mask)
+            mask_bpm = np.invert(mask)
+
+            for j in range(len(ind_masked)):
+                # don't plot cgm masks within the telluric bpm
+                if (wave[ind_masked[j]] not in wave[telluric_bpm]) and \
+                        (wave[ind_masked[j]] not in wave[mask_bpm]):
+                    ax2.axvline(wave[ind_masked[j]], c=plot_masks_color[im], alpha=0.15, lw=1, drawstyle='steps-mid')
+        else:
+            for j in range(len(ind_masked)):  # bad way to plot masked pixels
+                ax2.axvline(wave[ind_masked[j]], c=plot_masks_color[im], alpha=0.15, lw=1, drawstyle='steps-mid')
 
     ax2.axvline((qso_zlist[i] + 1) * 2800, ls='--', c='k', lw=3)
     ax2.xaxis.set_minor_locator(AutoMinorLocator())
@@ -144,7 +155,7 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('paper_plots/10qso/spec_%s_joecontfit.pdf' % qso_namelist[i])
+        plt.savefig('paper_plots/10qso/spec_%s.pdf' % qso_namelist[i])
         plt.close()
     else:
         plt.show()

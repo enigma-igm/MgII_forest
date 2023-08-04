@@ -28,10 +28,10 @@ if plotmaskedspec:
         = mask_cgm_pdf.init(redshift_bin='all', datapath=datapath, do_not_apply_any_mask=True)
 
     mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None)
-    #chi_max = [8.4, 10.5, 4.5, 10.5] # for plotting only
-    chi_max = [4.3, 4.3, 6.3, 4.3, 6.7, 8.4, 4.3, 8.4, 4.3, 4.3] # for plotting only
+    chi_max = [4.3, 4.3, 6.3, 4.3, 6.7, 6.4, 4.3, 8.4, 4.7, 4.7] # for plotting only
 
-    for iqso in range(len(qso_namelist)):
+    #for iqso in range(len(qso_namelist)):
+    for iqso in [8]:
         savefig = 'paper_plots/10qso/masked%d_%s.pdf' % (iqso, qso_namelist[iqso])
         saveout = None
         mask_cgm_pdf.plot_masked_onespec2(mgii_tot_all, good_wave_all, good_vel_data_all, norm_good_flux_all, \

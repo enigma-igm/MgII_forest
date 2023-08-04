@@ -533,12 +533,21 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
         #np.savetxt(saveout, i_abs_found, delimiter=",")
         np.savetxt(saveout, np.vstack((i_abs_found, wave_data[i_abs_found], norm_good_flux[i_abs_found], norm_good_std[i_abs_found])).T, delimiter=",")
 
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 10), sharex=True)
-    fig.subplots_adjust(left=0.1, bottom=0.1, right=0.98, top=0.93, wspace=0, hspace=0.)
+    #fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 10), sharex=True)
+    #fig.subplots_adjust(left=0.1, bottom=0.1, right=0.98, top=0.93, wspace=0, hspace=0.)
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 7), sharex=True)
+    fig.subplots_adjust(left=0.085, bottom=0.11, right=0.95, top=0.89, wspace=0, hspace=0.)
     flux_min, flux_max = -0.05, 1.8
-    chi_min = -3.0 #, chi_max = -3.0, 8.4
+    if qso_name in ['J1007+2115', 'J0319-1008']:
+        flux_max = 2.0
+    chi_min = -3.0
 
-    ax1.annotate(qso_name, xy=(vel_data.min() + 500, flux_max * 0.88), bbox=dict(boxstyle='round', ec="k", fc="white"), fontsize=18)
+    xytick_size = 16
+    xylabel_fontsize = 20
+    legend_fontsize = 16
+
+    # xy=(vel_data.min() + 500, flux_max * 0.88)
+    ax1.annotate(qso_name, xy=(vel_data.min() + 700, flux_max * 0.85), bbox=dict(boxstyle='round', ec="k", fc="white"), fontsize=legend_fontsize + 5)
     ax1.plot(vel_data, norm_good_flux, drawstyle='steps-mid', color='k', linewidth=1.5, zorder=1)
     ax1.plot(vel_data, norm_good_std, drawstyle='steps-mid', color='k', linewidth=1.0, alpha=0.5)
     ax1.axhline(y = 1 - one_minF_thresh, color='green', linestyle='dashed', linewidth=2, label=r'$1 - \rm{F} = %0.1f$ (%0.2f pixels masked)' % (one_minF_thresh, f_mask_frac))
@@ -601,12 +610,27 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
         return np.interp(x, wave_data2, vel_data2)
 
     secax = ax1.secondary_xaxis('top', functions=(forward, inverse))
+    """"
     if qso_name in ['J0313-1806', 'J1342+0928']:
         secax.set_xticks(range(20000, 24000, 500))
     elif qso_name in ['J0319-1008', 'J0411-0907']:
         secax.set_xticks(range(20000, 22000, 500))
     else:
         secax.set_xticks(range(20000, 22500, 500))
+    """
+    if qso_name == 'J0313-1806':
+        secax.set_xticks(range(20000, 24000, 500))
+    elif qso_name == 'J1342+0928':
+        secax.set_xticks(range(20000, 23500, 500))
+    elif qso_name == 'J1007+2115':
+        secax.set_xticks(range(19500, 23500, 500))
+    elif qso_name in ['J0319-1008', 'J0411-0907']:
+        secax.set_xticks(range(19500, 21500, 500))
+    elif qso_name == 'J1120+0641':
+        secax.set_xticks(range(19500, 22500, 500))
+    elif qso_name in ['J0252-0503', 'J0038-1527']:
+        secax.set_xticks(range(20000, 22000, 500))
+
     secax.xaxis.set_minor_locator(AutoMinorLocator())
     secax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize, labelpad=8)
     secax.tick_params(top=True, axis="both", labelsize=xytick_size)
