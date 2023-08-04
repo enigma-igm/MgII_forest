@@ -35,8 +35,8 @@ qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
-redshift_bin = 'all'
-savefig = True
+redshift_bin = 'low' #'all'
+savefig = False #True
 
 # CGM masks
 good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all = \
@@ -44,7 +44,6 @@ good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_go
 mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None)
 #mgii_tot_all = mask_cgm_pdf.chi_pdf2(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all, plot=False, savefig=None)
 
-xmin = 19500
 ymin = -0.05
 ymax_ls = [0.8, 0.48, 0.4, 0.6, 0.45, 0.65, 0.5, 0.6, 0.6, 0.7]
 ymin_norm, ymax_norm = -0.05, 2.3
@@ -54,7 +53,6 @@ dx_all = []
 dz_all = []
 
 for i in range(nqso_to_plot):
-#for i in [5]:
     print("====== %s ======" % qso_namelist[i])
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -70,7 +68,6 @@ for i in range(nqso_to_plot):
     else:
         fs_mask = mgii_tot.fit_gpm[0]
 
-    #print("====== %s ======" % qso_namelist[i])
     all_masks = master_mask * fs_mask
     print("masked fraction", 1 - np.sum(all_masks) / len(all_masks))
 
@@ -86,7 +83,8 @@ for i in range(nqso_to_plot):
     print("zlow, zhigh, zhigh-zlow, dx", zlow, zhigh, zhigh-zlow, dx)
 
     ymax = ymax_ls[i]
-    xmax = wave.max()
+    xmin = wave[zbin_mask].min() #19500
+    xmax = wave[zbin_mask].max() #wave.max()
 
     #fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
     fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 7), sharex=True)
