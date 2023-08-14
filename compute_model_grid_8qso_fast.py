@@ -145,10 +145,10 @@ def forward_model_onespec_chunk(vel_data, norm_std, master_mask, vel_lores, flux
 
     for icopy in range(nmock):
         ranindx, nskew_to_match_data = rand_skews_to_match_data(vel_lores, vel_data, tot_nyx_skews, seed=seed)
-        #print("random skewers", ranindx)
+        print("random skewers", ranindx)
         noise = rand.normal(0, std_corr * norm_std) # sample noise vector assuming noise is Gaussian # (npix_data)
         noise_chunk = reshape_data_array(noise, nskew_to_match_data, npix_sim_skew, data_arr_is_mask=False) # (nskew, npix)
-        #print("noise", noise[100:120])
+        print("noise", noise[100:120])
 
         # adding noise to flux lores
         flux_noise_ncopy[icopy] = flux_lores[ranindx] + noise_chunk

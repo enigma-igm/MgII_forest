@@ -20,12 +20,12 @@ mpl.rcParams['ytick.minor.size'] = 4
 xytick_size = 16
 xylabel_fontsize = 20
 legend_fontsize = 18
-savefig = 'paper_plots/10qso/evol.pdf'
+savefig = 'paper_plots/10qso/evol.svg'
 
 #this_work_zmedian = 6.57
 #this_work_upperlim = -3.38
-this_work_z = [6.52, 6.79, 6.26]
-this_work_upplim = [-3.6376, -3.4869, -3.7132]
+this_work_z = [6.469, 6.715, 6.235]
+this_work_upplim = [-3.7342, -3.4521, -3.7495]
 
 # trying to recreate the black regions in Fig 13 (right plot) of Schaye et al. (2003)
 def schaye_black_regions():
@@ -57,8 +57,8 @@ next(csvr)
 z = []
 logZ = []
 for row in csvr:
-    z.append(np.float(row[0]))
-    logZ.append(np.float(row[1]))
+    z.append(float(row[0]))
+    logZ.append(float(row[1]))
 f.close()
 
 # select black squares in that figure
@@ -68,16 +68,17 @@ next(csvr)
 zsq = []
 logZ_sq = []
 for row in csvr:
-    zsq.append(np.float(row[0]))
-    logZ_sq.append(np.float(row[1]))
+    zsq.append(float(row[0]))
+    logZ_sq.append(float(row[1]))
 f.close()
 
 # putting everything together
-plt.figure(figsize=(10, 5.5))
+plt.figure(figsize=(12, 6)) #figsize=(10, 5.5)
 plt.plot(z, logZ, 'ro', ms=10, label='[C/H]: Simcoe (2011)')
 plt.plot(zsq, logZ_sq, 'ks', ms=6, mfc='none')
 
-plt.fill_between(schaye_z, lb, ub, color='k', alpha=0.2, ec=None, label='[C/H]: Schaye+(2003)')
+plt.plot(schaye_z, median, '--', color='k', label='[C/H]: Schaye+(2003)')
+plt.fill_between(schaye_z, lb, ub, color='k', alpha=0.2, ec=None)#, label='[C/H]: Schaye+(2003)')
 for i, elem in enumerate(this_work_z):
     if i == 0:
         plt.errorbar(this_work_z[i], this_work_upplim[i], xerr=0.1, yerr=0.5, uplims = this_work_upplim[i], color='k', lw=3.0, label='[Mg/H]: this work')

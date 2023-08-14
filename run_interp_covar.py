@@ -26,8 +26,10 @@ np.save(save_covar_fine, covar_fine)
 """
 
 redshift_bin = 'low'
-modelfile = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/corr_func_models_%s_ivarweights.fits' % redshift_bin
-save_covar_fine = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/covar_fine_%s_ivarweights_subarr.npy' % redshift_bin
+modelfile = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/rebin/corr_func_models_%s_ivarweights.fits' % redshift_bin
+
+############## interpolate covariance for subarr
+save_covar_fine = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/rebin/covar_fine_%s_ivarweights_subarr.npy' % redshift_bin
 
 if redshift_bin == 'all':
     lag_mask, _ = mutils.cf_lags_to_mask()
@@ -41,3 +43,7 @@ elif redshift_bin == 'low':
 covar_fine = mcmc.interp_covar(modelfile, lag_mask=lag_mask)
 np.save(save_covar_fine, covar_fine)
 
+############## interpolate covariance for fullarr
+save_covar_fine = '/Users/suksientie/Research/MgII_forest/igm_cluster/10qso/rebin/covar_fine_%s_ivarweights.npy' % redshift_bin
+covar_fine = mcmc.interp_covar(modelfile, lag_mask=None)
+np.save(save_covar_fine, covar_fine)

@@ -48,7 +48,7 @@ def init_var(redshift_bin):
 def ellipse(ra,rb,ang,x0,y0,Nb=100):
     xpos,ypos=x0,y0
     radm,radn=ra,rb
-    an=ang
+    an=ang # radian
     co,si=np.cos(an),np.sin(an)
     the=np.linspace(0,2*np.pi,Nb)
     X=radm*np.cos(the)*co-si*radn*np.sin(the)+xpos
@@ -91,7 +91,12 @@ def dist_to_ellcenter(xdata, ydata, xcenter, ycenter, ell_width, ell_height, ell
     rad_cc = (xct_data ** 2 / (ell_width / 2.) ** 2) + (yct_data ** 2 / (ell_height / 2.) ** 2)
     return rad_cc
 
-def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=None, plot=False, saveplot=False):
+def eigsorted(cov):
+    vals, vecs = np.linalg.eigh(cov)
+    order = vals.argsort()[::-1]
+    return vals[order], vecs[:,order]
+
+def cfbin_corr_one(redshift_bin, xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=None, plot=False, saveplot=False):
 
     #plot_w, plot_h = 13, 8 # 6x5
     #nrow, ncol = 5, 6
@@ -119,6 +124,15 @@ def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=N
             rb = np.std(y)
             ang = 0
             rad_cc = dist_to_ellcenter(xi_real_data[ibin] * scale_fac, xi_real_data[j] * scale_fac, xcenter, ycenter, 2*(nsigma * ra), 2*(nsigma * rb), ang)
+
+            #x_diff = [element - xcenter for element in x]
+            #y_diff = [element - ycenter for element in y]
+            #x_diff_squared = [element ** 2 for element in x_diff]
+            #slope = sum(x * y for x, y in zip(x_diff, y_diff)) / sum(x_diff_squared)
+            #ang = np.arctan(slope)
+            #print(np.degrees(ang))
+            #rad_cc = dist_to_ellcenter(xi_real_data[ibin] * scale_fac, xi_real_data[j] * scale_fac, xcenter, ycenter,
+            #                           2 * (nsigma * ra), 2 * (nsigma * rb), ang)
 
             if rad_cc > 1:
                 nbin_outside_ell += 1
@@ -162,7 +176,7 @@ def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=N
     #plt.tight_layout()
     if saveplot:
         #plt.savefig('paper_plots/10qso/debug/allz2/cf_corr_dv%d.png' % v_mid[ibin])
-        plt.savefig('paper_plots/10qso/cfbin_masking/allz/cf_corr_dv%d.png' % v_mid[ibin])
+        plt.savefig('paper_plots/10qso/cfbin_masking/%sz-new/cf_corr_dv%d.png' % (redshift_bin, v_mid[ibin]))
         plt.close()
     else:
         plt.show()
@@ -170,14 +184,14 @@ def cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, xi_mask_allqso=N
     print(v_mid[ibin], nbin_outside_ell)
     return v_mid[ibin], nbin_outside_ell
 
-def cfbin_corr_all(xi_real_data, xi_data_allmocks, v_mid, xi_mask_allqso=None, plot=False, saveplot=False):
+def cfbin_corr_all(redshift_bin, xi_real_data, xi_data_allmocks, v_mid, xi_mask_allqso=None, plot=False, saveplot=False):
 
     mask_bin = []
     mask_ibin = []
     mask_bin_noutside = []
 
     for ibin in range(len(v_mid)):
-        v_mid_ibin, nbin_outside_ell= cfbin_corr_one(xi_real_data, xi_data_allmocks, ibin, v_mid, \
+        v_mid_ibin, nbin_outside_ell= cfbin_corr_one(redshift_bin, xi_real_data, xi_data_allmocks, ibin, v_mid, \
                                                      xi_mask_allqso=xi_mask_allqso, plot=plot, saveplot=saveplot)
 
         if nbin_outside_ell >= 20: # definition adopted for paper

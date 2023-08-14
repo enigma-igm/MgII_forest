@@ -622,8 +622,8 @@ def cf_lags_to_mask():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
-    ibad = np.array([7, 9, 11, 14, 18])  # corresponding to lags 610, 770, 930, 1170, 1490
-    #ibad = np.array([4, 5, 14, 18]) # 370.0, 450.0, 1170.0, 1490.0s
+    #ibad = np.array([7, 9, 11, 14, 18])  # corresponding to lags 610, 770, 930, 1170, 1490
+    ibad = np.array([4, 5, 14, 18]) # 370.0, 450.0, 1170.0, 1490.0
     lag_mask[ibad] = 0
 
     return lag_mask, ibad
@@ -635,8 +635,8 @@ def cf_lags_to_mask_highz():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
-    ibad = np.array([0]) # corresponding to lags 50
-    #ibad = np.array([0, 13]) # 50.0, 1090.0
+    #ibad = np.array([0]) # corresponding to lags 50
+    ibad = np.array([0, 13]) # 50.0, 1090.0
     lag_mask[ibad] = 0
 
     return lag_mask, ibad
@@ -648,8 +648,8 @@ def cf_lags_to_mask_lowz():
     vel_mid = (v_hi + v_lo) / 2
 
     lag_mask = np.ones_like(vel_mid, dtype=bool)  # Boolean array
-    ibad = np.array([9, 11, 18])  # corresponding to lags 770, 930, 1490
-    # ibad = np.array([0, 1, 3, 4, 5, 9, 11, 18]) #50.0, 130.0, 290.0, 370.0, 450.0, 770.0, 930.0, 1490.0
+    #ibad = np.array([9, 11, 18])  # corresponding to lags 770, 930, 1490
+    ibad = np.array([0, 1, 3, 4, 5, 9, 11, 18]) #50.0, 130.0, 290.0, 370.0, 450.0, 770.0, 930.0, 1490.0
     lag_mask[ibad] = 0
 
     return lag_mask, ibad

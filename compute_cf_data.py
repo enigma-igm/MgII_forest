@@ -87,8 +87,9 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     vel = mutils.obswave_to_vel_2(wave)
     meanflux_tot = fmean_unmask
     deltaf_tot = (norm_flux - meanflux_tot) / meanflux_tot
-    mean_deltaf_tot = np.mean(deltaf_tot[all_masks])
+
     if subtract_mean_deltaf:
+        mean_deltaf_tot = np.mean(deltaf_tot[all_masks])
         deltaf_tot -= np.mean(mean_deltaf_tot)
 
     if ivar_weights:
@@ -113,11 +114,12 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
     deltaf_tot_mask = (norm_good_flux - meanflux_tot_mask) / meanflux_tot_mask
     vel_cgm = vel[all_masks]
     """
-    #meanflux_tot_mask = np.mean(norm_flux[all_masks * cgm_fit_gpm])
+
     meanflux_tot_mask = fmean_mask
     deltaf_tot_mask = (norm_flux - meanflux_tot_mask) / meanflux_tot_mask
-    mean_deltaf_tot_mask = np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm])
+
     if subtract_mean_deltaf:
+        mean_deltaf_tot_mask = np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm])
         deltaf_tot_mask -= mean_deltaf_tot_mask
 
     if ivar_weights:
@@ -137,7 +139,8 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
 
     print("==============")
     print("MEAN FLUX", meanflux_tot, meanflux_tot_mask)
-    print("mean(DELTA FLUX)", np.mean(deltaf_tot[all_masks]), np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm]))
+    #print("mean(DELTA FLUX)", np.mean(deltaf_tot[all_masks]), np.mean(deltaf_tot_mask[all_masks * cgm_fit_gpm]))
+    print("mean(DELTA FLUX)", np.mean(deltaf_tot), np.mean(deltaf_tot_mask))
 
     """
     plt.figure()
@@ -174,7 +177,7 @@ def onespec(iqso, redshift_bin, cgm_fit_gpm, fmean_unmask, fmean_mask, plot=Fals
         plt.show()
 
     #return vel, norm_good_flux, good_ivar, vel_mid, xi_tot, xi_tot_mask, xi_noise, xi_noise_masked, mgii_tot.fit_gpm
-    return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask
+    return vel_mid, xi_tot[0], xi_tot_mask[0], npix_tot, npix_tot_chimask, deltaf_tot, deltaf_tot_mask
 
 def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iqso_to_use=None, ivar_weights=False, subtract_mean_deltaf=False):
     # running onespec() for all QSOs
@@ -218,10 +221,12 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
     fmean_unmask = fmean_global_unmask[i_fmean]
     fmean_mask = fmean_global_mask[i_fmean]
 
+    df_tot_all = []
+    df_tot_mask_all = []
     for iqso in iqso_to_use:
         std_corr = corr_all[iqso]
         #vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask, _, _ = onespec_old(iqso, redshift_bin, cgm_fit_gpm_all[iqso], plot=False, std_corr=std_corr, given_bins=given_bins, ivar_weights=ivar_weights)
-        vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
+        vel_mid, xi_unmask, xi_mask, w_tot, w_tot_chimask, deltaf_tot, deltaf_tot_mask = onespec(iqso, redshift_bin, cgm_fit_gpm_all[iqso], \
                                 fmean_unmask, fmean_mask, plot=False, std_corr=std_corr, given_bins=given_bins, \
                                 ivar_weights=ivar_weights, subtract_mean_deltaf=subtract_mean_deltaf)
 
@@ -233,6 +238,13 @@ def allspec(nqso, redshift_bin, cgm_fit_gpm_all, plot=False, given_bins=None, iq
         #xi_noise_mask_all.append(xi_noise_masked)
         weights_unmasked.append(w_tot.squeeze())
         weights_masked.append(w_tot_chimask.squeeze())
+        df_tot_all.extend(deltaf_tot)
+        df_tot_mask_all.extend(deltaf_tot_mask)
+
+    df_tot_all = np.array(df_tot_all)
+    df_tot_mask_all = np.array(df_tot_mask_all)
+    print("======== entire sample: mean(DELTA FLUX)", np.mean(df_tot_all.flatten()), np.mean(df_tot_mask_all.flatten()))
+    print("======== entire sample: median(DELTA FLUX)", np.median(df_tot_all.flatten()), np.median(df_tot_mask_all.flatten()))
 
     scale = 1#1e6
     weights_masked = np.array(weights_masked)/scale

@@ -535,8 +535,8 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
 
     #fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 10), sharex=True)
     #fig.subplots_adjust(left=0.1, bottom=0.1, right=0.98, top=0.93, wspace=0, hspace=0.)
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 7), sharex=True)
-    fig.subplots_adjust(left=0.085, bottom=0.11, right=0.95, top=0.89, wspace=0, hspace=0.)
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
+    fig.subplots_adjust(left=0.085, bottom=0.11, right=0.95, top=0.86, wspace=0, hspace=0.)
     flux_min, flux_max = -0.05, 1.8
     if qso_name in ['J1007+2115', 'J0319-1008']:
         flux_max = 2.0
@@ -703,6 +703,46 @@ def bosman_J1120(dwave_ls, wave=None, norm_flux=None, datapath='/Users/suksienti
     bluered_mask_gpm = np.invert(bluered_mask_all)
 
     return bluered_mask_gpm, abs_mask_gpm
+
+def tmp_j1120():
+    datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
+
+    good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all \
+        = init(redshift_bin='all', datapath=datapath, do_not_apply_any_mask=True)
+
+    mgii_tot_all = chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=False, savefig=None)
+
+    iqso = 9
+    pz_masks = pz_masks_all[iqso]
+    other_masks = other_masks_all[iqso]
+    gpm = pz_masks * other_masks
+    #print(np.sum(gpm), len(pz_masks), good_wave_all[iqso][pz_masks])
+
+    mgii_tot = mgii_tot_all[iqso]
+    vel_data = good_vel_data_all[iqso]
+    wave_data = good_wave_all[iqso]
+    norm_good_flux = norm_good_flux_all[iqso]
+    norm_good_std = norm_good_std_all[iqso]
+    qso_name = qso_namelist[iqso]
+    qso_z = qso_zlist[iqso]
+
+    f_mask = np.invert(mgii_tot.flux_gpm[0])
+    s_mask = np.invert(mgii_tot.signif_gpm[0])
+    fs_mask = np.invert(mgii_tot.fit_gpm[0])
+
+    bluered_mask_gpm, abs_mask_gpm = bosman_J1120([4, 4, 3.5])
+    bosman_vel = vel_data[np.invert(abs_mask_gpm)]
+    fs_vel = vel_data[fs_mask]
+
+    for v in bosman_vel:
+        i = utils.find_closest(vel_data, v)
+        print(vel_data[i], v)
+        print(mgii_tot.signif[0][i])
+
+    return bosman_vel, mgii_tot, vel_data, wave_data
+
+    #ax1.plot(vel_data[np.invert(abs_mask_gpm)], norm_good_flux[np.invert(abs_mask_gpm)], color='blue', markersize=15,
+    #         markeredgewidth=8, linestyle='none', alpha=1.0, zorder=3, marker='|', label='Bosman et al. (2017)')
 
 ######################## old stuffs ########################
 """

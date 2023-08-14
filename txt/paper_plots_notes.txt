@@ -1,3 +1,10 @@
+Main scripts for analysis:
+- mutils.py
+- mask_cgm_pdf.py
+- compute_cf_data.py
+- compute_model_grid_8qso_fast.py
+- mcmc_inference.py
+
 ############### done ###############
 Figure 1 - 8:
 ===> plot_spectra_new.py
@@ -56,3 +63,65 @@ Figure 21, 22:
 >> d.cfbin_corr_all(xi_real_data, xi_data_allmocks, v_mid, plot=True, saveplot=True)
 
 
+fractional weight for all-z:
+J0411-0907 6.826 9.27 0.03780
+J0319-1008 6.8275 5.51 0.00437
+J0410-0139 7.0 3.95 0.00118
+J0038-0653 7.1 8.6 0.02821
+J0313-1806 7.642 11.42 0.24302
+J0038-1527 7.034 14.28 0.32018
+J0252-0503 7.001 13.07 0.19301
+J1342+0928 7.541 8.57 0.08146
+J1007+2115 7.515 7.05 0.05026
+J1120+0641 7.085 6.54 0.04051
+
+np.mean(ccf.compute_neff(frac_w_masked))
+Out[11]: 4.719157310448928
+
+fractional weight for high-z:
+J0411-0907 6.826 9.27 0.03441
+J0319-1008 6.8275 5.51 0.00531
+J0410-0139 7.0 3.95 0.00125
+J0038-0653 7.1 8.6 0.03472
+J0313-1806 7.642 11.42 0.30614
+J0038-1527 7.034 14.28 0.31473
+J0252-0503 7.001 13.07 0.14578
+J1342+0928 7.541 8.57 0.08689
+J1007+2115 7.515 7.05 0.05941
+J1120+0641 7.085 6.54 0.01136
+
+np.mean(ccf.compute_neff(frac_w_masked))
+Out[13]: 4.391544236937295
+
+fractional weight for low-z:
+J0411-0907 6.826 9.27 0.03925
+J0319-1008 6.8275 5.51 0.00386
+J0410-0139 7.0 3.95 0.00113
+J0038-0653 7.1 8.6 0.02408
+J0313-1806 7.642 11.42 0.21884
+J0038-1527 7.034 14.28 0.31714
+J0252-0503 7.001 13.07 0.21633
+J1342+0928 7.541 8.57 0.07679
+J1007+2115 7.515 7.05 0.04562
+J1120+0641 7.085 6.54 0.05696
+
+np.mean(ccf.compute_neff(frac_w_masked))
+Out[121]: 4.791780598497951
+
+############### correction factors ###############
+Origin of corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
+
+* corr factor for first 8 qsos obtained with using breakpoint spacing of 20 and with the following in mutils.telluric_mask():
+wave_bad_start = [20000 , 20556, 21489]
+wave_bad_end = [20060, 20571, 21512]
+
+To reproduce values,
+1) change breakpoint spacing to 20
+2) use the above in telluric_mask()
+3) mutils.plot_allspec_pdf()
+
+* corr factor for last 2 qsos obtained with using breakpoint spacing of 60 and with the current mutils.telluric_mask() where:
+wave_bad_start = [20000]
+wave_bad_end = [20060]
+
+No. & Name & $z_{\rm{em}}$ & $J$ mag (AB)\footnote{obtained from \cite{Yang2021}} & Exp. time (sec) & median SNR\footnote{calculated from the unmasked regions on the bottom panels of Figures 1 $-$ 6} & corrected SNR & $\Delta z_{\ion{Mg}{II}}$ & Instrument\\

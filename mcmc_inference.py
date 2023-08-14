@@ -24,8 +24,8 @@ import time
 from scipy import optimize, interpolate
 from IPython import embed
 import pdb
-#import sys
-#sys.path.append('/Users/suksientie/codes/enigma')
+import sys
+sys.path.append('/Users/suksientie/codes/enigma')
 from enigma.reion_forest.compute_model_grid import read_model_grid
 from enigma.reion_forest.utils import find_closest, vel_mgii
 from enigma.reion_forest import inference
@@ -46,7 +46,6 @@ parser.add_argument('--seed', type=int, default=None)
 parser.add_argument('--modelfile', type=str)
 args = parser.parse_args()
 
-seed = 711019 #args.seed
 seed = None
 if seed == None:
     seed = np.random.randint(0, 1000000)
@@ -337,7 +336,6 @@ def run_mcmc(fine_out, coarse_out, data_out, redshift_bin, figpath, nsteps=10000
     chi2_func = lambda *args: -2 * inference.lnprob(*args)
     logZ_fine_min = logZ_fine.min()
     logZ_fine_max = logZ_fine.max()
-    #bounds = [(0.8, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.8, 1.0), (0.0, np.power(10.0,logZ_fine_max))]
     bounds = [(0.0, 1.0), (logZ_fine_min, logZ_fine_max)] if not linearZprior else [(0.0, 1.0), (0.0, np.power(10.0, logZ_fine_max))]
     print("bounds", bounds)
     args = (lnlike_fine, xhi_fine, logZ_fine, linearZprior)
@@ -851,7 +849,7 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
 
     # adapted from enigma.reion_forest.inference.corrfunc_plot
     if rand is None:
-        rand = np.random.RandomState(1234)
+        rand = np.random.RandomState()
 
     factor = 1e5
     fx = plt.figure(1, figsize=(12, 9))
@@ -886,30 +884,29 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
         ymax = factor * np.max(xi_data + 1.6 * xi_err)
 
         # (Mar 2023) HACK for plotting masked data points
-        #cf = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_corr.fits')
-        #xi_mean_data = cf['XI_MEAN_MASK'].data
-        #_, ibad = mutils.cf_lags_to_mask()
-        #vel_mid = params['vel_mid'].flatten()
-        #vel_corr_bad = vel_mid[ibad]
-        ibad, vel_corr_bad = [], []
+        cf = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_allz.fits')
+        xi_mean_data = cf['XI_MEAN_MASK'].data
+        _, ibad = mutils.cf_lags_to_mask()
+        vel_mid = params['vel_mid'].flatten()
+        vel_corr_bad = vel_mid[ibad]
 
     elif redshift_bin == 'high':
-        vmin, vmax = 0.1 * vel_corr.min(), 1.02 * vel_corr.max()
+        vmin, vmax = 0.08 * vel_corr.min(), 1.02 * vel_corr.max()
         ymin = factor * np.min(xi_data - 1.5 * xi_err)
-        ymax = 1.5 * factor * np.max(xi_data + 1.6 * xi_err)
+        ymax = 1.55 * factor * np.max(xi_data + 1.6 * xi_err)
 
-        cf = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_highz.fits')
+        cf = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_highz.fits')
         xi_mean_data = cf['XI_MEAN_MASK'].data
         _, ibad = mutils.cf_lags_to_mask_highz()
         vel_mid = params['vel_mid'].flatten()
         vel_corr_bad = vel_mid[ibad]
 
     elif redshift_bin == 'low':
-        vmin, vmax = 0.4 * vel_corr.min(), 1.02 * vel_corr.max()
+        vmin, vmax = 0.08 * vel_corr.min(), 1.02 * vel_corr.max()
         ymin = 1.2 * factor * np.min(xi_data - 2 * xi_err)
         ymax = factor * np.max(xi_data + 1.6 * xi_err)
 
-        cf = fits.open('save_cf/paper/xi_mean_mask_10qso_everyn60_lowz.fits')
+        cf = fits.open('save_cf/paper_new/xi_10qso_everyn60_corr_lowz.fits')
         xi_mean_data = cf['XI_MEAN_MASK'].data
         _, ibad = mutils.cf_lags_to_mask_lowz()
         vel_mid = params['vel_mid'].flatten()
@@ -928,9 +925,20 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
     param_lower = param - np.percentile(samples, 100*percent_lower, axis=0)
     param_upper = np.percentile(samples, 100*percent_upper, axis=0) - param
 
-    infr_xy = (1800, (0.55 * ymax))
-    xhi_xy = (1700, (0.42 * ymax))
-    Z_xy = (1355, (0.29 * ymax))
+    if redshift_bin == 'all':
+        infr_xy = (1800, (0.68 * ymax))  # (1800, (0.55 * ymax))
+        xhi_xy = (1700, (0.55 * ymax))  # (1700, (0.42 * ymax))
+        Z_xy = (1355, (0.42 * ymax))  # (1355, (0.29 * ymax))
+
+    elif redshift_bin == 'low':
+        infr_xy = (1800, (0.72 * ymax))  # (1800, (0.55 * ymax))
+        xhi_xy = (1700, (0.59 * ymax))  # (1700, (0.42 * ymax))
+        Z_xy = (1355, (0.46 * ymax))
+
+    elif redshift_bin == 'high':
+        infr_xy = (1800, (0.68 * ymax))  # (1800, (0.55 * ymax))
+        xhi_xy = (1700, (0.55 * ymax))  # (1700, (0.42 * ymax))
+        Z_xy = (1355, (0.42 * ymax))
 
     xhi_label  = r'$\langle x_{{\rm HI}}\rangle = {:3.2f}^{{+{:3.2f}}}_{{-{:3.2f}}}$'.format(param[0], param_upper[0], param_lower[0])
     logZ_label = '          ' + r'$[{{\rm Mg\slash H}}]={:5.2f}^{{+{:3.2f}}}_{{-{:3.2f}}}$'.format(param[1], param_upper[1], param_lower[1])
@@ -950,9 +958,9 @@ def corrfunc_plot_new(xi_data, samples, params, xhi_fine, logZ_fine, xi_model_fi
                   capthick=2, capsize=4, mec='none', ls='none', label='data', zorder=20)
 
     # (Mar 2023) HACK for plotting masked data points
-    #if input_xi_err is not None:
-    #    axis.errorbar(vel_corr_bad, factor * xi_mean_data[ibad], yerr=factor * input_xi_err[ibad], marker='x', mew=2, ms=6, color='black', ecolor='black',
-    #                  capthick=2, capsize=4, mec='black', ls='none', label='masked', zorder=20, alpha=0.5)
+    if input_xi_err is not None:
+        axis.errorbar(vel_corr_bad, factor * xi_mean_data[ibad], yerr=factor * input_xi_err[ibad], marker='x', mew=2, ms=6, color='black', ecolor='black',
+                      capthick=2, capsize=4, mec='black', ls='none', label='masked', zorder=20, alpha=0.5)
     #else:
     #    axis.plot(vel_corr_bad, factor * xi_mean_data[ibad], 'kx', ms=8, mew=2, label='masked', zorder=0)
 
@@ -1137,6 +1145,7 @@ def plot_corrmatrix(coarse_out, data_out, logZ_want, xhi_want, vmin=None, vmax=N
 
     xhi_coarse, logZ_coarse, lnlike_coarse = coarse_out
     xhi_data, logZ_data, xi_data, covar_array, params = data_out
+
     vel_corr = params['vel_mid'].flatten()
     vmin_corr = vel_corr[0]
     vmax_corr = vel_corr[-1]
@@ -1242,6 +1251,7 @@ def plot_single_corr_elem(coarse_out, data_out, corr_array, rand_ixhi=None, rand
 def lnlike_plot_slice(xhi_arr, logZ_arr, lnlike_arr, xhi_want, logZ_want):
     ixhi = find_closest(xhi_arr, xhi_want)
     iZ = find_closest(logZ_arr, logZ_want)
+    print(ixhi, iZ)
 
     lnlike_arr = lnlike_arr - lnlike_arr.max()
     lnlike_arr = np.exp(lnlike_arr)

@@ -55,20 +55,13 @@ redshift_bin = 'all'
 savefig = 'paper_plots/10qso/forward_model_specs_%sz.pdf' % redshift_bin
 
 ###################### fixed data variables ######################
-datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra/'
-
-#qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928']
-#qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541]
-#everyn_break_list = (np.ones(len(qso_namelist)) * 20).astype('int')
-#exclude_restwave = 1216 - 1185
-#median_z = 6.50
-#corr_all = [0.669, 0.673, 0.692, 0.73 , 0.697, 0.653, 0.667, 0.72]
-#nqso_to_use = len(qso_namelist)
+datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
 
 qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                     'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
-corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
+#corr_all = [0.669, 0.673, 0.692, 0.73, 0.697, 0.653, 0.667, 0.72, 0.64, 0.64]
+corr_all = [0.93, 0.898, 0.88, 1.051, 0.972, 1.055, 1.086, 0.956, 0.908, 1.059] # 7/28/2023
 
 nires_fwhm = 111.03
 mosfire_fwhm = 83.05
@@ -96,23 +89,19 @@ vel_lores_nires, flux_lores_nires = utils.create_mgii_forest(params, skewers, lo
 vel_lores_mosfire, flux_lores_mosfire = utils.create_mgii_forest(params, skewers, logZ, mosfire_fwhm, sampling=mosfire_sampling, mockcalc=True)
 vel_lores_xshooter, flux_lores_xshooter = utils.create_mgii_forest(params, skewers, logZ, xshooter_fwhm, sampling=xshooter_sampling, mockcalc=True)
 
-
 dv_coarse = 40
-#coarse_grid_all = np.arange(len(vel_lores_nires)+1) * dv_coarse
-#vel_lores_nires_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
-vel_lores_nires_interp = np.arange(vel_lores_nires[0], vel_lores_nires[-1], dv_coarse)
-flux_lores_nires_interp = scipy.interpolate.interp1d(vel_lores_nires, flux_lores_nires, kind = 'cubic', \
-                                                        bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
 
-#coarse_grid_all = np.arange(len(vel_lores_mosfire) + 1) * dv_coarse
-#vel_lores_mosfire_interp = (coarse_grid_all[:-1] + coarse_grid_all[1:]) / 2
-vel_lores_mosfire_interp = np.arange(vel_lores_mosfire[0], vel_lores_mosfire[-1], dv_coarse)
-flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic',
-                                                       bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
+vel_lores_nires_interp, flux_lores_nires_interp = cmg8.rebin_nyx_skewers(vel_lores_nires, flux_lores_nires, dv_coarse)
+#vel_lores_nires_interp = np.arange(vel_lores_nires[0], vel_lores_nires[-1], dv_coarse)
+#flux_lores_nires_interp = scipy.interpolate.interp1d(vel_lores_nires, flux_lores_nires, kind = 'cubic', bounds_error = False, fill_value = np.nan)(vel_lores_nires_interp)
 
-vel_lores_xshooter_interp = np.arange(vel_lores_xshooter[0], vel_lores_xshooter[-1], dv_coarse)
-flux_lores_xshooter_interp = scipy.interpolate.interp1d(vel_lores_xshooter, flux_lores_xshooter, kind='cubic', \
-                                                            bounds_error=False, fill_value=np.nan)(vel_lores_xshooter_interp)
+vel_lores_mosfire_interp, flux_lores_mosfire_interp = cmg8.rebin_nyx_skewers(vel_lores_mosfire, flux_lores_mosfire, dv_coarse)
+#vel_lores_mosfire_interp = np.arange(vel_lores_mosfire[0], vel_lores_mosfire[-1], dv_coarse)
+#flux_lores_mosfire_interp = scipy.interpolate.interp1d(vel_lores_mosfire, flux_lores_mosfire, kind='cubic', bounds_error=False, fill_value=np.nan)(vel_lores_mosfire_interp)
+
+vel_lores_xshooter_interp, flux_lores_xshooter_interp = cmg8.rebin_nyx_skewers(vel_lores_xshooter, flux_lores_xshooter, dv_coarse)
+#vel_lores_xshooter_interp = np.arange(vel_lores_xshooter[0], vel_lores_xshooter[-1], dv_coarse)
+#flux_lores_xshooter_interp = scipy.interpolate.interp1d(vel_lores_xshooter, flux_lores_xshooter, kind='cubic', bounds_error=False, fill_value=np.nan)(vel_lores_xshooter_interp)
 
 assert np.sum(np.isnan(flux_lores_nires_interp)) == 0
 assert np.sum(np.isnan(flux_lores_mosfire_interp)) == 0
@@ -146,7 +135,8 @@ for iqso in iqso_to_use:
     ax = ax_plot[iplot]
     for i in range(ncovar):
         flux_lores_comb = np.reshape(flux_noise_ncopy[i], (nskew_to_match_data * npix_sim_skew))
-        ax.plot(vel_data/vel_factor, flux_lores_comb[:len(vel_data)] + (i+1), 'tab:blue', alpha=fm_spec_alpha, drawstyle='steps-mid')
+        mask_nan = flux_lores_comb[:len(vel_data)] > -100
+        ax.plot((vel_data/vel_factor)[mask_nan], flux_lores_comb[:len(vel_data)][mask_nan] + (i+1), 'tab:blue', alpha=fm_spec_alpha, drawstyle='steps-mid')
 
     ax.plot(vel_data/vel_factor, norm_flux, 'k', drawstyle='steps-mid', label=qso_namelist[iqso])
 

@@ -31,7 +31,7 @@ if plotmaskedspec:
     chi_max = [4.3, 4.3, 6.3, 4.3, 6.7, 6.4, 4.3, 8.4, 4.7, 4.7] # for plotting only
 
     #for iqso in range(len(qso_namelist)):
-    for iqso in [8]:
+    for iqso in [9]:
         savefig = 'paper_plots/10qso/masked%d_%s.pdf' % (iqso, qso_namelist[iqso])
         saveout = None
         mask_cgm_pdf.plot_masked_onespec2(mgii_tot_all, good_wave_all, good_vel_data_all, norm_good_flux_all, \
