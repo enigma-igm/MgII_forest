@@ -187,7 +187,8 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     legend_fontsize = 16 + 8
 
     plt.legend(loc=2, fontsize=legend_fontsize)
-    plt.xlim([1e-4, 1.0])
+    xmin, xmax = 1e-4, 1.0
+    plt.xlim([xmin, xmax])
     plt.xscale('log')
     plt.yscale('log')
     plt.xlabel('1$-$F', fontsize=xylabel_fontsize)
@@ -207,7 +208,8 @@ def flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=None):
     Wfactor = (dvpix * u.km / u.s / const.c).decompose() * wave_blue.value
     print("Wfactor", Wfactor)
 
-    Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
+    #Wmin_top, Wmax_top = Wfactor * oneminf_min, Wfactor * oneminf_max  # top axis
+    Wmin_top, Wmax_top = Wfactor * xmin, Wfactor * xmax
     ymin, ymax = 1e-3, 1.5
 
     atwin = plt.twiny()

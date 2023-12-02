@@ -17,11 +17,11 @@ if plotpdf:
     good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, _, _ = \
         mask_cgm_pdf.init(redshift_bin='all', datapath=datapath)
 
-    savefig = 'paper_plots/10qso/flux_pdf.pdf'
+    savefig = 'paper_plots/10qso_revision/flux_pdf.pdf'
     mask_cgm_pdf.flux_pdf(norm_good_flux_all, noise_all, plot_ispec=None, savefig=savefig)
 
-    savefig = 'paper_plots/10qso/chi_pdf.pdf'
-    mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=True, savefig=savefig)
+    #savefig = 'paper_plots/10qso/chi_pdf.pdf'
+    #mgii_tot_all = mask_cgm_pdf.chi_pdf(good_vel_data_all, norm_good_flux_all, norm_good_ivar_all, noise_all, plot=True, savefig=savefig)
 
 if plotmaskedspec:
     good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all \
