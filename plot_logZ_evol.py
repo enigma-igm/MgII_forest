@@ -20,7 +20,7 @@ mpl.rcParams['ytick.minor.size'] = 4
 xytick_size = 16
 xylabel_fontsize = 20
 legend_fontsize = 18
-savefig = 'paper_plots/10qso/evol.svg'
+savefig = 'paper_plots/10qso_revision/evol.pdf' #'paper_plots/10qso/evol.svg'
 
 #this_work_zmedian = 6.57
 #this_work_upperlim = -3.38
@@ -86,7 +86,7 @@ for i, elem in enumerate(this_work_z):
         plt.errorbar(this_work_z[i], this_work_upplim[i], xerr=0.1, yerr=0.5, uplims=this_work_upplim[i], color='k', lw=3.0)
 plt.legend(fontsize=legend_fontsize)
 plt.xlabel('Redshift', fontsize=xylabel_fontsize)
-plt.ylabel('[X/H]', fontsize=xylabel_fontsize)
+plt.ylabel('[M/H]', fontsize=xylabel_fontsize)
 plt.xticks(np.arange(2.0, 7.5, 0.5))
 plt.yticks(np.arange(-5, 1, 1))
 plt.xlim([1.8, 7])
