@@ -29,13 +29,13 @@ xylabel_fontsize = 20
 legend_fontsize = 16
 
 datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
-qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
-savefig = False #True
+savefig = True #True
 
 # CGM masks
 good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all = \
@@ -51,7 +51,7 @@ good_zpix_all = []
 dx_all = []
 dz_all = []
 
-for i in range(nqso_to_plot):
+for i in [3]:
     print("====== %s ======" % qso_namelist[i])
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -85,29 +85,28 @@ for i in range(nqso_to_plot):
     xmin = wave[zbin_mask].min() #19500
     xmax = wave[zbin_mask].max() #wave.max()
 
-    #fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 8), sharex=True)
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(16, 7), sharex=True)
-    #fig.subplots_adjust(left=0.1, bottom=0.12, right=0.96, top=0.9, wspace=0, hspace=0.)
-    fig.subplots_adjust(left=0.085, bottom=0.11, right=0.95, top=0.89, wspace=0, hspace=0.)
+    fig, ax2 = plt.subplots(1, figsize=(16, 5), sharex=True)
+    #fig.subplots_adjust(left=0.085, bottom=0.11, right=0.95, top=0.89, wspace=0, hspace=0.)
+    fig.subplots_adjust(left=0.085, bottom=0.15, right=0.95, top=0.85, wspace=0, hspace=0.)
 
     # xy=(xmin + 100, ymax * 0.88)
-    ax1.annotate(qso_namelist[i], xy=(xmin + 90, ymax * 0.83), fontsize=legend_fontsize+5, bbox=dict(boxstyle='round', ec="k", fc="white"))
-    ax1.plot(wave, flux, c='k', drawstyle='steps-mid')
-    ax1.plot(wave, fluxfit, c='r', drawstyle='steps-mid') #, label='continuum fit')
-    ax1.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid')#, label='sigma')
+    ax2.annotate(qso_namelist[i], xy=(xmin + 90, ymax_norm * 0.83), fontsize=legend_fontsize+5, bbox=dict(boxstyle='round', ec="k", fc="white"))
+    # ax1.plot(wave, flux, c='k', drawstyle='steps-mid')
+    # ax1.plot(wave, fluxfit, c='r', drawstyle='steps-mid') #, label='continuum fit')
+    # ax1.plot(wave, std, c='k', alpha=0.5, drawstyle='steps-mid')#, label='sigma')
+    #
+    # ind_masked = np.where(mask * strong_abs_gpm == False)[0]
+    # for j in range(len(ind_masked)):  # bad way to plot masked pixels
+    #     ax1.axvline(wave[ind_masked[j]], color='k', alpha=0.15, lw=1)
+    #
+    # ax1.xaxis.set_minor_locator(AutoMinorLocator())
+    # ax1.yaxis.set_minor_locator(AutoMinorLocator())
+    # ax1.tick_params(top=True, right=True, which='both', labelsize=xytick_size)
+    # ax1.axvline((qso_zlist[i] + 1) * 2800, ls='--', c='k', lw=3)
 
-    ind_masked = np.where(mask * strong_abs_gpm == False)[0]
-    for j in range(len(ind_masked)):  # bad way to plot masked pixels
-        ax1.axvline(wave[ind_masked[j]], color='k', alpha=0.15, lw=1)
-
-    ax1.xaxis.set_minor_locator(AutoMinorLocator())
-    ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    ax1.tick_params(top=True, right=True, which='both', labelsize=xytick_size)
-    ax1.axvline((qso_zlist[i] + 1) * 2800, ls='--', c='k', lw=3)
-
-    ax1.set_xlim([xmin, xmax])
-    ax1.set_ylim([ymin, ymax])
-    ax1.set_ylabel(r'Flux' + '\n $(10^{-17}$ erg s$^{-1}$ cm$^{-2}$ $\mathrm{{\AA}}^{-1})$', fontsize=xylabel_fontsize)
+    # ax1.set_xlim([xmin, xmax])
+    # ax1.set_ylim([ymin, ymax])
+    # ax1.set_ylabel(r'Flux' + '\n $(10^{-17}$ erg s$^{-1}$ cm$^{-2}$ $\mathrm{{\AA}}^{-1})$', fontsize=xylabel_fontsize)
 
     ax2.plot(wave, flux / fluxfit, c='k', drawstyle='steps-mid')
     ax2.plot(wave, std / fluxfit, c='k', alpha=0.5, drawstyle='steps-mid')
@@ -144,18 +143,18 @@ for i in range(nqso_to_plot):
     ax2.set_xlabel(r'obs wavelength ($\mathrm{{\AA}}$)', fontsize=xylabel_fontsize)
     ax2.set_ylabel(r'$F_{\mathrm{norm}}$', fontsize=xylabel_fontsize+5)
 
-    atwin = ax1.twiny()
+    atwin = ax2.twiny()
     atwin.set_xlabel('redshift', fontsize=xylabel_fontsize)
     zmin, zmax = xmin / 2800 - 1, xmax / 2800 - 1
-    atwin.axis([zmin, zmax, ymin, ymax])
+    atwin.axis([zmin, zmax, ymin, ymax_norm])
     atwin.tick_params(top=True, axis="x", labelsize=xytick_size)
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('paper_plots/10qso/spec_%s.pdf' % qso_namelist[i])
+        plt.savefig('paper_plots/10qso_revision/spec_%s.pdf' % qso_namelist[i])
         plt.close()
     else:
-        #plt.show()
+        plt.show()
         plt.close()
 
 print("##############")

@@ -50,7 +50,7 @@ savefig = True #'paper_plots/10qso/forward_model_specs_%sz.pdf' % redshift_bin
 ###################### fixed data variables ######################
 datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                     'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
@@ -64,7 +64,8 @@ xshooter_fwhm = 42.8
 xshooter_sampling = 3.7
 
 ###################### flexible data variables ######################
-iqso_to_use = [0, 1, 4, 5, 6, 7, 8, 9] # omitting new qso in the plotting
+#iqso_to_use = [0, 1, 4, 5, 6, 7, 8, 9] # omitting new qso in the plotting
+iqso_to_use = [2, 3]
 logZ = -4.50 # choosing model with no signal
 ncovar = 5 # just mocking for plots
 
@@ -166,6 +167,18 @@ for iqso in iqso_to_use:
 
     secax = ax.secondary_xaxis('top', functions=(forward, inverse))
 
+    # if qso_namelist[iqso] == 'J0313-1806':
+    #     secax.set_xticks(range(20000, 24000, 500))
+    # elif qso_namelist[iqso] == 'J1342+0928':
+    #     secax.set_xticks(range(20000, 23500, 500))
+    # elif qso_namelist[iqso] == 'J1007+2115':
+    #     secax.set_xticks(range(19500, 23500, 500))
+    # elif qso_namelist[iqso] in ['J0319-1008', 'J0411-0907']:
+    #     secax.set_xticks(range(19500, 21500, 500))
+    # elif qso_namelist[iqso] == 'J1120+0641':
+    #     secax.set_xticks(range(19500, 22500, 500))
+    # elif qso_namelist[iqso] in ['J0252-0503', 'J0038-1527']:
+    #     secax.set_xticks(range(20000, 22000, 500))
     if qso_namelist[iqso] == 'J0313-1806':
         secax.set_xticks(range(20000, 24000, 500))
     elif qso_namelist[iqso] == 'J1342+0928':
@@ -176,15 +189,17 @@ for iqso in iqso_to_use:
         secax.set_xticks(range(19500, 21500, 500))
     elif qso_namelist[iqso] == 'J1120+0641':
         secax.set_xticks(range(19500, 22500, 500))
-    elif qso_namelist[iqso] in ['J0252-0503', 'J0038-1527']:
+    elif qso_namelist[iqso] in ['J0252-0503', 'J0038-1527', 'J0410-0139']:
         secax.set_xticks(range(20000, 22000, 500))
+    elif qso_namelist[iqso] == 'newqso2':
+        secax.set_xticks(range(20000, 22500, 500))
 
     secax.xaxis.set_minor_locator(AutoMinorLocator())
     secax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize, labelpad=8)
     secax.tick_params(top=True, axis="both", labelsize=xytick_size)
 
     if savefig:
-        savefigname = 'paper_plots/10qso/forward%d_%s.pdf' % (iqso, qso_namelist[iqso])
+        savefigname = 'paper_plots/10qso_revision/forward%d_%s.pdf' % (iqso, qso_namelist[iqso])
         plt.savefig(savefigname)
     else:
         plt.show()

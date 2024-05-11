@@ -52,7 +52,7 @@ if seed != None:
 else:
     rand = np.random.RandomState()
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 nqso_to_use = len(qso_namelist)
@@ -630,8 +630,10 @@ def plot_masked_onespec2(mgii_tot_all, wave_data_all, vel_data_all, norm_good_fl
         secax.set_xticks(range(19500, 21500, 500))
     elif qso_name == 'J1120+0641':
         secax.set_xticks(range(19500, 22500, 500))
-    elif qso_name in ['J0252-0503', 'J0038-1527']:
+    elif qso_name in ['J0252-0503', 'J0038-1527', 'J0410-0139']:
         secax.set_xticks(range(20000, 22000, 500))
+    elif qso_name == 'newqso2':
+        secax.set_xticks(range(20000, 22500, 500))
 
     secax.xaxis.set_minor_locator(AutoMinorLocator())
     secax.set_xlabel('obs wavelength (A)', fontsize=xylabel_fontsize, labelpad=8)
