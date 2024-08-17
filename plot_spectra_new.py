@@ -35,7 +35,7 @@ qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 exclude_restwave = 1216 - 1185
 nqso_to_plot = len(qso_namelist)
 redshift_bin = 'all'
-savefig = False #True
+savefig = True #True
 
 # CGM masks
 good_vel_data_all, good_wave_all, norm_good_flux_all, norm_good_std_all, norm_good_ivar_all, noise_all, pz_masks_all, other_masks_all = \
@@ -51,7 +51,8 @@ good_zpix_all = []
 dx_all = []
 dz_all = []
 
-for i in range(nqso_to_plot):
+#for i in range(nqso_to_plot):
+for i in [3]:
     print("====== %s ======" % qso_namelist[i])
     raw_data_out, masked_data_out, all_masks_out = mutils.init_onespec(i, redshift_bin, datapath=datapath)
     wave, flux, ivar, mask, std, tell, fluxfit = raw_data_out
@@ -152,7 +153,7 @@ for i in range(nqso_to_plot):
     atwin.xaxis.set_minor_locator(AutoMinorLocator())
 
     if savefig:
-        plt.savefig('paper_plots/10qso/spec_%s.pdf' % qso_namelist[i])
+        plt.savefig('paper_plots/10qso_revision_2/spec_%s.pdf' % qso_namelist[i])
         plt.close()
     else:
         #plt.show()

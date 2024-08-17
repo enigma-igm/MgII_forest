@@ -50,7 +50,7 @@ savefig = True #'paper_plots/10qso/forward_model_specs_%sz.pdf' % redshift_bin
 ###################### fixed data variables ######################
 datapath='/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                     'J1342+0928', 'J1007+2115', 'J1120+0641']
 qso_zlist = [6.826, 6.8275, 7.0, 7.1, 7.642, 7.034, 7.001, 7.541, 7.515, 7.085]
 
@@ -65,7 +65,7 @@ xshooter_sampling = 3.7
 
 ###################### flexible data variables ######################
 #iqso_to_use = [0, 1, 4, 5, 6, 7, 8, 9] # omitting new qso in the plotting
-iqso_to_use = [2, 3]
+iqso_to_use = [3]
 logZ = -4.50 # choosing model with no signal
 ncovar = 5 # just mocking for plots
 
@@ -101,7 +101,6 @@ assert np.sum(np.isnan(flux_lores_nires_interp)) == 0
 assert np.sum(np.isnan(flux_lores_mosfire_interp)) == 0
 
 for iqso in iqso_to_use:
-#for iqso in [0]:
     vel_data = vel_data_allqso[iqso]
     norm_std = norm_std_allqso[iqso]
     master_mask = master_mask_allqso_mask_cgm[iqso]
@@ -191,7 +190,7 @@ for iqso in iqso_to_use:
         secax.set_xticks(range(19500, 22500, 500))
     elif qso_namelist[iqso] in ['J0252-0503', 'J0038-1527', 'J0410-0139']:
         secax.set_xticks(range(20000, 22000, 500))
-    elif qso_namelist[iqso] == 'newqso2':
+    elif qso_namelist[iqso] == 'J0038-0653':
         secax.set_xticks(range(20000, 22500, 500))
 
     secax.xaxis.set_minor_locator(AutoMinorLocator())
@@ -199,7 +198,7 @@ for iqso in iqso_to_use:
     secax.tick_params(top=True, axis="both", labelsize=xytick_size)
 
     if savefig:
-        savefigname = 'paper_plots/10qso_revision/forward%d_%s.pdf' % (iqso, qso_namelist[iqso])
+        savefigname = 'paper_plots/10qso_revision_2/forward%d_%s.pdf' % (iqso, qso_namelist[iqso])
         plt.savefig(savefigname)
     else:
         plt.show()

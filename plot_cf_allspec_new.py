@@ -51,7 +51,7 @@ save_cf_out = args.save_cf_out
 
 datapath = '/Users/suksientie/Research/MgII_forest/rebinned_spectra2/'
 
-qso_namelist = ['J0411-0907', 'J0319-1008', 'newqso1', 'newqso2', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
+qso_namelist = ['J0411-0907', 'J0319-1008', 'J0410-0139', 'J0038-0653', 'J0313-1806', 'J0038-1527', 'J0252-0503', \
                 'J1342+0928', 'J1007+2115', 'J1120+0641']
 
 nqso = len(qso_namelist)
